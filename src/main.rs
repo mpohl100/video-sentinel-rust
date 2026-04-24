@@ -17,7 +17,7 @@ fn main() {
 fn run() -> Result<(), Box<dyn Error>> {
     let video_path = env::args()
         .nth(1)
-        .ok_or("usage: video-sentinel-rust <video-path>")?;
+        .ok_or("usage: video-sentinel <video-path>")?;
 
     video_rs::init()?;
 
