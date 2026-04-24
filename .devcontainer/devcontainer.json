@@ -1,0 +1,24 @@
+{
+    "name": "Ubuntu Rust Dev Container for localize",
+    "build": {"dockerfile": "Dockerfile"},
+    "containerEnv":{
+      "EXECUTE_BIN_BASH": "0",
+      "RUN_POSTCREATE": "false"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.git",  // Include Git extension
+                "rust-lang.rust-analyzer",
+                "GitHub.copilot",
+                "GitHub.copilot-chat",
+                "arjun.swagger-viewer"
+              ],
+              "settings": {
+                "terminal.integrated.shell.linux": "/bin/bash",
+                "git.path": "/usr/bin/git"  // Set Git path (if necessary)
+              }          
+        }
+    },
+    "postCreateCommand": "[ \"$RUN_POSTCREATE\" != \"false\" ] && cargo install cargo-tarpaulin || true"
+}
