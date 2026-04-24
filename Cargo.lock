@@ -1143,6 +1143,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47b34b781b31e5d73e9fbc8689c70551fd1ade9a19e3e28cfec8580a79290cc4"
 
 [[package]]
+name = "rs-math3d"
+version = "0.9.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41681f1f3c2e9cd761cac6cc7df59376e3053e4baa0cd495d602141265f56a74"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "rustc-hash"
 version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1367,10 +1376,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "video-sentinel-rust"
+name = "video-sentinel"
 version = "0.1.0"
 dependencies = [
  "image",
+ "rs-math3d",
  "video-rs",
 ]
 
