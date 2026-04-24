@@ -1,13 +1,14 @@
 [package]
-name = "video-sentinel-rust"
+name = "video-sentinel"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+rs-math3d = "0.9.24"
 image = "0.25"
 video-rs = { version = "0.11", features = ["ndarray"] }
 
 
 [[bin]]
-name = "video-sentinel"
+name = "video-sentinel-exe"
 path = "src/main.rs"
