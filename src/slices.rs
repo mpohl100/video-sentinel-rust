@@ -132,7 +132,9 @@ impl SliceMatrix {
     }
 
     pub fn get_line(&self, line_number: u32) -> Option<&SliceLine> {
-        self.lines.iter().find(|line| line.line_number == line_number)
+        self.lines
+            .iter()
+            .find(|line| line.line_number == line_number)
     }
 
     pub fn find_touching_slices(&self, line: &SliceLine, direction: i32) -> Option<SliceLine> {
@@ -155,7 +157,7 @@ impl SliceMatrix {
         }
         if result_line.slices.is_empty() {
             None
-        } else {    
+        } else {
             Some(result_line)
         }
     }
