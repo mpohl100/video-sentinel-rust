@@ -143,9 +143,7 @@ impl SliceMatrix {
         } else {
             self.get_line_above(line.line_number)
         };
-        if touching_line.is_none() {
-            return None;
-        }
+        touching_line?;
         let mut result_line = SliceLine::new(touching_line.unwrap().line_number, Vec::new());
         for slice in &line.slices {
             for touching_slice in &touching_line.unwrap().slices {
@@ -220,6 +218,12 @@ impl SliceMatrix {
             top_left: Vec3d::new(min_x, min_y, 0.0),
             bottom_right: Vec3d::new(max_x, max_y, 0.0),
         }
+    }
+}
+
+impl Default for SliceMatrix {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -403,7 +407,7 @@ pub fn calculate_slices(
             emplace_current_slice(&mut current_slice, &mut current_line);
             slice_matrix.add(current_line);
         }
-        return slice_matrix;
+        slice_matrix
     } else {
         let mut current_slice = None;
         for y in rectangle.top_left.y as u32 + 2..rectangle.bottom_right.y as u32 - 2 {
@@ -437,7 +441,7 @@ pub fn calculate_slices(
             emplace_current_slice(&mut current_slice, &mut current_line);
             slice_matrix.add(current_line);
         }
-        return slice_matrix;
+        slice_matrix
     }
     // print all lines of the slice matrix.
 }
