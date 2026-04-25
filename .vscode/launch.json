@@ -1,0 +1,24 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug video-sentinel-exe",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin",
+          "video-sentinel-exe"
+        ]
+      },
+      "args": [
+        "--input-video",
+        "video/BillardTakeoff.mp4",
+        "--output-video",
+        "video/output.mp4"
+      ],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

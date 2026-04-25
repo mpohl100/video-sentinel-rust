@@ -29,11 +29,8 @@ fn run() -> Result<(), Box<dyn Error>> {
     let mut decoder = Decoder::new(args.input_video.as_path())?;
     let (width, height) = decoder.size_out();
     let frame_rate = decoder.frame_rate();
-    let settings = video_rs::encode::Settings::preset_h264_yuv420p(
-        width as usize,
-        height as usize,
-        false,
-    );
+    let settings =
+        video_rs::encode::Settings::preset_h264_yuv420p(width as usize, height as usize, false);
     let mut encoder = Encoder::new(args.output_video.as_path(), settings)?;
 
     for (frame_index, frame_result) in decoder.decode_iter().enumerate() {
@@ -54,22 +51,40 @@ fn run() -> Result<(), Box<dyn Error>> {
         let mut slices = calculate_slices(rgb_image.clone(), rectangle, BasicParams::new(true, 15));
         println!("frame {frame_index}: calculated slices");
         let connected_slices = find_connected_slices(&mut slices);
-        println!("frame {frame_index}: found {} connected slices", connected_slices.len());
+        println!(
+            "frame {frame_index}: found {} connected slices",
+            connected_slices.len()
+        );
         // draw bounding boxes around connected slices and save the image for debugging
         let mut output_image = rgb_image.clone();
+        let mut slice_counter = 0;
         for slice in connected_slices {
             let bounding_box = slice.get_bounding_box();
-            let (x1, y1) = (bounding_box.get_top_left().x as u32, bounding_box.get_top_left().y as u32);
-            let (x2, y2) = (bounding_box.get_bottom_right().x as u32, bounding_box.get_bottom_right().y as u32);
-            for x in x1..=x2 {
-                output_image.put_pixel(x, y1, Rgb([0, 255, 0]));
-                output_image.put_pixel(x, y2, Rgb([0, 255, 0]));
-            }
-            for y in y1..=y2 {
-                output_image.put_pixel(x1, y, Rgb([0, 255, 0]));
-                output_image.put_pixel(x2, y, Rgb([0, 255, 0]));
+            println!("Bounding box: top left ({}, {}), bottom right ({}, {}), area {}", bounding_box.get_top_left().x, bounding_box.get_top_left().y, bounding_box.get_bottom_right().x, bounding_box.get_bottom_right().y, bounding_box.get_area());
+            if bounding_box.get_area() > 10.0 {
+                slice_counter += 1;
+                let (x1, y1) = (
+                    bounding_box.get_top_left().x as u32,
+                    bounding_box.get_top_left().y as u32,
+                );
+                let (x2, y2) = (
+                    bounding_box.get_bottom_right().x as u32,
+                    bounding_box.get_bottom_right().y as u32,
+                );
+                for x in x1..=x2 {
+                    output_image.put_pixel(x, y1, Rgb([0, 255, 0]));
+                    output_image.put_pixel(x, y2, Rgb([0, 255, 0]));
+                }
+                for y in y1..=y2 {
+                    output_image.put_pixel(x1, y, Rgb([0, 255, 0]));
+                    output_image.put_pixel(x2, y, Rgb([0, 255, 0]));
+                }
             }
         }
+        println!(
+            "frame {frame_index}: drew {} connected slices",
+            slice_counter
+        );
 
         let output_frame = rgb_image_to_frame(output_image)?;
         encoder.encode(&output_frame, timestamp)?;
