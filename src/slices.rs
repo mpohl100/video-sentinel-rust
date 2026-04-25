@@ -1,5 +1,5 @@
-use rs_math3d::{Vec3d};
 use rs_math3d::FloatVector;
+use rs_math3d::Vec3d;
 
 #[derive(Clone)]
 pub struct Slice {
@@ -52,7 +52,10 @@ impl SliceLine {
     }
 
     pub fn add(&mut self, slice: AnnotatedSlice) {
-        assert!(slice.line_number == self.line_number, "Slice line number does not match SliceLine's line number");
+        assert!(
+            slice.line_number == self.line_number,
+            "Slice line number does not match SliceLine's line number"
+        );
         self.slices.push(slice);
     }
 }
@@ -115,16 +118,23 @@ impl SliceMatrix {
     }
 
     pub fn get_top_left_slice(&self) -> Option<SliceLine> {
-        let annotated_slice = self.lines.first().and_then(|line| line.slices.first().cloned());
+        let annotated_slice = self
+            .lines
+            .first()
+            .and_then(|line| line.slices.first().cloned());
         annotated_slice.map(|slice| SliceLine::new(slice.line_number, vec![slice]))
     }
 
     pub fn get_line_below(&self, line_number: u32) -> Option<&SliceLine> {
-        self.lines.iter().find(|line| line.line_number == line_number + 1)
+        self.lines
+            .iter()
+            .find(|line| line.line_number == line_number + 1)
     }
 
     pub fn get_line_above(&self, line_number: u32) -> Option<&SliceLine> {
-        self.lines.iter().find(|line| line.line_number == line_number - 1)
+        self.lines
+            .iter()
+            .find(|line| line.line_number == line_number - 1)
     }
 
     pub fn find_touching_slices(&self, line: &SliceLine, direction: i32) -> Option<SliceLine> {
@@ -149,7 +159,11 @@ impl SliceMatrix {
     }
 
     fn insert_where_needed(&mut self, line: SliceLine) {
-        if let Some(pos) = self.lines.iter().position(|l| l.line_number > line.line_number) {
+        if let Some(pos) = self
+            .lines
+            .iter()
+            .position(|l| l.line_number > line.line_number)
+        {
             self.lines.insert(pos, line);
         } else {
             self.lines.push(line);
@@ -157,7 +171,11 @@ impl SliceMatrix {
     }
 
     pub fn add_slices(&mut self, line: SliceLine) {
-        if let Some(existing_line) = self.lines.iter_mut().find(|l| l.line_number == line.line_number) {
+        if let Some(existing_line) = self
+            .lines
+            .iter_mut()
+            .find(|l| l.line_number == line.line_number)
+        {
             existing_line.slices.extend(line.slices);
         } else {
             self.insert_where_needed(line);
@@ -165,8 +183,14 @@ impl SliceMatrix {
     }
 
     pub fn remove_slices(&mut self, line: SliceLine) {
-        if let Some(existing_line) = self.lines.iter_mut().find(|l| l.line_number == line.line_number) {
-            existing_line.slices.retain(|slice| !line.slices.contains(slice));
+        if let Some(existing_line) = self
+            .lines
+            .iter_mut()
+            .find(|l| l.line_number == line.line_number)
+        {
+            existing_line
+                .slices
+                .retain(|slice| !line.slices.contains(slice));
             if existing_line.slices.is_empty() {
                 self.lines.retain(|l| l.line_number != line.line_number);
             }
@@ -183,7 +207,6 @@ pub struct Rectangle {
     top_left: Vec3d,
     bottom_right: Vec3d,
 }
-
 
 fn compute_smoothed_gradient(gray_image: &image::GrayImage, x: u32, y: u32) -> u16 {
     let compute_gradient = |x: u32, y: u32| -> u16 {
@@ -225,9 +248,12 @@ fn compute_smoothed_gradient(gray_image: &image::GrayImage, x: u32, y: u32) -> u
     (sum / 9) as u16
 }
 
-
-
-fn compute_smoothed_gradient_channel(image: &image::ImageBuffer<image::Rgb<u8>, Vec<u8>>, x: u32, y: u32, channel: usize) -> u16 {
+fn compute_smoothed_gradient_channel(
+    image: &image::ImageBuffer<image::Rgb<u8>, Vec<u8>>,
+    x: u32,
+    y: u32,
+    channel: usize,
+) -> u16 {
     let compute_gradient = |x: u32, y: u32| -> u16 {
         let tl = image.get_pixel(x - 1, y - 1)[channel] as f32;
         let tc = image.get_pixel(x, y - 1)[channel] as f32;
@@ -266,7 +292,6 @@ fn compute_smoothed_gradient_channel(image: &image::ImageBuffer<image::Rgb<u8>, 
     let sum: u32 = gradients.iter().map(|&g| g as u32).sum();
     (sum / 9) as u16
 }
-
 
 fn emplace_current_slice(current_slice: &mut Option<AnnotatedSlice>, current_line: &mut SliceLine) {
     if let Some(slice) = current_slice.take() {
@@ -314,8 +339,7 @@ pub fn calculate_slices(
                             slice.slice.end.x = x as f64;
                         }
                     }
-                }
-                else {
+                } else {
                     emplace_current_slice(&mut current_slice, &mut current_line);
                 }
             }
@@ -334,7 +358,8 @@ pub fn calculate_slices(
 
                 if gradient_0 <= params.gradient_threshold as u16
                     && gradient_1 <= params.gradient_threshold as u16
-                    && gradient_2 <= params.gradient_threshold as u16{
+                    && gradient_2 <= params.gradient_threshold as u16
+                {
                     if current_slice.is_none() {
                         current_slice = Some(AnnotatedSlice {
                             slice: Slice {
@@ -348,8 +373,7 @@ pub fn calculate_slices(
                             slice.slice.end.x = x as f64;
                         }
                     }
-                }
-                else {
+                } else {
                     emplace_current_slice(&mut current_slice, &mut current_line);
                 }
             }
@@ -360,55 +384,56 @@ pub fn calculate_slices(
     }
 }
 
-fn go_direction(slice_matrix: &mut SliceMatrix, connected_matrix: &mut SliceMatrix, direction: i32) -> bool {
+fn go_direction(
+    slice_matrix: &mut SliceMatrix,
+    connected_matrix: &mut SliceMatrix,
+    direction: i32,
+) -> bool {
     if direction == -1 {
         let mut top_line_number = connected_matrix.get_top_line_number();
         if top_line_number.is_none() {
             let tl_slice = slice_matrix.get_top_left_slice();
             if let Some(tl_slice) = tl_slice {
                 connected_matrix.add_slices(tl_slice);
-            }
-            else {
+            } else {
                 return false;
             }
             top_line_number = connected_matrix.get_top_line_number();
         }
         loop {
-            let next_line = slice_matrix.get_line_below(top_line_number.expect("Did not find a top line number"));
+            let next_line = slice_matrix
+                .get_line_below(top_line_number.expect("Did not find a top line number"));
             if let Some(line) = next_line {
                 let touching_slices = connected_matrix.find_touching_slices(line, -1);
                 if let Some(touching_slices) = touching_slices {
                     connected_matrix.add_slices(touching_slices.clone());
                     slice_matrix.remove_slices(touching_slices);
                 }
-            }
-            else{
+            } else {
                 break;
             }
         }
-    }
-    else if direction == 1 {
+    } else if direction == 1 {
         let mut bottom_line_number = connected_matrix.get_bottom_line_number();
         if bottom_line_number.is_none() {
             let tl_slice = slice_matrix.get_top_left_slice();
             if let Some(tl_slice) = tl_slice {
                 connected_matrix.add_slices(tl_slice);
-            }
-            else {
+            } else {
                 return false;
             }
             bottom_line_number = connected_matrix.get_bottom_line_number();
         }
         loop {
-            let next_line = slice_matrix.get_line_above(bottom_line_number.expect("Did not find a bottom line number"));
+            let next_line = slice_matrix
+                .get_line_above(bottom_line_number.expect("Did not find a bottom line number"));
             if let Some(line) = next_line {
                 let touching_slices = connected_matrix.find_touching_slices(line, 1);
                 if let Some(touching_slices) = touching_slices {
                     connected_matrix.add_slices(touching_slices.clone());
                     slice_matrix.remove_slices(touching_slices);
                 }
-            }
-            else{
+            } else {
                 break;
             }
         }
