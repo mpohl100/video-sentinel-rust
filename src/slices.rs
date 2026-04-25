@@ -63,11 +63,16 @@ impl SliceLine {
             let a_end_x = a.slice.end.x;
             let b_start_x = b.slice.start.x;
             let b_end_x = b.slice.end.x;
-            a_start_x.partial_cmp(&b_start_x)
+            a_start_x
+                .partial_cmp(&b_start_x)
                 .unwrap()
                 .then(a_end_x.partial_cmp(&b_end_x).unwrap())
         });
         self.slices.dedup();
+    }
+
+    pub fn get_line_number(&self) -> u32 {
+        self.line_number
     }
 }
 
@@ -459,15 +464,19 @@ fn go_direction(
             top_line_number = connected_matrix.get_top_line_number();
         }
         let mut added_something = false;
+        let mut current_line = top_line_number.expect("Did not find a top line number");
         loop {
-            let next_line = slice_matrix
-                .get_line_below(top_line_number.expect("Did not find a top line number"));
+            let next_line = slice_matrix.get_line_below(current_line);
             if let Some(line) = next_line {
                 let touching_slices = connected_matrix.find_touching_slices(line, -1);
                 if let Some(touching_slices) = touching_slices {
                     connected_matrix.add_slices(touching_slices.clone());
-                    slice_matrix.remove_slices(touching_slices);
+                    slice_matrix.remove_slices(touching_slices.clone());
                     added_something = true;
+                    current_line = touching_slices.get_line_number();
+                }
+                else {
+                    break;
                 }
             } else {
                 break;
@@ -486,15 +495,20 @@ fn go_direction(
             bottom_line_number = connected_matrix.get_bottom_line_number();
         }
         let mut added_something = false;
+        let mut current_line = bottom_line_number.expect("Did not find a bottom line number");
         loop {
             let next_line = slice_matrix
-                .get_line_above(bottom_line_number.expect("Did not find a bottom line number"));
+                .get_line_above(current_line);
             if let Some(line) = next_line {
                 let touching_slices = connected_matrix.find_touching_slices(line, 1);
                 if let Some(touching_slices) = touching_slices {
                     connected_matrix.add_slices(touching_slices.clone());
-                    slice_matrix.remove_slices(touching_slices);
+                    slice_matrix.remove_slices(touching_slices.clone());
                     added_something = true;
+                    current_line = touching_slices.get_line_number();
+                }
+                else {
+                    break;
                 }
             } else {
                 break;
@@ -527,7 +541,11 @@ fn find_next_connected_slice_matrix(slice_matrix: &mut SliceMatrix) -> Option<Sl
         }
     }
     if !slice_matrix.lines.is_empty() {
-        println!("Found slice_matrix with top line number {} and bottom line number {}", connected_matrix.get_top_line_number().unwrap(), connected_matrix.get_bottom_line_number().unwrap());
+        println!(
+            "Found slice_matrix with top line number {} and bottom line number {}",
+            connected_matrix.get_top_line_number().unwrap(),
+            connected_matrix.get_bottom_line_number().unwrap()
+        );
         Some(connected_matrix)
     } else {
         None
