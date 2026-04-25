@@ -4,6 +4,9 @@ use std::path::Path;
 
 use image::{ImageBuffer, Rgb};
 use video_rs::Decoder;
+use rs_math3d::Vec3d;
+
+use video_sentinel::slices::{calculate_slices, Rectangle, BasicParams, find_connected_slices};
 
 type RgbImage = ImageBuffer<Rgb<u8>, Vec<u8>>;
 
@@ -33,11 +36,27 @@ fn run() -> Result<(), Box<dyn Error>> {
         };
 
         let rgb_image = frame_to_rgb_image(frame)?;
-        let first_pixel = rgb_image.get_pixel(0, 0);
-        println!(
-            "frame {frame_index}: first pixel rgb({}, {}, {})",
-            first_pixel[0], first_pixel[1], first_pixel[2]
-        );
+        let rectangle = Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(1.0, 1.0, 1.0));
+        let mut slices = calculate_slices(rgb_image.clone(), rectangle, BasicParams::new(true, 15));
+        let connected_slices = find_connected_slices(&mut slices);
+        println!("frame {frame_index}: found {} connected slices", connected_slices.len());
+        // draw bounding boxes around connected slices and save the image for debugging
+        let mut output_image = rgb_image.clone();
+        for slice in connected_slices {
+            let bounding_box = slice.get_bounding_box();
+            let (x1, y1) = (bounding_box.get_top_left().x as u32, bounding_box.get_top_left().y as u32);
+            let (x2, y2) = (bounding_box.get_bottom_right().x as u32, bounding_box.get_bottom_right().y as u32);
+            for x in x1..=x2 {
+                output_image.put_pixel(x, y1, Rgb([0, 255, 0]));
+                output_image.put_pixel(x, y2, Rgb([0, 255, 0]));
+            }
+            for y in y1..=y2 {
+                output_image.put_pixel(x1, y, Rgb([0, 255, 0]));
+                output_image.put_pixel(x2, y, Rgb([0, 255, 0]));
+            }
+        }
+
+        // stream the output image to the output video file
     }
 
     Ok(())

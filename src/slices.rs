@@ -196,6 +196,27 @@ impl SliceMatrix {
             }
         }
     }
+
+    pub fn get_bounding_box(&self) -> Rectangle {
+        let mut min_x = f64::INFINITY;
+        let mut max_x = f64::NEG_INFINITY;
+        let mut min_y = f64::INFINITY;
+        let mut max_y = f64::NEG_INFINITY;
+
+        for line in &self.lines {
+            for slice in &line.slices {
+                min_x = min_x.min(slice.slice.start.x);
+                max_x = max_x.max(slice.slice.end.x);
+                min_y = min_y.min(slice.slice.start.y);
+                max_y = max_y.max(slice.slice.end.y);
+            }
+        }
+
+        Rectangle {
+            top_left: Vec3d::new(min_x, min_y, 0.0),
+            bottom_right: Vec3d::new(max_x, max_y, 0.0),
+        }
+    }
 }
 
 pub struct BasicParams {
@@ -203,9 +224,35 @@ pub struct BasicParams {
     gradient_threshold: u8,
 }
 
+impl BasicParams {
+    pub fn new(do_grayscale: bool, gradient_threshold: u8) -> Self {
+        Self {
+            do_grayscale,
+            gradient_threshold,
+        }
+    }
+}
+
 pub struct Rectangle {
     top_left: Vec3d,
     bottom_right: Vec3d,
+}
+
+impl Rectangle {
+    pub fn new(top_left: Vec3d, bottom_right: Vec3d) -> Self {
+        Self {
+            top_left,
+            bottom_right,
+        }
+    }
+
+    pub fn get_top_left(&self) -> Vec3d {
+        self.top_left
+    }
+
+    pub fn get_bottom_right(&self) -> Vec3d {
+        self.bottom_right
+    }
 }
 
 fn compute_smoothed_gradient(gray_image: &image::GrayImage, x: u32, y: u32) -> u16 {
