@@ -3,7 +3,7 @@ use core::f64;
 use rs_math3d::FloatVector;
 use rs_math3d::Vec3d;
 
-use crate::math::{Rectangle as OtherRectangle};
+use crate::math::Rectangle as OtherRectangle;
 
 #[derive(Clone)]
 pub struct Slice {
@@ -41,8 +41,7 @@ impl AnnotatedSlice {
     }
 
     pub fn get_mass(&self) -> f64 {
-        let width = self.slice.end.x - self.slice.start.x + 1.0;
-        width
+        self.slice.end.x - self.slice.start.x + 1.0
     }
 
     pub fn get_midpoint(&self) -> Vec3d {
@@ -250,15 +249,21 @@ impl SliceMatrix {
                 tl.y = tl.y.min(left_point.y);
                 br.x = br.x.max(right_point.x);
                 br.y = br.y.max(right_point.y);
-            
             }
         }
         let bounding_box = OtherRectangle::new(tl, br);
-        let center_of_mass = masses.iter().fold(Vec3d::new(0.0, 0.0, 0.0), |acc, (mass, midpoint)| {
-            let deref_mass = *mass;
-            acc + *midpoint * deref_mass
-        }) / masses.iter().map(|(mass, _)| *mass).sum::<f64>();
-        let max_radius_from_center = masses.iter().map(|(_, midpoint)| (*midpoint - center_of_mass).length()).fold(0.0, f64::max);
+        let center_of_mass =
+            masses
+                .iter()
+                .fold(Vec3d::new(0.0, 0.0, 0.0), |acc, (mass, midpoint)| {
+                    let deref_mass = *mass;
+                    acc + *midpoint * deref_mass
+                })
+                / masses.iter().map(|(mass, _)| *mass).sum::<f64>();
+        let max_radius_from_center = masses
+            .iter()
+            .map(|(_, midpoint)| (*midpoint - center_of_mass).length())
+            .fold(0.0, f64::max);
         let bounding_circle = crate::math::Circle::new(center_of_mass, max_radius_from_center);
         CachedData::new(bounding_box, bounding_circle, center_of_mass)
     }
@@ -278,7 +283,11 @@ pub struct CachedData {
 }
 
 impl CachedData {
-    pub fn new(bounding_box: OtherRectangle, bounding_circle: crate::math::Circle, center_of_mass: Vec3d) -> Self {
+    pub fn new(
+        bounding_box: OtherRectangle,
+        bounding_circle: crate::math::Circle,
+        center_of_mass: Vec3d,
+    ) -> Self {
         Self {
             bounding_box,
             bounding_circle,
@@ -286,7 +295,7 @@ impl CachedData {
         }
     }
 
-    pub fn get_bounding_box(&self) -> crate::math::Rectangle {
+    pub fn get_bounding_box(&self) -> OtherRectangle {
         self.bounding_box.clone()
     }
 
@@ -295,7 +304,7 @@ impl CachedData {
     }
 
     pub fn get_center_of_mass(&self) -> Vec3d {
-        self.center_of_mass.clone()
+        self.center_of_mass
     }
 }
 
