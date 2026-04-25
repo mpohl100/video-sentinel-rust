@@ -1,10 +1,8 @@
-use core::slice;
-
-use rs_math3d::Vec3;
+use rs_math3d::{Vec3d};
 
 pub struct Slice {
-    start: Vec3,
-    end: Vec3,
+    start: Vec3d,
+    end: Vec3d,
 }
 
 pub struct AnnotatedSlice {
@@ -51,8 +49,8 @@ pub struct BasicParams {
 }
 
 pub struct Rectangle {
-    top_left: Vec3,
-    bottom_right: Vec3,
+    top_left: Vec3d,
+    bottom_right: Vec3d,
 }
 
 
@@ -96,6 +94,55 @@ fn compute_smoothed_gradient(gray_image: &image::GrayImage, x: u32, y: u32) -> u
     (sum / 9) as u16
 }
 
+
+
+fn compute_smoothed_gradient_channel(image: &image::ImageBuffer<image::Rgb<u8>, Vec<u8>>, x: u32, y: u32, channel: usize) -> u16 {
+    let compute_gradient = |x: u32, y: u32| -> u16 {
+        let tl = image.get_pixel(x - 1, y - 1)[channel] as f32;
+        let tc = image.get_pixel(x, y - 1)[channel] as f32;
+        let tr = image.get_pixel(x + 1, y - 1)[channel] as f32;
+        let cl = image.get_pixel(x - 1, y)[channel] as f32;
+        let cr = image.get_pixel(x + 1, y)[channel] as f32;
+        let bl = image.get_pixel(x - 1, y + 1)[channel] as f32;
+        let bc = image.get_pixel(x, y + 1)[channel] as f32;
+        let br = image.get_pixel(x + 1, y + 1)[channel] as f32;
+
+        let sqrt2 = std::f32::consts::FRAC_1_SQRT_2;
+        let grad_tl_br = br - tl;
+        let grad_cl_cr = cr - cl;
+        let grad_bl_tr = tr - bl;
+        let grad_bc_tc = tc - bc;
+
+        let grad_x = grad_cl_cr + grad_tl_br * sqrt2 + grad_bl_tr * sqrt2;
+        let grad_y = -grad_bc_tc + grad_tl_br * sqrt2 - grad_bl_tr * sqrt2;
+        let grad_total = grad_x.hypot(grad_y);
+
+        grad_total as u16
+    };
+
+    let gradients = [
+        compute_gradient(x - 1, y - 1),
+        compute_gradient(x, y - 1),
+        compute_gradient(x + 1, y - 1),
+        compute_gradient(x - 1, y),
+        compute_gradient(x, y),
+        compute_gradient(x + 1, y),
+        compute_gradient(x - 1, y + 1),
+        compute_gradient(x, y + 1),
+        compute_gradient(x + 1, y + 1),
+    ];
+
+    let sum: u32 = gradients.iter().map(|&g| g as u32).sum();
+    (sum / 9) as u16
+}
+
+
+fn emplace_current_slice(current_slice: &mut Option<AnnotatedSlice>, current_line: &mut SliceLine) {
+    if let Some(slice) = current_slice.take() {
+        current_line.add(slice);
+    }
+}
+
 pub fn calculate_slices(
     image: image::ImageBuffer<image::Rgb<u8>, Vec<u8>>,
     rectangle: Rectangle,
@@ -105,8 +152,8 @@ pub fn calculate_slices(
     let (img_width, img_height) = image.dimensions();
     if rectangle.top_left.x < 0.0
         || rectangle.top_left.y < 0.0
-        || rectangle.bottom_right.x > img_width as f32
-        || rectangle.bottom_right.y > img_height as f32
+        || rectangle.bottom_right.x > img_width as f64
+        || rectangle.bottom_right.y > img_height as f64
     {
         panic!("Rectangle is out of bounds of the image");
     }
@@ -119,11 +166,6 @@ pub fn calculate_slices(
         let mut current_slice = None;
         for y in rectangle.top_left.y as u32 + 2..rectangle.bottom_right.y as u32 - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
-            let emplace_current_slice = || {
-                if let Some(slice) = current_slice.take() {
-                    current_line.add(slice);
-                }
-            };
             for x in rectangle.top_left.x as u32 + 2..rectangle.bottom_right.x as u32 - 2 {
                 let gradient = compute_smoothed_gradient(&gray_image, x, y);
 
@@ -131,27 +173,58 @@ pub fn calculate_slices(
                     if current_slice.is_none() {
                         current_slice = Some(AnnotatedSlice {
                             slice: Slice {
-                                start: Vec3::new(x as f32, y as f32, 0.0),
-                                end: Vec3::new(x as f32, y as f32, 0.0),
+                                start: Vec3d::new(x as f64, y as f64, 0.0),
+                                end: Vec3d::new(x as f64, y as f64, 0.0),
                             },
                             line_number: y,
                         });
                     } else {
                         if let Some(slice) = &mut current_slice {
-                            slice.slice.end.x = x as f32;
+                            slice.slice.end.x = x as f64;
                         }
                     }
                 }
                 else {
-                    emplace_current_slice();
+                    emplace_current_slice(&mut current_slice, &mut current_line);
                 }
             }
-            emplace_current_slice();
+            emplace_current_slice(&mut current_slice, &mut current_line);
             slice_matrix.add(current_line);
         }
         return slice_matrix;
     } else {
-    }
+        let mut current_slice = None;
+        for y in rectangle.top_left.y as u32 + 2..rectangle.bottom_right.y as u32 - 2 {
+            let mut current_line = SliceLine::new(y, Vec::new());
+            for x in rectangle.top_left.x as u32 + 2..rectangle.bottom_right.x as u32 - 2 {
+                let gradient_0 = compute_smoothed_gradient_channel(&image, x, y, 0);
+                let gradient_1 = compute_smoothed_gradient_channel(&image, x, y, 1);
+                let gradient_2 = compute_smoothed_gradient_channel(&image, x, y, 2);
 
-    SliceMatrix { lines: Vec::new() }
+                if gradient_0 <= params.gradient_threshold as u16
+                    && gradient_1 <= params.gradient_threshold as u16
+                    && gradient_2 <= params.gradient_threshold as u16{
+                    if current_slice.is_none() {
+                        current_slice = Some(AnnotatedSlice {
+                            slice: Slice {
+                                start: Vec3d::new(x as f64, y as f64, 0.0),
+                                end: Vec3d::new(x as f64, y as f64, 0.0),
+                            },
+                            line_number: y,
+                        });
+                    } else {
+                        if let Some(slice) = &mut current_slice {
+                            slice.slice.end.x = x as f64;
+                        }
+                    }
+                }
+                else {
+                    emplace_current_slice(&mut current_slice, &mut current_line);
+                }
+            }
+            emplace_current_slice(&mut current_slice, &mut current_line);
+            slice_matrix.add(current_line);
+        }
+        return slice_matrix;
+    }
 }
