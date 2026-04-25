@@ -60,7 +60,14 @@ fn run() -> Result<(), Box<dyn Error>> {
         let mut slice_counter = 0;
         for slice in connected_slices {
             let bounding_box = slice.get_bounding_box();
-            println!("Bounding box: top left ({}, {}), bottom right ({}, {}), area {}", bounding_box.get_top_left().x, bounding_box.get_top_left().y, bounding_box.get_bottom_right().x, bounding_box.get_bottom_right().y, bounding_box.get_area());
+            println!(
+                "Bounding box: top left ({}, {}), bottom right ({}, {}), area {}",
+                bounding_box.get_top_left().x,
+                bounding_box.get_top_left().y,
+                bounding_box.get_bottom_right().x,
+                bounding_box.get_bottom_right().y,
+                bounding_box.get_area()
+            );
             if bounding_box.get_area() > 10.0 {
                 slice_counter += 1;
                 let (x1, y1) = (
