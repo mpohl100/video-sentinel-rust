@@ -457,7 +457,8 @@ fn go_direction(
         if top_line_number.is_none() {
             let tl_slice = slice_matrix.get_top_left_slice();
             if let Some(tl_slice) = tl_slice {
-                connected_matrix.add_slices(tl_slice);
+                connected_matrix.add_slices(tl_slice.clone());
+                slice_matrix.remove_slices(tl_slice.clone());
             } else {
                 return false;
             }
@@ -488,7 +489,8 @@ fn go_direction(
         if bottom_line_number.is_none() {
             let tl_slice = slice_matrix.get_top_left_slice();
             if let Some(tl_slice) = tl_slice {
-                connected_matrix.add_slices(tl_slice);
+                connected_matrix.add_slices(tl_slice.clone());
+                slice_matrix.remove_slices(tl_slice.clone());
             } else {
                 return false;
             }
