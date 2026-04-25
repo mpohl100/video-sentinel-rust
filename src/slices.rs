@@ -458,6 +458,7 @@ fn go_direction(
             }
             top_line_number = connected_matrix.get_top_line_number();
         }
+        let mut added_something = false;
         loop {
             let next_line = slice_matrix
                 .get_line_below(top_line_number.expect("Did not find a top line number"));
@@ -466,11 +467,13 @@ fn go_direction(
                 if let Some(touching_slices) = touching_slices {
                     connected_matrix.add_slices(touching_slices.clone());
                     slice_matrix.remove_slices(touching_slices);
+                    added_something = true;
                 }
             } else {
                 break;
             }
         }
+        return added_something;
     } else if direction == 1 {
         let mut bottom_line_number = connected_matrix.get_bottom_line_number();
         if bottom_line_number.is_none() {
@@ -482,6 +485,7 @@ fn go_direction(
             }
             bottom_line_number = connected_matrix.get_bottom_line_number();
         }
+        let mut added_something = false;
         loop {
             let next_line = slice_matrix
                 .get_line_above(bottom_line_number.expect("Did not find a bottom line number"));
@@ -490,11 +494,13 @@ fn go_direction(
                 if let Some(touching_slices) = touching_slices {
                     connected_matrix.add_slices(touching_slices.clone());
                     slice_matrix.remove_slices(touching_slices);
+                    added_something = true;
                 }
             } else {
                 break;
             }
         }
+        return added_something;
     }
     false
 }
@@ -520,7 +526,12 @@ fn find_next_connected_slice_matrix(slice_matrix: &mut SliceMatrix) -> Option<Sl
             break;
         }
     }
-    Some(connected_matrix)
+    if !slice_matrix.lines.is_empty() {
+        println!("Found slice_matrix with top line number {} and bottom line number {}", connected_matrix.get_top_line_number().unwrap(), connected_matrix.get_bottom_line_number().unwrap());
+        Some(connected_matrix)
+    } else {
+        None
+    }
 }
 
 pub fn find_connected_slices(slice_matrix: &mut SliceMatrix) -> Vec<SliceMatrix> {
