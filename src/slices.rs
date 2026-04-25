@@ -1,5 +1,9 @@
+use core::f64;
+
 use rs_math3d::FloatVector;
 use rs_math3d::Vec3d;
+
+use crate::math::{Circle, Rectangle as OtherRectangle};
 
 #[derive(Clone)]
 pub struct Slice {
@@ -34,6 +38,19 @@ impl AnnotatedSlice {
         let other_end_x = other.slice.end.x;
 
         !(self_end_x < other_start_x || self_start_x > other_end_x)
+    }
+
+    pub fn get_mass(&self) -> f64 {
+        let width = self.slice.end.x - self.slice.start.x + 1.0;
+        width
+    }
+
+    pub fn get_midpoint(&self) -> Vec3d {
+        Vec3d::new(
+            (self.slice.start.x + self.slice.end.x) / 2.0,
+            self.slice.start.y,
+            0.0,
+        )
     }
 }
 
@@ -219,11 +236,66 @@ impl SliceMatrix {
             bottom_right: Vec3d::new(max_x, max_y, 0.0),
         }
     }
+
+    pub fn calculate_cached_data(&self) -> CachedData {
+        let mut masses = Vec::new();
+        let mut tl = Vec3d::new(f64::INFINITY, f64::INFINITY, 0.0);
+        let mut br = Vec3d::new(f64::NEG_INFINITY, f64::NEG_INFINITY, 0.0);
+        for line in &self.lines {
+            for slice in &line.slices {
+                masses.push((slice.get_mass(), slice.get_midpoint()));
+                let left_point = slice.slice.start;
+                let right_point = slice.slice.end;
+                tl.x = tl.x.min(left_point.x);
+                tl.y = tl.y.min(left_point.y);
+                br.x = br.x.max(right_point.x);
+                br.y = br.y.max(right_point.y);
+            
+            }
+        }
+        let bounding_box = OtherRectangle::new(tl, br);
+        let center_of_mass = masses.iter().fold(Vec3d::new(0.0, 0.0, 0.0), |acc, (mass, midpoint)| {
+            let deref_mass = *mass;
+            acc + *midpoint * deref_mass
+        }) / masses.iter().map(|(mass, _)| *mass).sum::<f64>();
+        let max_radius_from_center = masses.iter().map(|(_, midpoint)| (*midpoint - center_of_mass).length()).fold(0.0, f64::max);
+        let bounding_circle = crate::math::Circle::new(center_of_mass, max_radius_from_center);
+        CachedData::new(bounding_box, bounding_circle, center_of_mass)
+    }
 }
 
 impl Default for SliceMatrix {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[derive(Clone)]
+pub struct CachedData {
+    bounding_box: OtherRectangle,
+    bounding_circle: crate::math::Circle,
+    center_of_mass: Vec3d,
+}
+
+impl CachedData {
+    pub fn new(bounding_box: OtherRectangle, bounding_circle: crate::math::Circle, center_of_mass: Vec3d) -> Self {
+        Self {
+            bounding_box,
+            bounding_circle,
+            center_of_mass,
+        }
+    }
+
+    pub fn get_bounding_box(&self) -> crate::math::Rectangle {
+        self.bounding_box.clone()
+    }
+
+    pub fn get_bounding_circle(&self) -> crate::math::Circle {
+        self.bounding_circle.clone()
+    }
+
+    pub fn get_center_of_mass(&self) -> Vec3d {
+        self.center_of_mass.clone()
     }
 }
 
