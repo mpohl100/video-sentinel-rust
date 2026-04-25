@@ -1,15 +1,43 @@
 use rs_math3d::{Vec3d};
+use rs_math3d::FloatVector;
 
+#[derive(Clone)]
 pub struct Slice {
     start: Vec3d,
     end: Vec3d,
 }
 
+impl PartialEq for Slice {
+    fn eq(&self, other: &Self) -> bool {
+        let start_diff = (self.start - other.start).length();
+        let end_diff = (self.end - other.end).length();
+        start_diff < 1e-6 && end_diff < 1e-6
+    }
+}
+
+#[derive(Clone, PartialEq)]
 pub struct AnnotatedSlice {
     slice: Slice,
     line_number: u32,
 }
 
+impl AnnotatedSlice {
+    pub fn touches(&self, other: &AnnotatedSlice) -> bool {
+        // Check if the slices are on adjacent lines
+        if (self.line_number as i32 - other.line_number as i32).abs() != 1 {
+            return false;
+        }
+        // Check if the slices overlap in the x-axis
+        let self_start_x = self.slice.start.x;
+        let self_end_x = self.slice.end.x;
+        let other_start_x = other.slice.start.x;
+        let other_end_x = other.slice.end.x;
+
+        !(self_end_x < other_start_x || self_start_x > other_end_x)
+    }
+}
+
+#[derive(Clone)]
 pub struct SliceLine {
     line_number: u32,
     slices: Vec<AnnotatedSlice>,
@@ -29,10 +57,46 @@ impl SliceLine {
     }
 }
 
+#[derive(Clone)]
 pub struct SliceMatrix {
     lines: Vec<SliceLine>,
 }
 
+/*
+    let mut top_line_number = connected_matrix.get_top_line_number();
+    if top_line_number.is_none() {
+        connected_matrix.add_slices(slice_matrix.get_top_left_slice())
+        top_line_number = connected_matrix.get_top_line_number();
+    }
+    loop {
+        let next_line = slice_matrix.get_line_below(top_line_number);
+        if let Some(line) = next_line {
+            let touching_slices = connected_matrix.find_touching_slices(line, -1);
+            connected_matrix.add_slices(next_line.line_number, touching_slices);
+            slice_matrix.remove_slices(touching_slices);
+        }
+        else{
+            break;
+        }
+    }
+
+    let mut bottom_line_number = connected_matrix.get_bottom_line_number();
+    if bottom_line_number.is_none() {
+        connected_matrix.add_slices(slice_matrix.get_top_left_slice())
+        bottom_line_number = connected_matrix.get_bottom_line_number();
+    }
+    loop {
+        let next_line = slice_matrix.get_line_above(bottom_line_number);
+        if let Some(line) = next_line {
+            let touching_slices = connected_matrix.find_touching_slices(line, 1);
+            connected_matrix.add_slices(next_line.line_number, touching_slices);
+            slice_matrix.remove_slices(touching_slices);
+        }
+        else{
+            break;
+        }
+    }
+*/
 impl SliceMatrix {
     pub fn new() -> Self {
         Self { lines: Vec::new() }
@@ -40,6 +104,73 @@ impl SliceMatrix {
 
     pub fn add(&mut self, line: SliceLine) {
         self.lines.push(line);
+    }
+
+    pub fn get_top_line_number(&self) -> Option<u32> {
+        self.lines.first().map(|line| line.line_number)
+    }
+
+    pub fn get_bottom_line_number(&self) -> Option<u32> {
+        self.lines.last().map(|line| line.line_number)
+    }
+
+    pub fn get_top_left_slice(&self) -> Option<SliceLine> {
+        let annotated_slice = self.lines.first().and_then(|line| line.slices.first().cloned());
+        annotated_slice.map(|slice| SliceLine::new(slice.line_number, vec![slice]))
+    }
+
+    pub fn get_line_below(&self, line_number: u32) -> Option<&SliceLine> {
+        self.lines.iter().find(|line| line.line_number == line_number + 1)
+    }
+
+    pub fn get_line_above(&self, line_number: u32) -> Option<&SliceLine> {
+        self.lines.iter().find(|line| line.line_number == line_number - 1)
+    }
+
+    pub fn find_touching_slices(&self, line: &SliceLine, direction: i32) -> Option<SliceLine> {
+        let touching_line = if direction == -1 {
+            self.get_line_below(line.line_number)
+        } else {
+            self.get_line_above(line.line_number)
+        };
+        if touching_line.is_none() {
+            return None;
+        }
+        let mut result_line = SliceLine::new(touching_line.unwrap().line_number, Vec::new());
+        for slice in &line.slices {
+            for touching_slice in &touching_line.unwrap().slices {
+                let does_touch = slice.touches(touching_slice);
+                if does_touch {
+                    result_line.add(touching_slice.clone());
+                }
+            }
+        }
+        Some(result_line)
+    }
+
+    fn insert_where_needed(&mut self, line: SliceLine) {
+        if let Some(pos) = self.lines.iter().position(|l| l.line_number > line.line_number) {
+            self.lines.insert(pos, line);
+        } else {
+            self.lines.push(line);
+        }
+    }
+
+    pub fn add_slices(&mut self, line: SliceLine) {
+        if let Some(existing_line) = self.lines.iter_mut().find(|l| l.line_number == line.line_number) {
+            existing_line.slices.extend(line.slices);
+        } else {
+            self.insert_where_needed(line);
+        }
+    }
+
+    pub fn remove_slices(&mut self, line: SliceLine) {
+        if let Some(existing_line) = self.lines.iter_mut().find(|l| l.line_number == line.line_number) {
+            existing_line.slices.retain(|slice| !line.slices.contains(slice));
+            if existing_line.slices.is_empty() {
+                self.lines.retain(|l| l.line_number != line.line_number);
+            }
+        }
     }
 }
 
@@ -227,4 +358,94 @@ pub fn calculate_slices(
         }
         return slice_matrix;
     }
+}
+
+fn go_direction(slice_matrix: &mut SliceMatrix, connected_matrix: &mut SliceMatrix, direction: i32) -> bool {
+    if direction == -1 {
+        let mut top_line_number = connected_matrix.get_top_line_number();
+        if top_line_number.is_none() {
+            let tl_slice = slice_matrix.get_top_left_slice();
+            if let Some(tl_slice) = tl_slice {
+                connected_matrix.add_slices(tl_slice);
+            }
+            else {
+                return false;
+            }
+            top_line_number = connected_matrix.get_top_line_number();
+        }
+        loop {
+            let next_line = slice_matrix.get_line_below(top_line_number.expect("Did not find a top line number"));
+            if let Some(line) = next_line {
+                let touching_slices = connected_matrix.find_touching_slices(line, -1);
+                if let Some(touching_slices) = touching_slices {
+                    connected_matrix.add_slices(touching_slices.clone());
+                    slice_matrix.remove_slices(touching_slices);
+                }
+            }
+            else{
+                break;
+            }
+        }
+    }
+    else if direction == 1 {
+        let mut bottom_line_number = connected_matrix.get_bottom_line_number();
+        if bottom_line_number.is_none() {
+            let tl_slice = slice_matrix.get_top_left_slice();
+            if let Some(tl_slice) = tl_slice {
+                connected_matrix.add_slices(tl_slice);
+            }
+            else {
+                return false;
+            }
+            bottom_line_number = connected_matrix.get_bottom_line_number();
+        }
+        loop {
+            let next_line = slice_matrix.get_line_above(bottom_line_number.expect("Did not find a bottom line number"));
+            if let Some(line) = next_line {
+                let touching_slices = connected_matrix.find_touching_slices(line, 1);
+                if let Some(touching_slices) = touching_slices {
+                    connected_matrix.add_slices(touching_slices.clone());
+                    slice_matrix.remove_slices(touching_slices);
+                }
+            }
+            else{
+                break;
+            }
+        }
+    }
+    false
+}
+
+fn find_next_connected_slice_matrix(slice_matrix: &mut SliceMatrix) -> Option<SliceMatrix> {
+    // Placeholder implementation - in a real implementation, this would perform a search to find connected slices
+    let mut connected_matrix = SliceMatrix::new();
+    let mut direction = -1; // -1 = go top to bottom, 1 = go bottom to top
+    let mut found_nothing_counter = 0;
+    loop {
+        let added_something = go_direction(slice_matrix, &mut connected_matrix, direction);
+        if direction == -1 {
+            direction = 1;
+        } else {
+            direction = -1;
+        }
+        if added_something {
+            found_nothing_counter = 0;
+        } else {
+            found_nothing_counter += 1;
+        }
+        if found_nothing_counter >= 2 {
+            break;
+        }
+    }
+    Some(connected_matrix)
+}
+
+pub fn find_connected_slices(slice_matrix: &mut SliceMatrix) -> Vec<SliceMatrix> {
+    let mut connected_matrices = Vec::new();
+
+    while let Some(connected_slice_matrix) = find_next_connected_slice_matrix(slice_matrix) {
+        connected_matrices.push(connected_slice_matrix);
+    }
+
+    connected_matrices
 }
