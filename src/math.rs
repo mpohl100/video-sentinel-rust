@@ -1,7 +1,6 @@
-use rs_math3d::{CrossProduct, FloatVector, Vec3d, Vector3};
 use rs_math3d::Vector;
+use rs_math3d::{CrossProduct, FloatVector, Vec3d, Vector3};
 use std::sync::{Arc, Mutex};
-
 
 #[derive(Clone)]
 pub struct Line {
@@ -39,7 +38,7 @@ impl Line {
         let t = Vector3::<f64>::cross(&q_minus_p, &s).length() / r_cross_s.length();
         let u = Vector3::<f64>::cross(&q_minus_p, &r).length() / r_cross_s.length();
 
-        t >= 0.0 && t <= 1.0 && u >= 0.0 && u <= 1.0
+        (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u)
     }
 
     pub fn angle_between(&self, other: &Line) -> RegionedAngle {
@@ -50,10 +49,18 @@ impl Line {
         let v1_length = v1.length();
         let v2_length = v2.length();
         if v1_length < 1e-6 || v2_length < 1e-6 {
-            return RegionedAngle { angle_degrees: 0.0, min_degrees: -180.0, max_degrees: 180.0 }; // avoid division by zero, treat zero-length vectors as having zero angle between them
+            return RegionedAngle {
+                angle_degrees: 0.0,
+                min_degrees: -180.0,
+                max_degrees: 180.0,
+            }; // avoid division by zero, treat zero-length vectors as having zero angle between them
         }
         let cos_angle = dot_product / (v1_length * v2_length);
-        RegionedAngle { angle_degrees: cos_angle.acos().to_degrees(), min_degrees: -180.0, max_degrees: 180.0 }
+        RegionedAngle {
+            angle_degrees: cos_angle.acos().to_degrees(),
+            min_degrees: -180.0,
+            max_degrees: 180.0,
+        }
     }
 }
 
@@ -84,7 +91,9 @@ impl RegionedAngle {
     ) -> Self {
         let start_to_mid_line = Line::new(start, mid);
         let start_to_end_line = Line::new(start, end);
-        let angle_radians = start_to_mid_line.angle_between(&start_to_end_line).radians();
+        let angle_radians = start_to_mid_line
+            .angle_between(&start_to_end_line)
+            .radians();
         let angle_degrees = angle_radians.to_degrees();
         let mut regioned_angle = Self::new(angle_degrees, min_degrees, max_degrees);
         regioned_angle.adjust();
@@ -123,7 +132,7 @@ impl RegionedAngle {
 
 #[derive(Clone, PartialEq)]
 pub struct Rectangle {
-    lines: Vec<Line>
+    lines: Vec<Line>,
 }
 
 impl Rectangle {
@@ -183,7 +192,8 @@ pub fn expand_rectangle(rectangle: &Rectangle, expansion: f64) -> Rectangle {
     let top_left = rectangle.get_top_left();
     let bottom_right = rectangle.get_bottom_right();
     let expanded_top_left = Vec3d::new(top_left.x - expansion, top_left.y - expansion, 0.0);
-    let expanded_bottom_right = Vec3d::new(bottom_right.x + expansion, bottom_right.y + expansion, 0.0);
+    let expanded_bottom_right =
+        Vec3d::new(bottom_right.x + expansion, bottom_right.y + expansion, 0.0);
     Rectangle::new(expanded_top_left, expanded_bottom_right)
 }
 
@@ -200,7 +210,7 @@ impl PartialEq for Circle {
     }
 }
 
-impl Circle{
+impl Circle {
     pub fn new(center: Vec3d, radius: f64) -> Self {
         Self { center, radius }
     }
@@ -211,8 +221,16 @@ impl Circle{
     }
 
     pub fn get_bounding_box(&self) -> Rectangle {
-        let top_left = Vec3d::new(self.center.x - self.radius, self.center.y - self.radius, 0.0);
-        let bottom_right = Vec3d::new(self.center.x + self.radius, self.center.y + self.radius, 0.0);
+        let top_left = Vec3d::new(
+            self.center.x - self.radius,
+            self.center.y - self.radius,
+            0.0,
+        );
+        let bottom_right = Vec3d::new(
+            self.center.x + self.radius,
+            self.center.y + self.radius,
+            0.0,
+        );
         Rectangle::new(top_left, bottom_right)
     }
 
@@ -237,7 +255,11 @@ struct CoordinateSystem {
 
 impl CoordinateSystem {
     pub fn new(origin: Vec3d, x_axis: Vec3d, y_axis: Vec3d) -> Self {
-        Self { origin, x_axis, y_axis }
+        Self {
+            origin,
+            x_axis,
+            y_axis,
+        }
     }
 
     pub fn rotate(&mut self, angle: RegionedAngle) {
@@ -261,12 +283,18 @@ impl CoordinateSystem {
     pub fn to_local(&self, point: CoordinatedPoint) -> CoordinatedPoint {
         let global_point = self.to_global(point.clone());
         let local_coordinates = self.to_local_coordinates(global_point);
-        CoordinatedPoint::new(WrappedCoordinateSystem::new(self.origin, self.x_axis, self.y_axis), local_coordinates)
+        CoordinatedPoint::new(
+            WrappedCoordinateSystem::new(self.origin, self.x_axis, self.y_axis),
+            local_coordinates,
+        )
     }
 
-    pub fn from_global(&self, point: Vec3d) -> CoordinatedPoint {
+    pub fn convert_from_global(&self, point: Vec3d) -> CoordinatedPoint {
         let local_coordinates = self.to_local_coordinates(point);
-        CoordinatedPoint::new(WrappedCoordinateSystem::new(self.origin, self.x_axis, self.y_axis), local_coordinates)
+        CoordinatedPoint::new(
+            WrappedCoordinateSystem::new(self.origin, self.x_axis, self.y_axis),
+            local_coordinates,
+        )
     }
 
     pub fn to_global(&self, point: CoordinatedPoint) -> Vec3d {
@@ -276,8 +304,10 @@ impl CoordinateSystem {
 
     fn to_local_coordinates(&self, global: Vec3d) -> Vec3d {
         let relative = global - self.origin;
-        let x = Vector3::<f64>::dot(&relative, &self.x_axis) / Vector3::<f64>::dot(&self.x_axis, &self.x_axis);
-        let y = Vector3::<f64>::dot(&relative, &self.y_axis) / Vector3::<f64>::dot(&self.y_axis, &self.y_axis);
+        let x = Vector3::<f64>::dot(&relative, &self.x_axis)
+            / Vector3::<f64>::dot(&self.x_axis, &self.x_axis);
+        let y = Vector3::<f64>::dot(&relative, &self.y_axis)
+            / Vector3::<f64>::dot(&self.y_axis, &self.y_axis);
         Vec3d::new(x, y, 0.0)
     }
 }
@@ -307,7 +337,7 @@ impl WrappedCoordinateSystem {
 
     pub fn from_global(&self, point: Vec3d) -> CoordinatedPoint {
         let cs = self.coordinate_system.lock().unwrap();
-        cs.from_global(point)
+        cs.convert_from_global(point)
     }
 
     pub fn to_global(&self, point: CoordinatedPoint) -> Vec3d {
@@ -332,14 +362,20 @@ impl PartialEq for CoordinatedPoint {
 }
 
 impl CoordinatedPoint {
-    pub fn new(wrapped_coordinate_system: WrappedCoordinateSystem, local_coordinates: Vec3d) -> Self {
+    pub fn new(
+        wrapped_coordinate_system: WrappedCoordinateSystem,
+        local_coordinates: Vec3d,
+    ) -> Self {
         Self {
             wrapped_coordinate_system,
             local_coordinates,
         }
     }
 
-    pub fn convert_to(&self, wrapped_coordinate_system: WrappedCoordinateSystem) -> CoordinatedPoint {
+    pub fn convert_to(
+        &self,
+        wrapped_coordinate_system: WrappedCoordinateSystem,
+    ) -> CoordinatedPoint {
         let global_point = self.wrapped_coordinate_system.to_global(self.clone());
         wrapped_coordinate_system.from_global(global_point)
     }
@@ -349,7 +385,7 @@ impl CoordinatedPoint {
         CoordinatedPoint::new(self.wrapped_coordinate_system.clone(), new_local)
     }
 
-    pub fn rotate(&self,around: CoordinatedPoint, angle: RegionedAngle) -> CoordinatedPoint {
+    pub fn rotate(&self, around: CoordinatedPoint, angle: RegionedAngle) -> CoordinatedPoint {
         let around_local = around.convert_to(self.wrapped_coordinate_system.clone());
         let translated_x = self.local_coordinates.x - around_local.local_coordinates.x;
         let translated_y = self.local_coordinates.y - around_local.local_coordinates.y;
@@ -357,7 +393,11 @@ impl CoordinatedPoint {
         let sin_angle = angle.radians().sin();
         let rotated_x = translated_x * cos_angle - translated_y * sin_angle;
         let rotated_y = translated_x * sin_angle + translated_y * cos_angle;
-        let new_local = Vec3d::new(rotated_x + around_local.local_coordinates.x, rotated_y + around_local.local_coordinates.y, 0.0);
+        let new_local = Vec3d::new(
+            rotated_x + around_local.local_coordinates.x,
+            rotated_y + around_local.local_coordinates.y,
+            0.0,
+        );
         CoordinatedPoint::new(self.wrapped_coordinate_system.clone(), new_local)
     }
 
@@ -367,5 +407,3 @@ impl CoordinatedPoint {
         (global_self - global_other).length()
     }
 }
-
-
