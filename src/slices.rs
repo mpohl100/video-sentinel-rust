@@ -57,6 +57,17 @@ impl SliceLine {
             "Slice line number does not match SliceLine's line number"
         );
         self.slices.push(slice);
+        // remove duplicates of the same slice
+        self.slices.sort_by(|a, b| {
+            let a_start_x = a.slice.start.x;
+            let a_end_x = a.slice.end.x;
+            let b_start_x = b.slice.start.x;
+            let b_end_x = b.slice.end.x;
+            a_start_x.partial_cmp(&b_start_x)
+                .unwrap()
+                .then(a_end_x.partial_cmp(&b_end_x).unwrap())
+        });
+        self.slices.dedup();
     }
 }
 
