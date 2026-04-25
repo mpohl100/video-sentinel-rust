@@ -3,7 +3,7 @@ use core::f64;
 use rs_math3d::FloatVector;
 use rs_math3d::Vec3d;
 
-use crate::math::{Circle, Rectangle as OtherRectangle};
+use crate::math::{Rectangle as OtherRectangle};
 
 #[derive(Clone)]
 pub struct Slice {
