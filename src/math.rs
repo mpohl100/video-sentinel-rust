@@ -41,6 +41,24 @@ impl Line {
         (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u)
     }
 
+    pub fn get_intersection_point(&self, other: &Line) -> Vec3d {
+        let p = self.start;
+        let r = self.end - self.start;
+        let q = other.start;
+        let s = other.end - other.start;
+
+        let r_cross_s = Vector3::<f64>::cross(&r, &s);
+        let q_minus_p = q - p;
+
+        if r_cross_s.length() < 1e-6 {
+            // Lines are parallel, return the midpoint of the overlapping segment as the intersection point
+            return (self.start + self.end) / 2.0;
+        }
+
+        let t = Vector3::<f64>::cross(&q_minus_p, &s).length() / r_cross_s.length();
+        p + r * t
+    }
+
     pub fn angle_between(&self, other: &Line) -> RegionedAngle {
         let v1 = self.end - self.start;
         let v2 = other.end - other.start;
@@ -120,6 +138,13 @@ impl RegionedAngle {
         self.max_degrees
     }
 
+    pub fn add_angle(&self, other: RegionedAngle) -> RegionedAngle {
+        let new_angle_degrees = self.angle_degrees + other.angle_degrees;
+        let mut result = Self::new(new_angle_degrees, self.min_degrees, self.max_degrees);
+        result.adjust();
+        result
+    }
+
     fn adjust(&mut self) {
         while self.angle_degrees < self.min_degrees {
             self.angle_degrees += 360.0;
@@ -145,6 +170,10 @@ impl Rectangle {
             Line::new(bottom_right, bottom_left),
             Line::new(bottom_left, top_left),
         ];
+        Self { lines }
+    }
+
+    pub fn new_from_lines(lines: Vec<Line>) -> Self {
         Self { lines }
     }
 
@@ -344,6 +373,18 @@ impl WrappedCoordinateSystem {
         let cs = self.coordinate_system.lock().unwrap();
         cs.to_global(point)
     }
+
+    pub fn get_angle_between(&self, other: &WrappedCoordinateSystem) -> RegionedAngle {
+        let cs1 = self.coordinate_system.lock().unwrap();
+        let cs2 = other.coordinate_system.lock().unwrap();
+        let self_x_axis = cs1.x_axis;
+        let other_x_axis = cs2.x_axis;
+        let line1 = Line::new(Vec3d::new(0.0, 0.0, 0.0), self_x_axis);
+        let line2 = Line::new(Vec3d::new(0.0, 0.0, 0.0), other_x_axis);
+        let angle_radians = line1.angle_between(&line2).radians();
+
+        RegionedAngle::new(angle_radians.to_degrees(), -180.0, 180.0)
+    }
 }
 
 #[derive(Clone)]
@@ -405,5 +446,329 @@ impl CoordinatedPoint {
         let global_self = self.wrapped_coordinate_system.to_global(self.clone());
         let global_other = other.wrapped_coordinate_system.to_global(other.clone());
         (global_self - global_other).length()
+    }
+}
+
+#[derive(Clone)]
+pub struct CoordinatedLine {
+    start: CoordinatedPoint,
+    end: CoordinatedPoint,
+}
+
+impl CoordinatedLine {
+    pub fn new(start: CoordinatedPoint, end: CoordinatedPoint) -> Self {
+        Self { start, end }
+    }
+
+    pub fn length(&self) -> f64 {
+        self.start.distance_to(self.end.clone())
+    }
+
+    pub fn convert_to(
+        &self,
+        wrapped_coordinate_system: WrappedCoordinateSystem,
+    ) -> CoordinatedLine {
+        CoordinatedLine {
+            start: self.start.convert_to(wrapped_coordinate_system.clone()),
+            end: self.end.convert_to(wrapped_coordinate_system),
+        }
+    }
+
+    pub fn to_global_line(&self) -> Line {
+        let global_start = self
+            .start
+            .wrapped_coordinate_system
+            .to_global(self.start.clone());
+        let global_end = self
+            .end
+            .wrapped_coordinate_system
+            .to_global(self.end.clone());
+        Line::new(global_start, global_end)
+    }
+
+    pub fn get_intersection_point(&self, other: CoordinatedLine) -> Option<CoordinatedPoint> {
+        let global_line1 = self.to_global_line();
+        let global_line2 = other.to_global_line();
+        if global_line1.intersects(&global_line2) {
+            // For simplicity, we will return the midpoint of the intersection as the intersection point
+            let global_intersection_point = global_line1.get_intersection_point(&global_line2);
+            let target_coordinate_system = self.start.wrapped_coordinate_system.clone();
+            let intersection_point =
+                target_coordinate_system.from_global(global_intersection_point);
+            Some(intersection_point)
+        } else {
+            None
+        }
+    }
+
+    pub fn intersects(&self, other: CoordinatedLine) -> bool {
+        let global_line1 = self.to_global_line();
+        let global_line2 = other.to_global_line();
+        global_line1.intersects(&global_line2)
+    }
+
+    pub fn get_start(&self) -> CoordinatedPoint {
+        self.start.clone()
+    }
+
+    pub fn get_end(&self) -> CoordinatedPoint {
+        self.end.clone()
+    }
+}
+
+#[derive(Clone)]
+pub struct CoordinatedRectangle {
+    lines: Vec<CoordinatedLine>,
+}
+
+impl CoordinatedRectangle {
+    pub fn new(top_left: CoordinatedPoint, bottom_right: CoordinatedPoint) -> Self {
+        let top_right = CoordinatedPoint::new(
+            top_left.wrapped_coordinate_system.clone(),
+            Vec3d::new(
+                bottom_right.local_coordinates.x,
+                top_left.local_coordinates.y,
+                0.0,
+            ),
+        );
+        let bottom_left = CoordinatedPoint::new(
+            top_left.wrapped_coordinate_system.clone(),
+            Vec3d::new(
+                top_left.local_coordinates.x,
+                bottom_right.local_coordinates.y,
+                0.0,
+            ),
+        );
+        let lines = vec![
+            CoordinatedLine::new(top_left.clone(), top_right.clone()),
+            CoordinatedLine::new(top_right.clone(), bottom_right.clone()),
+            CoordinatedLine::new(bottom_right.clone(), bottom_left.clone()),
+            CoordinatedLine::new(bottom_left.clone(), top_left.clone()),
+        ];
+        Self { lines }
+    }
+
+    pub fn convert_to(
+        &self,
+        wrapped_coordinate_system: WrappedCoordinateSystem,
+    ) -> CoordinatedRectangle {
+        CoordinatedRectangle {
+            lines: self
+                .lines
+                .iter()
+                .map(|line| line.convert_to(wrapped_coordinate_system.clone()))
+                .collect(),
+        }
+    }
+
+    pub fn to_global_rectangle(&self) -> Rectangle {
+        let global_lines: Vec<Line> = self
+            .lines
+            .iter()
+            .map(|line| line.to_global_line())
+            .collect();
+        Rectangle::new_from_lines(global_lines)
+    }
+
+    pub fn intersects(&self, other: &CoordinatedRectangle) -> bool {
+        let global_rectangle1 = self.to_global_rectangle();
+        let global_rectangle2 = other.to_global_rectangle();
+        global_rectangle1.intersects(&global_rectangle2)
+    }
+
+    pub fn get_intersection_line(&self, line: CoordinatedLine) -> Option<CoordinatedLine> {
+        let global_rectangle = self.to_global_rectangle();
+        let global_line = line.to_global_line();
+        let mut intersection_points = Vec::new();
+        for rect_line in &global_rectangle.lines {
+            if rect_line.intersects(&global_line) {
+                let global_intersection_point = rect_line.get_intersection_point(&global_line);
+                let target_coordinate_system = line.start.wrapped_coordinate_system.clone();
+                let intersection_point =
+                    target_coordinate_system.from_global(global_intersection_point);
+                intersection_points.push(intersection_point);
+            }
+        }
+        assert!(intersection_points.len() <= 2);
+        if intersection_points.len() == 2 {
+            Some(CoordinatedLine::new(
+                intersection_points[0].clone(),
+                intersection_points[1].clone(),
+            ))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct CoordinatedCircle {
+    center: CoordinatedPoint,
+    radius: f64,
+}
+
+impl CoordinatedCircle {
+    pub fn new(center: CoordinatedPoint, radius: f64) -> Self {
+        Self { center, radius }
+    }
+
+    pub fn convert_to(
+        &self,
+        wrapped_coordinate_system: WrappedCoordinateSystem,
+    ) -> CoordinatedCircle {
+        CoordinatedCircle {
+            center: self.center.convert_to(wrapped_coordinate_system.clone()),
+            radius: self.radius,
+        }
+    }
+
+    pub fn to_global_circle(&self) -> Circle {
+        let global_center = self.center.wrapped_coordinate_system.to_global(self.center.clone());
+        Circle::new(global_center, self.radius)
+    }
+
+    pub fn intersects(&self, other: &CoordinatedCircle) -> bool {
+        let global_circle1 = self.to_global_circle();
+        let global_circle2 = other.to_global_circle();
+        global_circle1.intersects(&global_circle2)
+    }
+
+    pub fn get_center(&self) -> CoordinatedPoint {
+        self.center.clone()
+    }
+
+    pub fn get_radius(&self) -> f64 {
+        self.radius
+    }
+
+    pub fn get_bounding_box(&self) -> CoordinatedRectangle {
+        let top_left = CoordinatedPoint::new(
+            self.center.wrapped_coordinate_system.clone(),
+            Vec3d::new(
+                self.center.local_coordinates.x - self.radius,
+                self.center.local_coordinates.y - self.radius,
+                0.0,
+            ),
+        );
+        let bottom_right = CoordinatedPoint::new(
+            self.center.wrapped_coordinate_system.clone(),
+            Vec3d::new(
+                self.center.local_coordinates.x + self.radius,
+                self.center.local_coordinates.y + self.radius,
+                0.0,
+            ),
+        );
+        CoordinatedRectangle::new(top_left, bottom_right)
+    }
+
+    pub fn get_area(&self) -> f64 {
+        std::f64::consts::PI * self.radius * self.radius
+    }
+
+    pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
+        let global_center = self.center.wrapped_coordinate_system.to_global(self.center.clone());
+        let global_point = self.center.wrapped_coordinate_system.to_global(point.clone());
+        (global_center - global_point).length() <= self.radius
+    }
+
+    pub fn get_intersection_line(&self, line: CoordinatedLine) -> Option<CoordinatedLine> {
+        let global_circle = self.to_global_circle();
+        let global_line = line.to_global_line();
+        let intersection_points = get_circle_line_intersection_points(&global_circle, &global_line);
+        if intersection_points.len() == 2 {
+            let target_coordinate_system = line.start.wrapped_coordinate_system.clone();
+            Some(CoordinatedLine::new(
+                target_coordinate_system.from_global(intersection_points[0]),
+                target_coordinate_system.from_global(intersection_points[1]),
+            ))
+        } else {
+            None
+        }
+    }
+}
+
+fn get_circle_line_intersection_points(circle: &Circle, line: &Line) -> Vec<Vec3d> {
+    let d = line.end - line.start;
+    let f = line.start - circle.center;
+
+    let a = Vector3::<f64>::dot(&d, &d);
+    let b = 2.0 * Vector3::<f64>::dot(&f, &d);
+    let c = Vector3::<f64>::dot(&f, &f) - circle.radius * circle.radius;
+
+    let discriminant = b * b - 4.0 * a * c;
+    if discriminant < 0.0 {
+        vec![] // No intersection
+    } else {
+        let sqrt_discriminant = discriminant.sqrt();
+        let t1 = (-b - sqrt_discriminant) / (2.0 * a);
+        let t2 = (-b + sqrt_discriminant) / (2.0 * a);
+        let mut points = Vec::new();
+        if (0.0..=1.0).contains(&t1) {
+            points.push(line.start + d * t1);
+        }
+        if (0.0..=1.0).contains(&t2) {
+            points.push(line.start + d * t2);
+        }
+        points
+    }
+}
+
+pub struct CoordinatedRegionedAngle {
+    wrapped_coordinate_system: WrappedCoordinateSystem,
+    regioned_angle: RegionedAngle,
+}
+
+impl CoordinatedRegionedAngle{
+    pub fn new(
+        wrapped_coordinate_system: WrappedCoordinateSystem,
+        regioned_angle: RegionedAngle,
+    ) -> Self {
+        Self {
+            wrapped_coordinate_system,
+            regioned_angle,
+        }
+    }
+
+    pub fn new_from_lines(
+        line1: CoordinatedLine,
+        line2: CoordinatedLine,
+        min_degrees: f64,
+        max_degrees: f64,
+    ) -> Self {
+        let global_line1 = line1.to_global_line();
+        let global_line2 = line2.to_global_line();
+        let angle_radians = global_line1.angle_between(&global_line2).radians();
+        let angle_degrees = angle_radians.to_degrees();
+        let regioned_angle = RegionedAngle::new(angle_degrees, min_degrees, max_degrees);
+        CoordinatedRegionedAngle::new(line1.start.wrapped_coordinate_system.clone(), regioned_angle)
+    }
+
+    pub fn convert_to(
+        &self,
+        wrapped_coordinate_system: WrappedCoordinateSystem,
+    ) -> CoordinatedRegionedAngle {
+        let angle_between_coordinate_systems = self.wrapped_coordinate_system.get_angle_between(&wrapped_coordinate_system);
+        let new_regioned_angle = self.regioned_angle.add_angle(angle_between_coordinate_systems);
+        CoordinatedRegionedAngle::new(wrapped_coordinate_system, new_regioned_angle)
+    }
+
+    pub fn get_regioned_angle(&self) -> RegionedAngle {
+        self.regioned_angle.clone()
+    }
+
+    pub fn get_coordinate_system(&self) -> WrappedCoordinateSystem {
+        self.wrapped_coordinate_system.clone()
+    }
+
+    pub fn get_angle_degrees(&self) -> f64 {
+        self.regioned_angle.angle_degrees
+    }
+
+    pub fn get_min_degrees(&self) -> f64 {
+        self.regioned_angle.min_degrees
+    }
+
+    pub fn get_max_degrees(&self) -> f64 {
+        self.regioned_angle.max_degrees
     }
 }
