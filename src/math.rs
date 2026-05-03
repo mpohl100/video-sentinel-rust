@@ -623,7 +623,10 @@ impl CoordinatedCircle {
     }
 
     pub fn to_global_circle(&self) -> Circle {
-        let global_center = self.center.wrapped_coordinate_system.to_global(self.center.clone());
+        let global_center = self
+            .center
+            .wrapped_coordinate_system
+            .to_global(self.center.clone());
         Circle::new(global_center, self.radius)
     }
 
@@ -666,8 +669,14 @@ impl CoordinatedCircle {
     }
 
     pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
-        let global_center = self.center.wrapped_coordinate_system.to_global(self.center.clone());
-        let global_point = self.center.wrapped_coordinate_system.to_global(point.clone());
+        let global_center = self
+            .center
+            .wrapped_coordinate_system
+            .to_global(self.center.clone());
+        let global_point = self
+            .center
+            .wrapped_coordinate_system
+            .to_global(point.clone());
         (global_center - global_point).length() <= self.radius
     }
 
@@ -718,7 +727,7 @@ pub struct CoordinatedRegionedAngle {
     regioned_angle: RegionedAngle,
 }
 
-impl CoordinatedRegionedAngle{
+impl CoordinatedRegionedAngle {
     pub fn new(
         wrapped_coordinate_system: WrappedCoordinateSystem,
         regioned_angle: RegionedAngle,
@@ -740,15 +749,22 @@ impl CoordinatedRegionedAngle{
         let angle_radians = global_line1.angle_between(&global_line2).radians();
         let angle_degrees = angle_radians.to_degrees();
         let regioned_angle = RegionedAngle::new(angle_degrees, min_degrees, max_degrees);
-        CoordinatedRegionedAngle::new(line1.start.wrapped_coordinate_system.clone(), regioned_angle)
+        CoordinatedRegionedAngle::new(
+            line1.start.wrapped_coordinate_system.clone(),
+            regioned_angle,
+        )
     }
 
     pub fn convert_to(
         &self,
         wrapped_coordinate_system: WrappedCoordinateSystem,
     ) -> CoordinatedRegionedAngle {
-        let angle_between_coordinate_systems = self.wrapped_coordinate_system.get_angle_between(&wrapped_coordinate_system);
-        let new_regioned_angle = self.regioned_angle.add_angle(angle_between_coordinate_systems);
+        let angle_between_coordinate_systems = self
+            .wrapped_coordinate_system
+            .get_angle_between(&wrapped_coordinate_system);
+        let new_regioned_angle = self
+            .regioned_angle
+            .add_angle(angle_between_coordinate_systems);
         CoordinatedRegionedAngle::new(wrapped_coordinate_system, new_regioned_angle)
     }
 
