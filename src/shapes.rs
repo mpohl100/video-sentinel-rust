@@ -1,4 +1,4 @@
-use crate::slices::{CachedData, SliceMatrix};
+use crate::{math::CoordinatedPoint, slices::{CachedData, SliceMatrix}};
 
 use std::sync::{Arc, Mutex};
 
@@ -39,6 +39,11 @@ impl Shape {
         }
         self.cached_data = Some(self.slice_matrix.calculate_cached_data());
     }
+
+    fn contains_point(&self, point: CoordinatedPoint) -> bool {
+        // convert the point to the global coordinate system and check if it is contained in the shape
+        self.slice_matrix.contains_point(point)
+    }
 }
 
 #[derive(Clone)]
@@ -66,5 +71,10 @@ impl WrappedShape {
     pub fn get_center_of_mass(&self) -> Vec3d {
         let mut shape = self.shape.lock().unwrap();
         shape.get_center_of_mass()
+    }
+
+    pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
+        let shape = self.shape.lock().unwrap();
+        shape.contains_point(point)
     }
 }

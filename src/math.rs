@@ -447,6 +447,18 @@ impl CoordinatedPoint {
         let global_other = other.wrapped_coordinate_system.to_global(other.clone());
         (global_self - global_other).length()
     }
+
+    pub fn get_x(&self) -> f64 {
+        self.local_coordinates.x
+    }
+
+    pub fn get_y(&self) -> f64 {
+        self.local_coordinates.y
+    }
+
+    pub fn get_local_point(&self) -> Vec3d {
+        self.local_coordinates
+    }
 }
 
 #[derive(Clone)]
@@ -545,6 +557,19 @@ impl CoordinatedRectangle {
             CoordinatedLine::new(bottom_right.clone(), bottom_left.clone()),
             CoordinatedLine::new(bottom_left.clone(), top_left.clone()),
         ];
+        Self { lines }
+    }
+
+    pub fn new_from_rectangle(rectangle: Rectangle, wrapped_coordinate_system: WrappedCoordinateSystem) -> Self {
+        let lines = rectangle
+            .lines
+            .iter()
+            .map(|line| {
+                let start = wrapped_coordinate_system.from_global(line.start);
+                let end = wrapped_coordinate_system.from_global(line.end);
+                CoordinatedLine::new(start, end)
+            })
+            .collect();
         Self { lines }
     }
 
