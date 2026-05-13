@@ -4,6 +4,8 @@ use rs_math3d::FloatVector;
 use rs_math3d::Vec3d;
 
 use crate::math::Rectangle as OtherRectangle;
+use crate::math::CoordinatedPoint;
+use crate::math::WrappedCoordinateSystem;
 
 #[derive(Clone)]
 pub struct Slice {
@@ -16,6 +18,20 @@ impl PartialEq for Slice {
         let start_diff = (self.start - other.start).length();
         let end_diff = (self.end - other.end).length();
         start_diff < 1e-6 && end_diff < 1e-6
+    }
+}
+
+impl Slice {
+    pub fn new(start: Vec3d, end: Vec3d) -> Self {
+        Self { start, end }
+    }
+
+    pub fn get_start(&self) -> Vec3d {
+        self.start
+    }
+
+    pub fn get_end(&self) -> Vec3d {
+        self.end
     }
 }
 
@@ -266,6 +282,26 @@ impl SliceMatrix {
             .fold(0.0, f64::max);
         let bounding_circle = crate::math::Circle::new(center_of_mass, max_radius_from_center);
         CachedData::new(bounding_box, bounding_circle, center_of_mass)
+    }
+
+    pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
+        let global_coordinate_system = WrappedCoordinateSystem::new(
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(1.0, 0.0, 0.0),
+            Vec3d::new(0.0, 1.0, 0.0),
+        );
+        let global_point = point.convert_to(global_coordinate_system);
+        for line in &self.lines {
+            for slice in &line.slices {
+                if global_point.get_y() == slice.slice.start.y
+                    && global_point.get_x() >= slice.slice.start.x
+                    && global_point.get_x() <= slice.slice.end.x
+                {
+                    return true;
+                }
+            }
+        }
+        false
     }
 }
 
