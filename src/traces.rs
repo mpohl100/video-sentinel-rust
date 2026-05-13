@@ -1,9 +1,9 @@
+use crate::math::CoordinatedLine;
 use crate::math::CoordinatedPoint;
 use crate::math::CoordinatedRectangle;
 use crate::math::Rectangle;
 use crate::math::RegionedAngle;
 use crate::math::WrappedCoordinateSystem;
-use crate::math::CoordinatedLine;
 use crate::shapes::WrappedShape;
 use crate::slices::Slice;
 
@@ -29,7 +29,7 @@ impl Trace {
     pub fn new_from_shape(shape: WrappedShape, params: TraceParams) -> Self {
         let ratio_lines = (0..params.angle_skeleton)
             .map(|i| {
-                let mut coordinate_system = WrappedCoordinateSystem::new(
+                let coordinate_system = WrappedCoordinateSystem::new(
                     shape.get_center_of_mass(),
                     Vec3d::new(1.0, 0.0, 0.0),
                     Vec3d::new(0.0, 1.0, 0.0),
@@ -90,15 +90,17 @@ fn deduce_slices_from_shape(
             let coordinated_rectangle =
                 CoordinatedRectangle::new_from_rectangle(rectangle, global_coordinate_system)
                     .convert_to(coordinate_system.clone());
-            let x_line_start = CoordinatedPoint::new(coordinate_system.clone(), Vec3d::new(-radius, 0.0, 0.0));
-            let x_line_end = CoordinatedPoint::new(coordinate_system.clone(), Vec3d::new(radius, 0.0, 0.0));
-            let x_axis_line = CoordinatedLine::new(
-                x_line_start,
-                x_line_end,
-            );
+            let x_line_start =
+                CoordinatedPoint::new(coordinate_system.clone(), Vec3d::new(-radius, 0.0, 0.0));
+            let x_line_end =
+                CoordinatedPoint::new(coordinate_system.clone(), Vec3d::new(radius, 0.0, 0.0));
+            let x_axis_line = CoordinatedLine::new(x_line_start, x_line_end);
             let clipped_line = coordinated_rectangle.get_intersection_line(x_axis_line);
             if let Some(clipped_line) = clipped_line {
-                let slice = Slice::new(clipped_line.get_start().get_local_point(), clipped_line.get_end().get_local_point());
+                let slice = Slice::new(
+                    clipped_line.get_start().get_local_point(),
+                    clipped_line.get_end().get_local_point(),
+                );
                 slices.push(slice);
             }
         }

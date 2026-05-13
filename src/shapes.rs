@@ -1,4 +1,7 @@
-use crate::{math::CoordinatedPoint, slices::{CachedData, SliceMatrix}};
+use crate::{
+    math::CoordinatedPoint,
+    slices::{CachedData, SliceMatrix},
+};
 
 use std::sync::{Arc, Mutex};
 

@@ -560,7 +560,10 @@ impl CoordinatedRectangle {
         Self { lines }
     }
 
-    pub fn new_from_rectangle(rectangle: Rectangle, wrapped_coordinate_system: WrappedCoordinateSystem) -> Self {
+    pub fn new_from_rectangle(
+        rectangle: Rectangle,
+        wrapped_coordinate_system: WrappedCoordinateSystem,
+    ) -> Self {
         let lines = rectangle
             .lines
             .iter()
