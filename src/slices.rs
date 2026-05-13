@@ -3,8 +3,8 @@ use core::f64;
 use rs_math3d::FloatVector;
 use rs_math3d::Vec3d;
 
-use crate::math::Rectangle as OtherRectangle;
 use crate::math::CoordinatedPoint;
+use crate::math::Rectangle as OtherRectangle;
 use crate::math::WrappedCoordinateSystem;
 
 #[derive(Clone)]
