@@ -385,6 +385,11 @@ impl WrappedCoordinateSystem {
 
         RegionedAngle::new(angle_radians.to_degrees(), -180.0, 180.0)
     }
+
+    pub fn duplicate(&self) -> Self {
+        let cs = self.coordinate_system.lock().unwrap();
+        WrappedCoordinateSystem::new(cs.origin, cs.x_axis, cs.y_axis)
+    }
 }
 
 #[derive(Clone)]

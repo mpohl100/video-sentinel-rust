@@ -15,6 +15,15 @@ struct RatioLine {
     slices: Vec<Slice>,
 }
 
+impl RatioLine {
+    fn duplicate(&self) -> Self {
+        RatioLine {
+            coordinate_system: self.coordinate_system.duplicate(),
+            slices: self.slices.clone(),
+        }
+    }
+}
+
 pub struct TraceParams {
     angle_skeleton: usize,
     close_slice_threshold: f64,
@@ -52,6 +61,104 @@ impl Trace {
             .collect();
         Trace { ratio_lines }
     }
+
+    fn compare_with(&self, target_similarity: f64, other: &Trace) -> f64 {
+        for i in 0..self.ratio_lines.len() {
+            let mut duplicated_ratio_lines = self
+                .ratio_lines
+                .iter()
+                .map(|line| line.duplicate())
+                .collect::<Vec<_>>();
+            duplicated_ratio_lines.rotate_right(i);
+            let similarity = compare_with(&duplicated_ratio_lines, &other.ratio_lines);
+            if similarity >= target_similarity {
+                return similarity;
+            }
+        }
+        0.0
+    }
+}
+
+fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine]) -> f64 {
+    let mut total_similarity = 0.0;
+    for (line1, line2) in first_ratio_lines.iter().zip(second_ratio_lines.iter()) {
+        let similarity = compare_lines(&line1, &line2);
+        total_similarity += similarity;
+    }
+    total_similarity / first_ratio_lines.len() as f64
+}
+
+fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
+    let overlaps = get_overlaps(&line1, &line2);
+    // convert the following code to rust
+    let mut filtered_overlaps: Vec<TaggedRatio> = overlaps
+        .into_iter()
+        .filter(|tr| (tr.left_tag + tr.right_tag) != 1)
+        .collect();
+    filtered_overlaps.sort_by(|lhs, rhs| rhs.slice.get_end().x.partial_cmp(&lhs.slice.get_end().x).unwrap());
+    let left_quantile_index = 2 * line1.slices.len() + 1;
+    let right_quantile_index = 2 * line2.slices.len() + 1;
+    let quantile_index = std::cmp::max(left_quantile_index, right_quantile_index) + 1;
+    let N = std::cmp::min(filtered_overlaps.len(), quantile_index);
+    let mut similarity = 0.0;
+    for i in 0..N {
+        similarity += filtered_overlaps[i].slice.get_end().x - filtered_overlaps[i].slice.get_start().x;
+    }
+    similarity
+}
+
+#[derive(Clone)]
+struct TaggedRatio {
+    slice: Slice,
+    left_tag: usize,
+    right_tag: usize,
+}
+
+fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
+    // convert the following code to rust
+    let mut overlaps: Vec<TaggedRatio> = Vec::new();
+    let mut interesting_points: Vec<f64> = Vec::new();
+    interesting_points.push(0.0);
+    interesting_points.push(1.0);
+    for ratio in &line1.slices {
+        interesting_points.push(ratio.get_start().x);
+        interesting_points.push(ratio.get_end().x);
+    }
+    for ratio in &line2.slices {
+        interesting_points.push(ratio.get_start().x);
+        interesting_points.push(ratio.get_end().x);
+    }
+    interesting_points.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    for i in 0..interesting_points.len() - 1 {
+        let from = interesting_points[i];
+        let to = interesting_points[i + 1];
+        if from == to {
+            continue; // skip zero-length intervals
+        }
+        let current_midpoint = (from + to) / 2.0;
+        let pred = |ratio: &Slice| {
+            ratio.get_start().x <= current_midpoint && ratio.get_end().x >= current_midpoint
+        };
+        let lit = line1.slices.iter().find(|&ratio| pred(ratio));
+        let rit = line2.slices.iter().find(|&ratio| pred(ratio));
+        let mut left_tag = 1;
+        let mut right_tag = 1;
+        if lit.is_some() {
+            left_tag = 0;
+        }
+        if rit.is_some() {
+            right_tag = 0;
+        }
+        overlaps.push(TaggedRatio {
+            slice: Slice::new(
+                Vec3d::new(from, 0.0, 0.0),
+                Vec3d::new(to, 0.0, 0.0)
+            ),
+            left_tag,
+            right_tag,
+        });
+    }
+    overlaps
 }
 
 fn deduce_slices_from_shape(
