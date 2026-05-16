@@ -9,29 +9,57 @@ use crate::math::WrappedCoordinateSystem;
 
 #[derive(Clone)]
 pub struct Slice {
-    start: Vec3d,
-    end: Vec3d,
+    start: CoordinatedPoint,
+    end: CoordinatedPoint,
 }
 
 impl PartialEq for Slice {
     fn eq(&self, other: &Self) -> bool {
-        let start_diff = (self.start - other.start).length();
-        let end_diff = (self.end - other.end).length();
+        let global_coordinate_system = WrappedCoordinateSystem::new(
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(1.0, 0.0, 0.0),
+            Vec3d::new(0.0, 1.0, 0.0),
+        );
+        let self_start_global = self.start.convert_to(global_coordinate_system.clone());
+        let self_end_global = self.end.convert_to(global_coordinate_system.clone());
+        let other_start_global = other.start.convert_to(global_coordinate_system.clone());
+        let other_end_global = other.end.convert_to(global_coordinate_system.clone());
+        let start_diff = (self_start_global.get_local_point() - other_start_global.get_local_point()).length();
+        let end_diff = (self_end_global.get_local_point() - other_end_global.get_local_point()).length();
         start_diff < 1e-6 && end_diff < 1e-6
     }
 }
 
 impl Slice {
-    pub fn new(start: Vec3d, end: Vec3d) -> Self {
+    pub fn new(start: CoordinatedPoint, end: CoordinatedPoint) -> Self {
         Self { start, end }
     }
 
-    pub fn get_start(&self) -> Vec3d {
-        self.start
+    pub fn get_start(&self) -> CoordinatedPoint {
+        self.start.clone()
     }
 
-    pub fn get_end(&self) -> Vec3d {
-        self.end
+    pub fn get_end(&self) -> CoordinatedPoint {
+        self.end.clone()
+    }
+
+    pub fn convert_to_global(&self) -> Slice {
+        let global_coordinate_system = WrappedCoordinateSystem::new(
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(1.0, 0.0, 0.0),
+            Vec3d::new(0.0, 1.0, 0.0),
+        );
+        Slice {
+            start: self.start.convert_to(global_coordinate_system.clone()),
+            end: self.end.convert_to(global_coordinate_system.clone()),
+        }
+    }
+
+    pub fn convert_to(&self, coordinate_system: WrappedCoordinateSystem) -> Slice {
+        Slice {
+            start: self.start.convert_to(coordinate_system.clone()),
+            end: self.end.convert_to(coordinate_system.clone()),
+        }
     }
 }
 
@@ -48,24 +76,28 @@ impl AnnotatedSlice {
             return false;
         }
         // Check if the slices overlap in the x-axis
-        let self_start_x = self.slice.start.x;
-        let self_end_x = self.slice.end.x;
-        let other_start_x = other.slice.start.x;
-        let other_end_x = other.slice.end.x;
+        let self_start_x = self.slice.get_start().get_x();
+        let self_end_x = self.slice.get_end().get_x();
+        let other_start_x = other.slice.get_start().get_x();
+        let other_end_x = other.slice.get_end().get_x();
 
         !(self_end_x < other_start_x || self_start_x > other_end_x)
     }
 
     pub fn get_mass(&self) -> f64 {
-        self.slice.end.x - self.slice.start.x + 1.0
+        self.slice.get_end().get_x() - self.slice.get_start().get_x() + 1.0
     }
 
     pub fn get_midpoint(&self) -> Vec3d {
         Vec3d::new(
-            (self.slice.start.x + self.slice.end.x) / 2.0,
-            self.slice.start.y,
+            (self.slice.get_start().get_x() + self.slice.get_end().get_x()) / 2.0,
+            self.slice.get_start().get_y(),
             0.0,
         )
+    }
+
+    pub fn get_slice(&self) -> Slice {
+        self.slice.clone()
     }
 }
 
@@ -86,10 +118,10 @@ impl SliceLine {
     pub fn maintain_slices(&mut self) {
         // remove duplicates of the same slice
         self.slices.sort_by(|a, b| {
-            let a_start_x = a.slice.start.x;
-            let a_end_x = a.slice.end.x;
-            let b_start_x = b.slice.start.x;
-            let b_end_x = b.slice.end.x;
+            let a_start_x = a.slice.get_start().get_x();
+            let a_end_x = a.slice.get_end().get_x();
+            let b_start_x = b.slice.get_start().get_x();
+            let b_end_x = b.slice.get_end().get_x();
             a_start_x
                 .partial_cmp(&b_start_x)
                 .unwrap()
@@ -239,10 +271,10 @@ impl SliceMatrix {
 
         for line in &self.lines {
             for slice in &line.slices {
-                min_x = min_x.min(slice.slice.start.x);
-                max_x = max_x.max(slice.slice.end.x);
-                min_y = min_y.min(slice.slice.start.y);
-                max_y = max_y.max(slice.slice.end.y);
+                min_x = min_x.min(slice.get_slice().get_start().get_x());
+                max_x = max_x.max(slice.get_slice().get_end().get_x());
+                min_y = min_y.min(slice.get_slice().get_start().get_y());
+                max_y = max_y.max(slice.get_slice().get_end().get_y());
             }
         }
 
@@ -259,12 +291,12 @@ impl SliceMatrix {
         for line in &self.lines {
             for slice in &line.slices {
                 masses.push((slice.get_mass(), slice.get_midpoint()));
-                let left_point = slice.slice.start;
-                let right_point = slice.slice.end;
-                tl.x = tl.x.min(left_point.x);
-                tl.y = tl.y.min(left_point.y);
-                br.x = br.x.max(right_point.x);
-                br.y = br.y.max(right_point.y);
+                let left_point = slice.get_slice().get_start();
+                let right_point = slice.get_slice().get_end();
+                tl.x = tl.x.min(left_point.get_x());
+                tl.y = tl.y.min(left_point.get_y());
+                br.x = br.x.max(right_point.get_x());
+                br.y = br.y.max(right_point.get_y());
             }
         }
         let bounding_box = OtherRectangle::new(tl, br);
@@ -290,12 +322,16 @@ impl SliceMatrix {
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
         );
-        let global_point = point.convert_to(global_coordinate_system);
+        let global_point = point.convert_to(global_coordinate_system.clone());
         for line in &self.lines {
             for slice in &line.slices {
-                if global_point.get_y() == slice.slice.start.y
-                    && global_point.get_x() >= slice.slice.start.x
-                    && global_point.get_x() <= slice.slice.end.x
+                let slice_start = slice.get_slice().get_start();
+                let slice_end = slice.get_slice().get_end();
+                let global_start = slice_start.convert_to(global_coordinate_system.clone());
+                let global_end = slice_end.convert_to(global_coordinate_system.clone());
+                if global_point.get_y() == global_start.get_y()
+                    && global_point.get_x() >= global_start.get_x()
+                    && global_point.get_x() <= global_end.get_x()
                 {
                     return true;
                 }
@@ -498,23 +534,29 @@ pub fn calculate_slices(
         // Convert image to grayscale
         let gray_image = image::imageops::grayscale(&image);
         let mut current_slice = None;
+        let global_coordinate_system = WrappedCoordinateSystem::new(
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(1.0, 0.0, 0.0),
+            Vec3d::new(0.0, 1.0, 0.0),
+        );
         for y in rectangle.top_left.y as u32 + 2..rectangle.bottom_right.y as u32 - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
             for x in rectangle.top_left.x as u32 + 2..rectangle.bottom_right.x as u32 - 2 {
                 let gradient = compute_smoothed_gradient(&gray_image, x, y);
 
+
                 if gradient <= params.gradient_threshold as u16 {
                     if current_slice.is_none() {
                         current_slice = Some(AnnotatedSlice {
                             slice: Slice {
-                                start: Vec3d::new(x as f64, y as f64, 0.0),
-                                end: Vec3d::new(x as f64, y as f64, 0.0),
+                                start: CoordinatedPoint::new(global_coordinate_system.clone(), Vec3d::new(x as f64, y as f64, 0.0)),
+                                end: CoordinatedPoint::new(global_coordinate_system.clone(), Vec3d::new(x as f64, y as f64, 0.0)),
                             },
                             line_number: y,
                         });
                     } else {
                         if let Some(slice) = &mut current_slice {
-                            slice.slice.end.x = x as f64;
+                            slice.slice.end = CoordinatedPoint::new(global_coordinate_system.clone(), Vec3d::new(x as f64, y as f64, 0.0));
                         }
                     }
                 } else {
@@ -538,17 +580,22 @@ pub fn calculate_slices(
                     && gradient_1 <= params.gradient_threshold as u16
                     && gradient_2 <= params.gradient_threshold as u16
                 {
+                    let global_coordinate_system = WrappedCoordinateSystem::new(
+                        Vec3d::new(0.0, 0.0, 0.0),
+                        Vec3d::new(1.0, 0.0, 0.0),
+                        Vec3d::new(0.0, 1.0, 0.0),
+                    );
                     if current_slice.is_none() {
                         current_slice = Some(AnnotatedSlice {
                             slice: Slice {
-                                start: Vec3d::new(x as f64, y as f64, 0.0),
-                                end: Vec3d::new(x as f64, y as f64, 0.0),
+                                start: CoordinatedPoint::new(global_coordinate_system.clone(), Vec3d::new(x as f64, y as f64, 0.0)),
+                                end: CoordinatedPoint::new(global_coordinate_system.clone(), Vec3d::new(x as f64, y as f64, 0.0)),
                             },
                             line_number: y,
                         });
                     } else {
                         if let Some(slice) = &mut current_slice {
-                            slice.slice.end.x = x as f64;
+                            slice.slice.end = CoordinatedPoint::new(global_coordinate_system.clone(), Vec3d::new(x as f64, y as f64, 0.0));
                         }
                     }
                 } else {

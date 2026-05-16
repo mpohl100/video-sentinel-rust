@@ -390,6 +390,17 @@ impl WrappedCoordinateSystem {
         let cs = self.coordinate_system.lock().unwrap();
         WrappedCoordinateSystem::new(cs.origin, cs.x_axis, cs.y_axis)
     }
+
+    pub fn align_x_axis_with(&self, other: &WrappedCoordinateSystem) {
+        let cs1 = self.coordinate_system.lock().unwrap();
+        let cs2 = other.coordinate_system.lock().unwrap();
+        let line1 = Line::new(Vec3d::new(0.0, 0.0, 0.0), cs1.x_axis);
+        let line2 = Line::new(Vec3d::new(0.0, 0.0, 0.0), cs2.x_axis);
+        let angle_to_rotate = line1.angle_between(&line2);
+        drop(cs1);
+        drop(cs2);
+        self.rotate(angle_to_rotate);
+    }
 }
 
 #[derive(Clone)]
