@@ -1,5 +1,3 @@
-use std::convert;
-
 use crate::math::CoordinatedLine;
 use crate::math::CoordinatedPoint;
 use crate::math::CoordinatedRectangle;
@@ -90,7 +88,9 @@ impl Trace {
 fn compare_with(first_ratio_lines: &mut [RatioLine], second_ratio_lines: &[RatioLine]) -> f64 {
     let mut total_similarity = 0.0;
     for (line1, line2) in first_ratio_lines.iter_mut().zip(second_ratio_lines.iter()) {
-        line1.coordinate_system.align_x_axis_with(&line2.coordinate_system);
+        line1
+            .coordinate_system
+            .align_x_axis_with(&line2.coordinate_system);
         let similarity = compare_lines(&line1, &line2);
         total_similarity += similarity;
     }
@@ -104,14 +104,21 @@ fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
         .into_iter()
         .filter(|tr| (tr.left_tag + tr.right_tag) != 1)
         .collect();
-    filtered_overlaps.sort_by(|lhs, rhs| rhs.slice.get_end().get_x().partial_cmp(&lhs.slice.get_end().get_x()).unwrap());
+    filtered_overlaps.sort_by(|lhs, rhs| {
+        rhs.slice
+            .get_end()
+            .get_x()
+            .partial_cmp(&lhs.slice.get_end().get_x())
+            .unwrap()
+    });
     let left_quantile_index = 2 * line1.slices.len() + 1;
     let right_quantile_index = 2 * line2.slices.len() + 1;
     let quantile_index = std::cmp::max(left_quantile_index, right_quantile_index) + 1;
     let N = std::cmp::min(filtered_overlaps.len(), quantile_index);
     let mut similarity = 0.0;
     for i in 0..N {
-        similarity += filtered_overlaps[i].slice.get_end().get_x() - filtered_overlaps[i].slice.get_start().get_x();
+        similarity += filtered_overlaps[i].slice.get_end().get_x()
+            - filtered_overlaps[i].slice.get_start().get_x();
     }
     similarity
 }
@@ -152,7 +159,8 @@ fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
         }
         let current_midpoint = (from + to) / 2.0;
         let pred = |ratio: &Slice| {
-            ratio.get_start().get_x() <= current_midpoint && ratio.get_end().get_x() >= current_midpoint
+            ratio.get_start().get_x() <= current_midpoint
+                && ratio.get_end().get_x() >= current_midpoint
         };
         let lit = line1.slices.iter().find(|&ratio| pred(ratio));
         let rit = line2.slices.iter().find(|&ratio| pred(ratio));
@@ -167,7 +175,7 @@ fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
         overlaps.push(TaggedRatio {
             slice: Slice::new(
                 CoordinatedPoint::new(coordinate_system.clone(), Vec3d::new(from, 0.0, 0.0)),
-                CoordinatedPoint::new(coordinate_system.clone(), Vec3d::new(to, 0.0, 0.0))
+                CoordinatedPoint::new(coordinate_system.clone(), Vec3d::new(to, 0.0, 0.0)),
             ),
             left_tag,
             right_tag,
@@ -219,10 +227,7 @@ fn deduce_slices_from_shape(
             let x_axis_line = CoordinatedLine::new(x_line_start, x_line_end);
             let clipped_line = coordinated_rectangle.get_intersection_line(x_axis_line);
             if let Some(clipped_line) = clipped_line {
-                let slice = Slice::new(
-                    clipped_line.get_start(),
-                    clipped_line.get_end(),
-                );
+                let slice = Slice::new(clipped_line.get_start(), clipped_line.get_end());
                 slices.push(slice);
             }
         }

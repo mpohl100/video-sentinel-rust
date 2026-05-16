@@ -24,8 +24,10 @@ impl PartialEq for Slice {
         let self_end_global = self.end.convert_to(global_coordinate_system.clone());
         let other_start_global = other.start.convert_to(global_coordinate_system.clone());
         let other_end_global = other.end.convert_to(global_coordinate_system.clone());
-        let start_diff = (self_start_global.get_local_point() - other_start_global.get_local_point()).length();
-        let end_diff = (self_end_global.get_local_point() - other_end_global.get_local_point()).length();
+        let start_diff =
+            (self_start_global.get_local_point() - other_start_global.get_local_point()).length();
+        let end_diff =
+            (self_end_global.get_local_point() - other_end_global.get_local_point()).length();
         start_diff < 1e-6 && end_diff < 1e-6
     }
 }
@@ -544,19 +546,27 @@ pub fn calculate_slices(
             for x in rectangle.top_left.x as u32 + 2..rectangle.bottom_right.x as u32 - 2 {
                 let gradient = compute_smoothed_gradient(&gray_image, x, y);
 
-
                 if gradient <= params.gradient_threshold as u16 {
                     if current_slice.is_none() {
                         current_slice = Some(AnnotatedSlice {
                             slice: Slice {
-                                start: CoordinatedPoint::new(global_coordinate_system.clone(), Vec3d::new(x as f64, y as f64, 0.0)),
-                                end: CoordinatedPoint::new(global_coordinate_system.clone(), Vec3d::new(x as f64, y as f64, 0.0)),
+                                start: CoordinatedPoint::new(
+                                    global_coordinate_system.clone(),
+                                    Vec3d::new(x as f64, y as f64, 0.0),
+                                ),
+                                end: CoordinatedPoint::new(
+                                    global_coordinate_system.clone(),
+                                    Vec3d::new(x as f64, y as f64, 0.0),
+                                ),
                             },
                             line_number: y,
                         });
                     } else {
                         if let Some(slice) = &mut current_slice {
-                            slice.slice.end = CoordinatedPoint::new(global_coordinate_system.clone(), Vec3d::new(x as f64, y as f64, 0.0));
+                            slice.slice.end = CoordinatedPoint::new(
+                                global_coordinate_system.clone(),
+                                Vec3d::new(x as f64, y as f64, 0.0),
+                            );
                         }
                     }
                 } else {
@@ -588,14 +598,23 @@ pub fn calculate_slices(
                     if current_slice.is_none() {
                         current_slice = Some(AnnotatedSlice {
                             slice: Slice {
-                                start: CoordinatedPoint::new(global_coordinate_system.clone(), Vec3d::new(x as f64, y as f64, 0.0)),
-                                end: CoordinatedPoint::new(global_coordinate_system.clone(), Vec3d::new(x as f64, y as f64, 0.0)),
+                                start: CoordinatedPoint::new(
+                                    global_coordinate_system.clone(),
+                                    Vec3d::new(x as f64, y as f64, 0.0),
+                                ),
+                                end: CoordinatedPoint::new(
+                                    global_coordinate_system.clone(),
+                                    Vec3d::new(x as f64, y as f64, 0.0),
+                                ),
                             },
                             line_number: y,
                         });
                     } else {
                         if let Some(slice) = &mut current_slice {
-                            slice.slice.end = CoordinatedPoint::new(global_coordinate_system.clone(), Vec3d::new(x as f64, y as f64, 0.0));
+                            slice.slice.end = CoordinatedPoint::new(
+                                global_coordinate_system.clone(),
+                                Vec3d::new(x as f64, y as f64, 0.0),
+                            );
                         }
                     }
                 } else {
