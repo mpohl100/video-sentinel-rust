@@ -114,9 +114,9 @@ fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
     let left_quantile_index = 2 * line1.slices.len() + 1;
     let right_quantile_index = 2 * line2.slices.len() + 1;
     let quantile_index = std::cmp::max(left_quantile_index, right_quantile_index) + 1;
-    let N = std::cmp::min(filtered_overlaps.len(), quantile_index);
+    let n = std::cmp::min(filtered_overlaps.len(), quantile_index);
     let mut similarity = 0.0;
-    for i in 0..N {
+    for i in 0..n {
         similarity += filtered_overlaps[i].slice.get_end().get_x()
             - filtered_overlaps[i].slice.get_start().get_x();
     }

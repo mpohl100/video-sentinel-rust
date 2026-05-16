@@ -315,7 +315,8 @@ impl SliceMatrix {
             .map(|(_, midpoint)| (*midpoint - center_of_mass).length())
             .fold(0.0, f64::max);
         let bounding_circle = crate::math::Circle::new(center_of_mass, max_radius_from_center);
-        CachedData::new(bounding_box, bounding_circle, center_of_mass)
+        let area = masses.iter().map(|(mass, _)| *mass).sum::<f64>();
+        CachedData::new(bounding_box, bounding_circle, center_of_mass, area)
     }
 
     pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
@@ -354,6 +355,7 @@ pub struct CachedData {
     bounding_box: OtherRectangle,
     bounding_circle: crate::math::Circle,
     center_of_mass: Vec3d,
+    area: f64,
 }
 
 impl CachedData {
@@ -361,11 +363,13 @@ impl CachedData {
         bounding_box: OtherRectangle,
         bounding_circle: crate::math::Circle,
         center_of_mass: Vec3d,
+        area: f64,
     ) -> Self {
         Self {
             bounding_box,
             bounding_circle,
             center_of_mass,
+            area,
         }
     }
 
@@ -379,6 +383,10 @@ impl CachedData {
 
     pub fn get_center_of_mass(&self) -> Vec3d {
         self.center_of_mass
+    }
+
+    pub fn get_area(&self) -> f64 {
+        self.area
     }
 }
 
@@ -409,6 +417,13 @@ impl Rectangle {
         }
     }
 
+    pub fn new_from_math_rectangle(rectangle: OtherRectangle) -> Self {
+        Self {
+            top_left: rectangle.get_top_left(),
+            bottom_right: rectangle.get_bottom_right(),
+        }
+    }
+
     pub fn get_top_left(&self) -> Vec3d {
         self.top_left
     }
@@ -421,6 +436,13 @@ impl Rectangle {
         let width = self.bottom_right.x - self.top_left.x + 1.0;
         let height = self.bottom_right.y - self.top_left.y + 1.0;
         width * height
+    }
+
+    pub fn overlaps(&self, other: &Rectangle) -> bool {
+        !(self.bottom_right.x < other.top_left.x
+            || self.top_left.x > other.bottom_right.x
+            || self.bottom_right.y < other.top_left.y
+            || self.top_left.y > other.bottom_right.y)
     }
 }
 

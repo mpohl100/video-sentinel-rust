@@ -36,6 +36,11 @@ impl Shape {
         self.cached_data.as_ref().unwrap().get_center_of_mass()
     }
 
+    pub fn get_area(&mut self) -> f64 {
+        self.calculate_cached_data();
+        self.cached_data.as_ref().unwrap().get_area()
+    }
+
     fn calculate_cached_data(&mut self) {
         if self.cached_data.is_some() {
             return;
@@ -74,6 +79,11 @@ impl WrappedShape {
     pub fn get_center_of_mass(&self) -> Vec3d {
         let mut shape = self.shape.lock().unwrap();
         shape.get_center_of_mass()
+    }
+
+    pub fn get_area(&self) -> f64 {
+        let mut shape = self.shape.lock().unwrap();
+        shape.get_area()
     }
 
     pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
