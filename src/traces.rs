@@ -1,3 +1,5 @@
+use std::convert;
+
 use crate::math::CoordinatedLine;
 use crate::math::CoordinatedPoint;
 use crate::math::CoordinatedRectangle;
@@ -25,7 +27,7 @@ impl RatioLine {
 }
 
 pub struct TraceParams {
-    angle_skeleton: usize,
+    num_skeleton: usize,
     close_slice_threshold: f64,
 }
 
@@ -36,7 +38,7 @@ pub struct Trace {
 
 impl Trace {
     pub fn new_from_shape(shape: WrappedShape, params: TraceParams) -> Self {
-        let ratio_lines = (0..params.angle_skeleton)
+        let ratio_lines = (0..params.num_skeleton)
             .map(|i| {
                 let coordinate_system = WrappedCoordinateSystem::new(
                     shape.get_center_of_mass(),
@@ -44,7 +46,7 @@ impl Trace {
                     Vec3d::new(0.0, 1.0, 0.0),
                 );
                 coordinate_system.rotate(RegionedAngle::new(
-                    (i as f64) * (180.0 / params.angle_skeleton as f64),
+                    (i as f64) * (360.0 / params.num_skeleton as f64),
                     -180.0,
                     180.0,
                 ));
@@ -69,8 +71,14 @@ impl Trace {
                 .iter()
                 .map(|line| line.duplicate())
                 .collect::<Vec<_>>();
-            duplicated_ratio_lines.rotate_right(i);
-            let similarity = compare_with(&duplicated_ratio_lines, &other.ratio_lines);
+            for line in duplicated_ratio_lines.iter_mut() {
+                line.coordinate_system.rotate(RegionedAngle::new(
+                    (i as f64) * (360.0 / self.ratio_lines.len() as f64),
+                    -180.0,
+                    180.0,
+                ));
+            }
+            let similarity = compare_with(&mut duplicated_ratio_lines, &other.ratio_lines);
             if similarity >= target_similarity {
                 return similarity;
             }
@@ -79,9 +87,10 @@ impl Trace {
     }
 }
 
-fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine]) -> f64 {
+fn compare_with(first_ratio_lines: &mut [RatioLine], second_ratio_lines: &[RatioLine]) -> f64 {
     let mut total_similarity = 0.0;
-    for (line1, line2) in first_ratio_lines.iter().zip(second_ratio_lines.iter()) {
+    for (line1, line2) in first_ratio_lines.iter_mut().zip(second_ratio_lines.iter()) {
+        line1.coordinate_system.align_x_axis_with(&line2.coordinate_system);
         let similarity = compare_lines(&line1, &line2);
         total_similarity += similarity;
     }
@@ -95,14 +104,14 @@ fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
         .into_iter()
         .filter(|tr| (tr.left_tag + tr.right_tag) != 1)
         .collect();
-    filtered_overlaps.sort_by(|lhs, rhs| rhs.slice.get_end().x.partial_cmp(&lhs.slice.get_end().x).unwrap());
+    filtered_overlaps.sort_by(|lhs, rhs| rhs.slice.get_end().get_x().partial_cmp(&lhs.slice.get_end().get_x()).unwrap());
     let left_quantile_index = 2 * line1.slices.len() + 1;
     let right_quantile_index = 2 * line2.slices.len() + 1;
     let quantile_index = std::cmp::max(left_quantile_index, right_quantile_index) + 1;
     let N = std::cmp::min(filtered_overlaps.len(), quantile_index);
     let mut similarity = 0.0;
     for i in 0..N {
-        similarity += filtered_overlaps[i].slice.get_end().x - filtered_overlaps[i].slice.get_start().x;
+        similarity += filtered_overlaps[i].slice.get_end().get_x() - filtered_overlaps[i].slice.get_start().get_x();
     }
     similarity
 }
@@ -115,18 +124,24 @@ struct TaggedRatio {
 }
 
 fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
+    let coordinate_system = line1.coordinate_system.clone();
+    let converted_slices_1: Vec<Slice> = line1
+        .slices
+        .iter()
+        .map(|slice| slice.convert_to(coordinate_system.clone()))
+        .collect();
     // convert the following code to rust
     let mut overlaps: Vec<TaggedRatio> = Vec::new();
     let mut interesting_points: Vec<f64> = Vec::new();
     interesting_points.push(0.0);
     interesting_points.push(1.0);
-    for ratio in &line1.slices {
-        interesting_points.push(ratio.get_start().x);
-        interesting_points.push(ratio.get_end().x);
+    for ratio in &converted_slices_1 {
+        interesting_points.push(ratio.get_start().get_x());
+        interesting_points.push(ratio.get_end().get_x());
     }
     for ratio in &line2.slices {
-        interesting_points.push(ratio.get_start().x);
-        interesting_points.push(ratio.get_end().x);
+        interesting_points.push(ratio.get_start().get_x());
+        interesting_points.push(ratio.get_end().get_x());
     }
     interesting_points.sort_by(|a, b| a.partial_cmp(b).unwrap());
     for i in 0..interesting_points.len() - 1 {
@@ -137,7 +152,7 @@ fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
         }
         let current_midpoint = (from + to) / 2.0;
         let pred = |ratio: &Slice| {
-            ratio.get_start().x <= current_midpoint && ratio.get_end().x >= current_midpoint
+            ratio.get_start().get_x() <= current_midpoint && ratio.get_end().get_x() >= current_midpoint
         };
         let lit = line1.slices.iter().find(|&ratio| pred(ratio));
         let rit = line2.slices.iter().find(|&ratio| pred(ratio));
@@ -151,8 +166,8 @@ fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
         }
         overlaps.push(TaggedRatio {
             slice: Slice::new(
-                Vec3d::new(from, 0.0, 0.0),
-                Vec3d::new(to, 0.0, 0.0)
+                CoordinatedPoint::new(coordinate_system.clone(), Vec3d::new(from, 0.0, 0.0)),
+                CoordinatedPoint::new(coordinate_system.clone(), Vec3d::new(to, 0.0, 0.0))
             ),
             left_tag,
             right_tag,
@@ -205,8 +220,8 @@ fn deduce_slices_from_shape(
             let clipped_line = coordinated_rectangle.get_intersection_line(x_axis_line);
             if let Some(clipped_line) = clipped_line {
                 let slice = Slice::new(
-                    clipped_line.get_start().get_local_point(),
-                    clipped_line.get_end().get_local_point(),
+                    clipped_line.get_start(),
+                    clipped_line.get_end(),
                 );
                 slices.push(slice);
             }
@@ -223,7 +238,7 @@ fn combine_close_slices(slices: Vec<Slice>, threshold: f64) -> Vec<Slice> {
     let mut combined_slices = Vec::new();
     let mut current_slice = slices[0].clone();
     for slice in slices.iter().skip(1) {
-        if slice.get_start().x - current_slice.get_end().x <= threshold {
+        if slice.get_start().get_x() - current_slice.get_end().get_x() <= threshold {
             current_slice = Slice::new(current_slice.get_start(), slice.get_end());
         } else {
             combined_slices.push(current_slice);
