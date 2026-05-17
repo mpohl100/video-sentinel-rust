@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use crate::slices::Rectangle;
 use crate::mosaics::WrappedMosaic;
+use crate::slices::Rectangle;
 
 pub struct BucketedMosaicsPerSection {
     rectangle: Rectangle,
@@ -19,8 +19,7 @@ impl BucketedMosaicsPerSection {
     }
 
     pub fn add_mosaic(&mut self, mosaic: WrappedMosaic) {
-        let bounding_box =
-            Rectangle::new_from_math_rectangle(mosaic.get_bounding_box());
+        let bounding_box = Rectangle::new_from_math_rectangle(mosaic.get_bounding_box());
         if bounding_box.overlaps(&self.rectangle) {
             self.bucket
                 .entry(self.get_bucket_key(&mosaic))
