@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use crate::traced_mosaics::TracedMosaic;
 use crate::slices::Rectangle;
+use crate::traced_mosaics::TracedMosaic;
 
 pub struct BucketedMosaicsPerSection {
     rectangle: Rectangle,
@@ -19,7 +19,8 @@ impl BucketedMosaicsPerSection {
     }
 
     pub fn add_mosaic(&mut self, mosaic: TracedMosaic) {
-        let bounding_box = Rectangle::new_from_math_rectangle(mosaic.get_mosaic().get_bounding_box());
+        let bounding_box =
+            Rectangle::new_from_math_rectangle(mosaic.get_mosaic().get_bounding_box());
         if bounding_box.overlaps(&self.rectangle) {
             self.bucket
                 .entry(self.get_bucket_key(&mosaic))
@@ -71,9 +72,18 @@ impl BucketedMosaics {
 
     pub fn get_potentially_similar_mosaics(&self, mosaic: &TracedMosaic) -> Vec<TracedMosaic> {
         let mut similar_mosaics = Vec::new();
-        for section in &self.sections {
+        for section in self.get_overlapping_sections(Rectangle::new_from_math_rectangle(
+            mosaic.get_mosaic().get_bounding_box(),
+        )) {
             similar_mosaics.extend(section.get_potentially_similar_mosaics(mosaic));
         }
         similar_mosaics
+    }
+
+    fn get_overlapping_sections(&self, bounding_box: Rectangle) -> Vec<&BucketedMosaicsPerSection> {
+        self.sections
+            .iter()
+            .filter(|section| section.rectangle.overlaps(&bounding_box))
+            .collect()
     }
 }
