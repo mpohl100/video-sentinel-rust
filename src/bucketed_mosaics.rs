@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 
-use crate::mosaics::WrappedMosaic;
+use crate::traced_mosaics::TracedMosaic;
 use crate::slices::Rectangle;
 
 pub struct BucketedMosaicsPerSection {
     rectangle: Rectangle,
-    bucket: BTreeMap<i64, Vec<WrappedMosaic>>,
+    bucket: BTreeMap<i64, Vec<TracedMosaic>>,
     delta: f64,
 }
 
@@ -18,19 +18,19 @@ impl BucketedMosaicsPerSection {
         }
     }
 
-    pub fn add_mosaic(&mut self, mosaic: WrappedMosaic) {
-        let bounding_box = Rectangle::new_from_math_rectangle(mosaic.get_bounding_box());
+    pub fn add_mosaic(&mut self, mosaic: TracedMosaic) {
+        let bounding_box = Rectangle::new_from_math_rectangle(mosaic.get_mosaic().get_bounding_box());
         if bounding_box.overlaps(&self.rectangle) {
             self.bucket
-                .entry(self.get_bucket_key(mosaic.clone()))
+                .entry(self.get_bucket_key(&mosaic))
                 .or_insert_with(Vec::new)
                 .push(mosaic);
         }
     }
 
-    fn get_bucket_key(&self, mosaic: WrappedMosaic) -> i64 {
-        let bounding_circle_area = mosaic.get_bounding_circle().get_area();
-        let mosaic_area = mosaic.get_area();
+    fn get_bucket_key(&self, mosaic: &TracedMosaic) -> i64 {
+        let bounding_circle_area = mosaic.get_mosaic().get_bounding_circle().get_area();
+        let mosaic_area = mosaic.get_mosaic().get_area();
         if bounding_circle_area == 0.0 {
             0
         } else {
@@ -38,7 +38,7 @@ impl BucketedMosaicsPerSection {
         }
     }
 
-    pub fn get_potentially_similar_mosaics(&self, mosaic: WrappedMosaic) -> Vec<WrappedMosaic> {
+    pub fn get_potentially_similar_mosaics(&self, mosaic: &TracedMosaic) -> Vec<TracedMosaic> {
         let bucket_key = self.get_bucket_key(mosaic);
         let mut similar_mosaics = Vec::new();
         for key in bucket_key - 1..=bucket_key + 1 {
@@ -63,16 +63,16 @@ impl BucketedMosaics {
         BucketedMosaics { sections }
     }
 
-    pub fn add_mosaic(&mut self, mosaic: WrappedMosaic) {
+    pub fn add_mosaic(&mut self, mosaic: TracedMosaic) {
         for section in &mut self.sections {
             section.add_mosaic(mosaic.clone());
         }
     }
 
-    pub fn get_potentially_similar_mosaics(&self, mosaic: WrappedMosaic) -> Vec<WrappedMosaic> {
+    pub fn get_potentially_similar_mosaics(&self, mosaic: &TracedMosaic) -> Vec<TracedMosaic> {
         let mut similar_mosaics = Vec::new();
         for section in &self.sections {
-            similar_mosaics.extend(section.get_potentially_similar_mosaics(mosaic.clone()));
+            similar_mosaics.extend(section.get_potentially_similar_mosaics(mosaic));
         }
         similar_mosaics
     }
