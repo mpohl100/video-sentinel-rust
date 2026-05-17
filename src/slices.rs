@@ -404,6 +404,7 @@ impl BasicParams {
     }
 }
 
+#[derive(Clone)]
 pub struct Rectangle {
     top_left: Vec3d,
     bottom_right: Vec3d,
@@ -421,6 +422,13 @@ impl Rectangle {
         Self {
             top_left: rectangle.get_top_left(),
             bottom_right: rectangle.get_bottom_right(),
+        }
+    }
+
+    pub fn new_from_dims (top_left: Vec3d, width: f64, height: f64) -> Self {
+        Self {
+            top_left,
+            bottom_right: Vec3d::new(top_left.x + width, top_left.y + height, 0.0),
         }
     }
 
@@ -443,6 +451,33 @@ impl Rectangle {
             || self.top_left.x > other.bottom_right.x
             || self.bottom_right.y < other.top_left.y
             || self.top_left.y > other.bottom_right.y)
+    }
+}
+
+#[derive(Clone,Eq, PartialEq, PartialOrd, Ord)]
+pub enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+#[derive(Clone)]
+pub struct ColoredRectangle {
+    rectangle: Rectangle,
+    color: Color,
+}
+
+impl ColoredRectangle {
+    pub fn new(rectangle: Rectangle, color: Color) -> Self {
+        Self { rectangle, color }
+    }
+
+    pub fn get_rectangle(&self) -> Rectangle {
+        self.rectangle.clone()
+    }
+
+    pub fn get_color(&self) -> Color {
+        self.color.clone()
     }
 }
 
