@@ -1,79 +1,79 @@
 use std::collections::BTreeMap;
 
-use crate::shapes::WrappedShape;
+use crate::mosaics::WrappedMosaic;
 use crate::slices::Rectangle;
 
-pub struct BucketedShapesPerSection {
+pub struct BucketedMosaicsPerSection {
     rectangle: Rectangle,
-    bucket: BTreeMap<i64, Vec<WrappedShape>>,
+    bucket: BTreeMap<i64, Vec<WrappedMosaic>>,
     delta: f64,
 }
 
-impl BucketedShapesPerSection {
+impl BucketedMosaicsPerSection {
     pub fn new(rectangle: Rectangle, delta: f64) -> Self {
-        BucketedShapesPerSection {
+        BucketedMosaicsPerSection {
             rectangle,
             bucket: BTreeMap::new(),
             delta,
         }
     }
 
-    pub fn add_shape(&mut self, shape: WrappedShape) {
-        let bounding_box = Rectangle::new_from_math_rectangle(shape.get_bounding_box());
+    pub fn add_mosaic(&mut self, mosaic: WrappedMosaic) {
+        let bounding_box = Rectangle::new_from_math_rectangle(mosaic.get_bounding_box());
         if bounding_box.overlaps(&self.rectangle) {
             self.bucket
-                .entry(self.get_bucket_key(shape.clone()))
+                .entry(self.get_bucket_key(mosaic.clone()))
                 .or_insert_with(Vec::new)
-                .push(shape);
+                .push(mosaic);
         }
     }
 
-    fn get_bucket_key(&self, shape: WrappedShape) -> i64 {
-        let bounding_circle_area = shape.get_bounding_circle().get_area();
-        let shape_area = shape.get_area();
+    fn get_bucket_key(&self, mosaic: WrappedMosaic) -> i64 {
+        let bounding_circle_area = mosaic.get_bounding_circle().get_area();
+        let mosaic_area = mosaic.get_area();
         if bounding_circle_area == 0.0 {
             0
         } else {
-            ((shape_area / bounding_circle_area) / self.delta).floor() as i64
+            ((mosaic_area / bounding_circle_area) / self.delta).floor() as i64
         }
     }
 
-    pub fn get_potentially_similar_shapes(&self, shape: WrappedShape) -> Vec<WrappedShape> {
-        let bucket_key = self.get_bucket_key(shape);
-        let mut similar_shapes = Vec::new();
+    pub fn get_potentially_similar_mosaics(&self, mosaic: WrappedMosaic) -> Vec<WrappedMosaic> {
+        let bucket_key = self.get_bucket_key(mosaic);
+        let mut similar_mosaics = Vec::new();
         for key in bucket_key - 1..=bucket_key + 1 {
-            if let Some(shapes) = self.bucket.get(&key) {
-                similar_shapes.extend(shapes.clone());
+            if let Some(mosaics) = self.bucket.get(&key) {
+                similar_mosaics.extend(mosaics.clone());
             }
         }
-        similar_shapes
+        similar_mosaics
     }
 }
 
-struct BucketedShapes {
-    sections: Vec<BucketedShapesPerSection>,
+struct BucketedMosaics {
+    sections: Vec<BucketedMosaicsPerSection>,
 }
 
-impl BucketedShapes {
+impl BucketedMosaics {
     pub fn new(rectangles: Vec<Rectangle>, delta: f64) -> Self {
         let sections = rectangles
             .into_iter()
-            .map(|rect| BucketedShapesPerSection::new(rect, delta))
+            .map(|rect| BucketedMosaicsPerSection::new(rect, delta))
             .collect();
-        BucketedShapes { sections }
+        BucketedMosaics { sections }
     }
 
-    pub fn add_shape(&mut self, shape: WrappedShape) {
+    pub fn add_mosaic(&mut self, mosaic: WrappedMosaic) {
         for section in &mut self.sections {
-            section.add_shape(shape.clone());
+            section.add_mosaic(mosaic.clone());
         }
     }
 
-    pub fn get_potentially_similar_shapes(&self, shape: WrappedShape) -> Vec<WrappedShape> {
-        let mut similar_shapes = Vec::new();
+    pub fn get_potentially_similar_mosaics(&self, mosaic: WrappedMosaic) -> Vec<WrappedMosaic> {
+        let mut similar_mosaics = Vec::new();
         for section in &self.sections {
-            similar_shapes.extend(section.get_potentially_similar_shapes(shape.clone()));
+            similar_mosaics.extend(section.get_potentially_similar_mosaics(mosaic.clone()));
         }
-        similar_shapes
+        similar_mosaics
     }
 }

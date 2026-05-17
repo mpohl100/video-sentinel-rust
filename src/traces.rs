@@ -4,7 +4,7 @@ use crate::math::CoordinatedRectangle;
 use crate::math::Rectangle;
 use crate::math::RegionedAngle;
 use crate::math::WrappedCoordinateSystem;
-use crate::shapes::WrappedShape;
+use crate::mosaics::WrappedMosaic;
 use crate::slices::Slice;
 
 use rs_math3d::Vec3d;
@@ -35,11 +35,11 @@ pub struct Trace {
 }
 
 impl Trace {
-    pub fn new_from_shape(shape: WrappedShape, params: TraceParams) -> Self {
+    pub fn new_from_mosaic(mosaic: WrappedMosaic, params: TraceParams) -> Self {
         let ratio_lines = (0..params.num_skeleton)
             .map(|i| {
                 let coordinate_system = WrappedCoordinateSystem::new(
-                    shape.get_center_of_mass(),
+                    mosaic.get_center_of_mass(),
                     Vec3d::new(1.0, 0.0, 0.0),
                     Vec3d::new(0.0, 1.0, 0.0),
                 );
@@ -50,10 +50,10 @@ impl Trace {
                 ));
                 RatioLine {
                     coordinate_system: coordinate_system.clone(),
-                    slices: deduce_slices_from_shape(
-                        vec![shape.clone()],
+                    slices: deduce_slices_from_mosaic(
+                        vec![mosaic.clone()],
                         coordinate_system.clone(),
-                        shape.get_bounding_circle().get_radius(),
+                        mosaic.get_bounding_circle().get_radius(),
                         &params,
                     ),
                 }
@@ -184,14 +184,14 @@ fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
     overlaps
 }
 
-fn deduce_slices_from_shape(
-    shapes: Vec<WrappedShape>,
+fn deduce_slices_from_mosaic(
+    mosaics: Vec<WrappedMosaic>,
     coordinate_system: WrappedCoordinateSystem,
     radius: f64,
     params: &TraceParams,
 ) -> Vec<Slice> {
     let mut slices = Vec::new();
-    // for every x in the range of -radius to radius with a step of 0.5, find the intersections with the shape and create slices
+    // for every x in the range of -radius to radius with a step of 0.5, find the intersections with the mosaic and create slices
     let step = 0.5;
     let mut x = -radius;
     while x <= radius {
@@ -201,9 +201,9 @@ fn deduce_slices_from_shape(
             Vec3d::new(0.0, 1.0, 0.0),
         );
         let point = CoordinatedPoint::new(coordinate_system.clone(), Vec3d::new(x, 0.0, 0.0));
-        let contains_point = shapes
+        let contains_point = mosaics
             .iter()
-            .any(|shape| shape.contains_point(point.clone()));
+            .any(|mosaic| mosaic.contains_point(point.clone()));
         if contains_point {
             let global_point = point.convert_to(global_coordinate_system.clone());
             let tl = Vec3d::new(
