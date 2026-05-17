@@ -172,6 +172,6 @@ fn frame_to_rgb_image(frame: video_rs::Frame) -> Result<RgbImage, Box<dyn Error>
 
 fn rgb_image_to_frame(image: RgbImage) -> Result<Frame, Box<dyn Error>> {
     let (width, height) = image.dimensions();
-    Frame::from_mosaic_vec((height as usize, width as usize, 3), image.into_raw())
+    Frame::from_shape_vec((height as usize, width as usize, 3), image.into_raw())
         .map_err(|error| format!("failed to create output frame: {error}").into())
 }
