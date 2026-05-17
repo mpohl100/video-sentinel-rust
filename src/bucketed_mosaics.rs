@@ -23,7 +23,7 @@ impl BucketedMosaicsPerSection {
         if bounding_box.overlaps(&self.rectangle) {
             self.bucket
                 .entry(self.get_bucket_key(&mosaic))
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(mosaic);
         }
     }

@@ -92,14 +92,14 @@ fn compare_with(first_ratio_lines: &mut [RatioLine], second_ratio_lines: &[Ratio
         line1
             .coordinate_system
             .align_x_axis_with(&line2.coordinate_system);
-        let similarity = compare_lines(&line1, &line2);
+        let similarity = compare_lines(line1, line2);
         total_similarity += similarity;
     }
     total_similarity / first_ratio_lines.len() as f64
 }
 
 fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
-    let overlaps = get_overlaps(&line1, &line2);
+    let overlaps = get_overlaps(line1, line2);
     // convert the following code to rust
     let mut filtered_overlaps: Vec<TaggedRatio> = overlaps
         .into_iter()
@@ -117,9 +117,8 @@ fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
     let quantile_index = std::cmp::max(left_quantile_index, right_quantile_index) + 1;
     let n = std::cmp::min(filtered_overlaps.len(), quantile_index);
     let mut similarity = 0.0;
-    for i in 0..n {
-        similarity += filtered_overlaps[i].slice.get_end().get_x()
-            - filtered_overlaps[i].slice.get_start().get_x();
+    for item in filtered_overlaps.iter().take(n) {
+        similarity += item.slice.get_end().get_x() - item.slice.get_start().get_x();
     }
     similarity
 }
