@@ -425,7 +425,7 @@ impl Rectangle {
         }
     }
 
-    pub fn new_from_dims (top_left: Vec3d, width: f64, height: f64) -> Self {
+    pub fn new_from_dims(top_left: Vec3d, width: f64, height: f64) -> Self {
         Self {
             top_left,
             bottom_right: Vec3d::new(top_left.x + width, top_left.y + height, 0.0),
@@ -454,7 +454,7 @@ impl Rectangle {
     }
 }
 
-#[derive(Clone,Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Color {
     Red,
     Green,
