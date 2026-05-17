@@ -24,6 +24,7 @@ impl RatioLine {
     }
 }
 
+#[derive(Clone)]
 pub struct TraceParams {
     num_skeleton: usize,
     close_slice_threshold: f64,
@@ -62,7 +63,7 @@ impl Trace {
         Trace { ratio_lines }
     }
 
-    fn compare_with(&self, target_similarity: f64, other: &Trace) -> f64 {
+    pub fn compare_with(&self, target_similarity: f64, other: &Trace) -> f64 {
         for i in 0..self.ratio_lines.len() {
             let mut duplicated_ratio_lines = self
                 .ratio_lines
