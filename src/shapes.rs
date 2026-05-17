@@ -8,12 +8,12 @@ use std::sync::{Arc, Mutex};
 use rs_math3d::Vec3d;
 
 #[derive(Clone)]
-struct Shape {
+struct Mosaic {
     slice_matrix: SliceMatrix,
     cached_data: Option<CachedData>,
 }
 
-impl Shape {
+impl Mosaic {
     pub fn new(slice_matrix: SliceMatrix) -> Self {
         Self {
             slice_matrix,
@@ -49,45 +49,45 @@ impl Shape {
     }
 
     fn contains_point(&self, point: CoordinatedPoint) -> bool {
-        // convert the point to the global coordinate system and check if it is contained in the shape
+        // convert the point to the global coordinate system and check if it is contained in the mosaic
         self.slice_matrix.contains_point(point)
     }
 }
 
 #[derive(Clone)]
-pub struct WrappedShape {
-    shape: Arc<Mutex<Shape>>,
+pub struct WrappedMosaic {
+    mosaic: Arc<Mutex<Mosaic>>,
 }
 
-impl WrappedShape {
+impl WrappedMosaic {
     pub fn new(slice_matrix: SliceMatrix) -> Self {
         Self {
-            shape: Arc::new(Mutex::new(Shape::new(slice_matrix))),
+            mosaic: Arc::new(Mutex::new(Mosaic::new(slice_matrix))),
         }
     }
 
     pub fn get_bounding_box(&self) -> crate::math::Rectangle {
-        let mut shape = self.shape.lock().unwrap();
-        shape.get_bounding_box()
+        let mut mosaic = self.mosaic.lock().unwrap();
+        mosaic.get_bounding_box()
     }
 
     pub fn get_bounding_circle(&self) -> crate::math::Circle {
-        let mut shape = self.shape.lock().unwrap();
-        shape.get_bounding_circle()
+        let mut mosaic = self.mosaic.lock().unwrap();
+        mosaic.get_bounding_circle()
     }
 
     pub fn get_center_of_mass(&self) -> Vec3d {
-        let mut shape = self.shape.lock().unwrap();
-        shape.get_center_of_mass()
+        let mut mosaic = self.mosaic.lock().unwrap();
+        mosaic.get_center_of_mass()
     }
 
     pub fn get_area(&self) -> f64 {
-        let mut shape = self.shape.lock().unwrap();
-        shape.get_area()
+        let mut mosaic = self.mosaic.lock().unwrap();
+        mosaic.get_area()
     }
 
     pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
-        let shape = self.shape.lock().unwrap();
-        shape.contains_point(point)
+        let mosaic = self.mosaic.lock().unwrap();
+        mosaic.contains_point(point)
     }
 }
