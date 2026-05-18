@@ -6,6 +6,7 @@ use crate::traces::{Trace, TraceParams};
 
 use rs_math3d::Vec3d;
 
+#[derive(Clone, PartialEq)]
 pub struct ImageDecompositionParams {
     width: usize,
     height: usize,
@@ -13,6 +14,7 @@ pub struct ImageDecompositionParams {
     slice_height: usize,
 }
 
+#[derive(Clone, PartialEq)]
 pub struct EyeParams {
     image_decomposition_params: ImageDecompositionParams,
     bucket_delta: f64,
@@ -79,7 +81,7 @@ fn are_mosaics_similar(
     result >= target_similarity
 }
 
-fn calculate_rectangles_of_bucketed_mosaics(
+pub fn calculate_rectangles_of_bucketed_mosaics(
     image_decomposition_params: ImageDecompositionParams,
 ) -> Vec<Rectangle> {
     let mut rectangles = Vec::new();

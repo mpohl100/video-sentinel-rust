@@ -24,7 +24,7 @@ impl RatioLine {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, PartialOrd)]
 pub struct TraceParams {
     num_skeleton: usize,
     close_slice_threshold: f64,
