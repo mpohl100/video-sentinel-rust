@@ -452,6 +452,46 @@ impl Rectangle {
             || self.bottom_right.y < other.top_left.y
             || self.top_left.y > other.bottom_right.y)
     }
+
+    pub fn get_width(&self) -> f64 {
+        self.bottom_right.x - self.top_left.x + 1.0
+    }
+
+    pub fn get_height(&self) -> f64 {
+        self.bottom_right.y - self.top_left.y + 1.0
+    }
+}
+
+#[derive(Clone)]
+pub struct RelativeRectangle {
+    top_left: Vec3d,
+    bottom_right: Vec3d,
+}
+
+impl RelativeRectangle {
+    pub fn new_from_rectangles(first: Rectangle, second: Rectangle) -> Self {
+        let rel_x = (first.get_top_left().x - second.get_top_left().x) / second.get_width();
+        let rel_y = (first.get_top_left().y - second.get_top_left().y) / second.get_height();
+        let rel_width = first.get_width() / second.get_width();
+        let rel_height = first.get_height() / second.get_height();
+        Self {
+            top_left: Vec3d::new(rel_x, rel_y, 0.0),
+            bottom_right: Vec3d::new(rel_x + rel_width, rel_y + rel_height, 0.0),
+        }
+    }
+
+    pub fn invert(&self) -> RelativeRectangle {
+        // todo implement
+        self.clone()
+    }
+
+    pub fn multiply_with_rectangle(&self, rectangle: Rectangle) -> Rectangle {
+        let abs_x = rectangle.get_top_left().x + self.top_left.x * rectangle.get_width();
+        let abs_y = rectangle.get_top_left().y + self.top_left.y * rectangle.get_height();
+        let abs_width = (self.bottom_right.x - self.top_left.x) * rectangle.get_width();
+        let abs_height = (self.bottom_right.y - self.top_left.y) * rectangle.get_height();
+        Rectangle::new_from_dims(Vec3d::new(abs_x, abs_y, 0.0), abs_width, abs_height)
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord)]

@@ -63,6 +63,10 @@ impl Trace {
         Trace { ratio_lines }
     }
 
+    pub fn new_from_mosaics(mosaics: Vec<WrappedMosaic>, params: TraceParams) -> Self {
+        // todo implement
+    }
+
     pub fn compare_with(&self, target_similarity: f64, other: &Trace) -> f64 {
         for i in 0..self.ratio_lines.len() {
             let mut duplicated_ratio_lines = self
