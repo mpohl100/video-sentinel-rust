@@ -79,6 +79,27 @@ impl BucketedMosaics {
         similar_mosaics
     }
 
+    pub fn get_all_similar_mosaics(&self, mosaic: &WrappedMosaic) -> Vec<WrappedMosaic> {
+        let mut similar_mosaics = Vec::new();
+        for section in &self.sections {
+            similar_mosaics.extend(section.get_potentially_similar_mosaics(mosaic));
+        }
+        similar_mosaics
+    }
+
+    pub fn get_similar_mosaics_from_rectangle(
+        &self,
+        mosaic: &WrappedMosaic,
+        rectangle: Rectangle,
+    ) -> Vec<WrappedMosaic> {
+        let mut similar_mosaics = Vec::new();
+        for section in self.get_overlapping_sections(rectangle) {
+            let mosaics = section.get_potentially_similar_mosaics(mosaic);
+            similar_mosaics.extend(mosaics);
+        }
+        similar_mosaics
+    }
+
     fn get_overlapping_sections(&self, bounding_box: Rectangle) -> Vec<&BucketedMosaicsPerSection> {
         self.sections
             .iter()
