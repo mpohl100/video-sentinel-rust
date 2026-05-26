@@ -80,11 +80,12 @@ pub fn detect_objects(
     let rectangles = calculate_rectangles_of_bucketed_mosaics(
         object_detection_params.image_decomposition_params,
     );
-    let mut bucketed_mosaics = BucketedMosaics::new(rectangles, object_detection_params.bucket_delta);
+    let mut bucketed_mosaics =
+        BucketedMosaics::new(rectangles, object_detection_params.bucket_delta);
     for mosaic in mosaics {
         bucketed_mosaics.add_mosaic(mosaic);
     }
-    
+
     let biggest_mosaic = reference_object.get_mosaics(1)[0].clone();
     let biggest_trace = Trace::new_from_mosaic(
         biggest_mosaic.clone(),
@@ -111,8 +112,10 @@ pub fn detect_objects(
         let inverted_relative_rectangle = relative_rectangle.invert();
         let mut new_candidate_reference_objects = Vec::new();
         let current_mosaic = current_reference_object.get_mosaics(i + 1)[i].clone();
-        let current_trace =
-            Trace::new_from_mosaic(current_mosaic.clone(), object_detection_params.trace_params.clone());
+        let current_trace = Trace::new_from_mosaic(
+            current_mosaic.clone(),
+            object_detection_params.trace_params.clone(),
+        );
         for candidate in candidates {
             let absolute_rectangle = combine_boxes(
                 candidate
@@ -121,10 +124,15 @@ pub fn detect_objects(
                     .map(|mosaic| Rectangle::new_from_math_rectangle(mosaic.get_bounding_box()))
                     .collect(),
             );
-            let suspected_region = relative_rectangle.multiply_with_rectangle(absolute_rectangle.clone());
+            let suspected_region =
+                relative_rectangle.multiply_with_rectangle(absolute_rectangle.clone());
             let inverted_suspected_region =
-                inverted_relative_rectangle.multiply_with_rectangle(absolute_rectangle);
-            let combined_regions = combine_boxes(vec![suspected_region, inverted_suspected_region]);
+                inverted_relative_rectangle.multiply_with_rectangle(absolute_rectangle.clone());
+            let combined_regions = combine_boxes(vec![
+                suspected_region,
+                absolute_rectangle,
+                inverted_suspected_region,
+            ]);
             let next_mosaic_candidates = bucketed_mosaics
                 .get_similar_mosaics_from_rectangle(&current_mosaic.clone(), combined_regions);
             let real_candidates: Vec<_> = next_mosaic_candidates

@@ -65,7 +65,9 @@ impl Trace {
 
     pub fn new_from_mosaics(mosaics: Vec<WrappedMosaic>, params: TraceParams) -> Self {
         // todo implement
-        Trace { ratio_lines: vec![] }
+        Trace {
+            ratio_lines: vec![],
+        }
     }
 
     pub fn compare_with(&self, target_similarity: f64, other: &Trace) -> f64 {
