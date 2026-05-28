@@ -6,3 +6,4 @@ pub mod object_detection;
 pub mod slices;
 pub mod traced_mosaics;
 pub mod traces;
+pub mod service;
