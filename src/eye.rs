@@ -14,12 +14,39 @@ pub struct ImageDecompositionParams {
     slice_height: usize,
 }
 
+impl ImageDecompositionParams {
+    pub fn new(width: usize, height: usize, slice_width: usize, slice_height: usize) -> Self {
+        ImageDecompositionParams {
+            width,
+            height,
+            slice_width,
+            slice_height,
+        }
+    }
+}
+
 #[derive(Clone, PartialEq)]
 pub struct EyeParams {
-    image_decomposition_params: ImageDecompositionParams,
-    bucket_delta: f64,
-    trace_params: TraceParams,
-    target_similarity: f64,
+    pub image_decomposition_params: ImageDecompositionParams,
+    pub bucket_delta: f64,
+    pub trace_params: TraceParams,
+    pub target_similarity: f64,
+}
+
+impl EyeParams {
+    pub fn new(
+        image_decomposition_params: ImageDecompositionParams,
+        bucket_delta: f64,
+        trace_params: TraceParams,
+        target_similarity: f64,
+    ) -> Self {
+        EyeParams {
+            image_decomposition_params,
+            bucket_delta,
+            trace_params,
+            target_similarity,
+        }
+    }
 }
 
 pub fn deduce_rectangles(

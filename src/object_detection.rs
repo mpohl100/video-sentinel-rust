@@ -76,10 +76,26 @@ impl ReferenceObject {
 }
 
 pub struct ObjectDetectionParams {
-    image_decomposition_params: ImageDecompositionParams,
-    bucket_delta: f64,
-    trace_params: TraceParams,
-    target_similarity: f64,
+    pub image_decomposition_params: ImageDecompositionParams,
+    pub bucket_delta: f64,
+    pub trace_params: TraceParams,
+    pub target_similarity: f64,
+}
+
+impl ObjectDetectionParams {
+    pub fn new(
+        image_decomposition_params: ImageDecompositionParams,
+        bucket_delta: f64,
+        trace_params: TraceParams,
+        target_similarity: f64,
+    ) -> Self {
+        ObjectDetectionParams {
+            image_decomposition_params,
+            bucket_delta,
+            trace_params,
+            target_similarity,
+        }
+    }
 }
 
 pub fn detect_objects(

@@ -30,6 +30,15 @@ pub struct TraceParams {
     close_slice_threshold: f64,
 }
 
+impl TraceParams {
+    pub fn new(num_skeleton: usize, close_slice_threshold: f64) -> Self {
+        TraceParams {
+            num_skeleton,
+            close_slice_threshold,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Trace {
     ratio_lines: Vec<RatioLine>,
