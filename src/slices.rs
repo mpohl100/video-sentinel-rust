@@ -181,6 +181,16 @@ pub struct WrappedRgbImage {
     pub image: Arc<Mutex<RgbImage>>,
 }
 
+impl WrappedRgbImage {
+    pub fn new(image: RgbImage) -> Self {
+        Self { image: Arc::new(Mutex::new(image)) }
+    }
+
+    pub fn get_pixel(&self, x: u32, y: u32) -> Rgb<u8> {
+        self.image.lock().unwrap().get_pixel(x, y).clone()
+    }
+}
+
 #[derive(Clone)]
 pub struct SliceMatrix {
     lines: Vec<SliceLine>,

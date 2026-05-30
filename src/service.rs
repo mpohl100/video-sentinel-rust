@@ -12,6 +12,9 @@ use crate::slices::WrappedRgbImage;
 use crate::slices::calculate_slices;
 use crate::slices::find_connected_slices;
 use crate::traces::TraceParams;
+use crate::object_detection::ReferenceObject;
+use crate::eye::deduce_bucketed_mosaics;
+use crate::object_detection::detect_objects;
 
 use rs_math3d::Vec3d;
 use std::collections::BTreeMap;
@@ -67,6 +70,7 @@ pub struct EyeSession {
 pub struct ObjectSession {
     pub basic_params: BasicParams,
     pub object_detection_params: ObjectDetectionParams,
+    pub objects_to_be_detected: Vec<ReferenceObject>,
 }
 
 #[derive(Clone)]
@@ -215,6 +219,7 @@ impl Service {
             Session::Object(ObjectSession {
                 basic_params,
                 object_detection_params,
+                objects_to_be_detected: vec![],
             }),
         );
     }
@@ -481,7 +486,7 @@ impl Service {
         }
     }
 
-    fn get_rectangles(
+    pub fn get_rectangles(
         &self,
         session_id: String,
         image: WrappedRgbImage,
@@ -589,11 +594,44 @@ fn calculate_eye(
     let current_mosaics = calculate_ordinary_mosaics(eye_session.basic_params.clone(), image);
     let previous_mosaics =
         calculate_ordinary_mosaics(eye_session.basic_params.clone(), previous_image);
+    let previous_bucketed_mosaics = deduce_bucketed_mosaics(
+        previous_mosaics.clone(),
+        eye_session.eye_params.image_decomposition_params.clone(),
+        eye_session.eye_params.bucket_delta,
+    );
     let rectangles = deduce_rectangles(
-        previous_mosaics,
+        previous_bucketed_mosaics,
         current_mosaics,
         eye_session.eye_params.clone(),
     );
+    rectangles
+        .into_iter()
+        .map(|colored_rectangle| {
+            let mut enriched_rectangle = deduce_enriched_mosaic(colored_rectangle.get_mosaics()[0].clone());
+            enriched_rectangle.color = colored_rectangle.get_color();
+            enriched_rectangle
+        })
+        .collect()
+}
+
+fn calculate_object(
+    object_session: &ObjectSession,
+    image: WrappedRgbImage,
+) -> Vec<EnrichedMosaic> {
+    let current_mosaics = calculate_ordinary_mosaics(object_session.basic_params.clone(), image);
+    let bucketed_mosaics = deduce_bucketed_mosaics(
+        current_mosaics.clone(),
+        object_session.object_detection_params.image_decomposition_params.clone(),
+        object_session.object_detection_params.bucket_delta,
+    );
+    let mut rectangles = Vec::new();
+    for reference_object in object_session.objects_to_be_detected.clone().into_iter() {
+        rectangles.extend(detect_objects(
+            reference_object.clone(),
+            &bucketed_mosaics,
+            object_session.object_detection_params.clone(),
+        ));
+    }
     rectangles
         .into_iter()
         .map(|colored_rectangle| {
