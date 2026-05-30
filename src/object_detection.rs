@@ -75,6 +75,7 @@ impl ReferenceObject {
     }
 }
 
+#[derive(Clone)]
 pub struct ObjectDetectionParams {
     pub image_decomposition_params: ImageDecompositionParams,
     pub bucket_delta: f64,
