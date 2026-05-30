@@ -5,6 +5,8 @@ use crate::{
     slices::{CachedData, SliceMatrix},
 };
 
+use rs_math3d::Vec3d;
+
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
@@ -59,6 +61,11 @@ impl Mosaic {
         // convert the point to the global coordinate system and check if it is contained in the mosaic
         self.slice_matrix.contains_point(point)
     }
+
+    fn get_average_color(&mut self) -> Vec3d {
+        self.calculate_cached_data();
+        self.cached_data.as_ref().unwrap().get_average_color_vec()
+    }
 }
 
 #[derive(Clone)]
@@ -104,5 +111,22 @@ impl WrappedMosaic {
     ) -> Option<CoordinatedPoint> {
         let mosaic = self.mosaic.lock().unwrap();
         mosaic.deduce_longest_distance_point(point)
+
     }
+    pub fn get_slice_matrix(&self) -> SliceMatrix {
+        let mosaic = self.mosaic.lock().unwrap();
+        mosaic.slice_matrix.clone()
+    }
+
+    pub fn get_average_color(&self) -> Vec3d {
+        let mut mosaic = self.mosaic.lock().unwrap();
+        mosaic.get_average_color()
+    }
+}
+
+pub fn deduce_mosaics(slice_matrices: Vec<SliceMatrix>) -> Vec<WrappedMosaic> {
+    slice_matrices
+        .into_iter()
+        .map(|slice_matrix| WrappedMosaic::new(slice_matrix))
+        .collect()
 }

@@ -4,6 +4,10 @@ use rs_math3d::Vector;
 use rs_math3d::{FloatVector, Vec3d, Vector3};
 
 use crate::math::CoordinatedCircle;
+use image::{ImageBuffer, Rgb};
+
+use std::sync::{Arc, Mutex};
+
 use crate::math::CoordinatedPoint;
 use crate::math::CoordinatedRectangle;
 use crate::math::Rectangle as OtherRectangle;
@@ -70,7 +74,7 @@ impl Slice {
 #[derive(Clone, PartialEq)]
 pub struct AnnotatedSlice {
     slice: Slice,
-    line_number: u32,
+    line_number: usize,
 }
 
 impl AnnotatedSlice {
@@ -103,16 +107,24 @@ impl AnnotatedSlice {
     pub fn get_slice(&self) -> Slice {
         self.slice.clone()
     }
+
+    pub fn get_start(&self) -> CoordinatedPoint {
+        self.slice.get_start()
+    }
+
+    pub fn get_end(&self) -> CoordinatedPoint {
+        self.slice.get_end()
+    }
 }
 
 #[derive(Clone)]
 pub struct SliceLine {
-    line_number: u32,
+    line_number: usize,
     slices: Vec<AnnotatedSlice>,
 }
 
 impl SliceLine {
-    pub fn new(line_number: u32, slices: Vec<AnnotatedSlice>) -> Self {
+    pub fn new(line_number: usize, slices: Vec<AnnotatedSlice>) -> Self {
         Self {
             line_number,
             slices,
@@ -152,19 +164,31 @@ impl SliceLine {
         self.maintain_slices();
     }
 
-    pub fn get_line_number(&self) -> u32 {
+    pub fn get_line_number(&self) -> usize {
         self.line_number
     }
+
+    pub fn get_slices(&self) -> Vec<AnnotatedSlice> {
+        self.slices.clone()
+    }
+}
+
+pub type RgbImage = ImageBuffer<Rgb<u8>, Vec<u8>>;
+
+#[derive(Clone)]
+pub struct WrappedRgbImage {
+    pub image: Arc<Mutex<RgbImage>>,
 }
 
 #[derive(Clone)]
 pub struct SliceMatrix {
     lines: Vec<SliceLine>,
+    image: WrappedRgbImage,
 }
 
 impl SliceMatrix {
-    pub fn new() -> Self {
-        Self { lines: Vec::new() }
+    pub fn new(image: WrappedRgbImage) -> Self {
+        Self { lines: Vec::new(), image }
     }
 
     pub fn add(&mut self, line: SliceLine) {
@@ -196,11 +220,11 @@ impl SliceMatrix {
         longest_distance_point
     }
 
-    pub fn get_top_line_number(&self) -> Option<u32> {
+    pub fn get_top_line_number(&self) -> Option<usize> {
         self.lines.first().map(|line| line.line_number)
     }
 
-    pub fn get_bottom_line_number(&self) -> Option<u32> {
+    pub fn get_bottom_line_number(&self) -> Option<usize> {
         self.lines.last().map(|line| line.line_number)
     }
 
@@ -212,19 +236,19 @@ impl SliceMatrix {
         annotated_slice.map(|slice| SliceLine::new(slice.line_number, vec![slice]))
     }
 
-    pub fn get_line_below(&self, line_number: u32) -> Option<&SliceLine> {
+    pub fn get_line_below(&self, line_number: usize) -> Option<&SliceLine> {
         self.lines
             .iter()
             .find(|line| line.line_number == line_number + 1)
     }
 
-    pub fn get_line_above(&self, line_number: u32) -> Option<&SliceLine> {
+    pub fn get_line_above(&self, line_number: usize) -> Option<&SliceLine> {
         self.lines
             .iter()
             .find(|line| line.line_number == line_number - 1)
     }
 
-    pub fn get_line(&self, line_number: u32) -> Option<&SliceLine> {
+    pub fn get_line(&self, line_number: usize) -> Option<&SliceLine> {
         self.lines
             .iter()
             .find(|line| line.line_number == line_number)
@@ -317,6 +341,7 @@ impl SliceMatrix {
         let mut masses = Vec::new();
         let mut tl = Vec3d::new(f64::INFINITY, f64::INFINITY, 0.0);
         let mut br = Vec3d::new(f64::NEG_INFINITY, f64::NEG_INFINITY, 0.0);
+        let mut colors = Vec::new();
         for line in &self.lines {
             for slice in &line.slices {
                 masses.push((slice.get_mass(), slice.get_midpoint()));
@@ -326,6 +351,9 @@ impl SliceMatrix {
                 tl.y = tl.y.min(left_point.get_y());
                 br.x = br.x.max(right_point.get_x());
                 br.y = br.y.max(right_point.get_y());
+                for x in left_point.get_x() as u32..=right_point.get_x() as u32 {
+                    colors.push(self.image.image.lock().unwrap().get_pixel(x, left_point.get_y() as u32).clone());
+                }
             }
         }
         let global_coordinate_system = WrappedCoordinateSystem::new(
@@ -354,12 +382,11 @@ impl SliceMatrix {
         let bounding_circle =
             CoordinatedCircle::new(coordinated_center_of_mass.clone(), max_radius_from_center);
         let area = masses.iter().map(|(mass, _)| *mass).sum::<f64>();
-        CachedData::new(
-            bounding_box,
-            bounding_circle,
-            coordinated_center_of_mass,
-            area,
-        )
+
+        let average_color_vec = colors.iter().fold(Vec3d::new(0.0, 0.0, 0.0), |acc, pixel| {
+            acc + Vec3d::new(pixel[0] as f64, pixel[1] as f64, pixel[2] as f64)
+        }) / colors.len() as f64;
+        CachedData::new(bounding_box, bounding_circle, coordinated_center_of_mass, area, average_color_vec)
     }
 
     pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
@@ -385,11 +412,9 @@ impl SliceMatrix {
         }
         false
     }
-}
 
-impl Default for SliceMatrix {
-    fn default() -> Self {
-        Self::new()
+    pub fn get_slice_lines(&self) -> Vec<SliceLine> {
+        self.lines.clone()
     }
 }
 
@@ -399,6 +424,7 @@ pub struct CachedData {
     bounding_circle: CoordinatedCircle,
     center_of_mass: CoordinatedPoint,
     area: f64,
+    average_color: Vec3d,
 }
 
 impl CachedData {
@@ -407,12 +433,14 @@ impl CachedData {
         bounding_circle: CoordinatedCircle,
         center_of_mass: CoordinatedPoint,
         area: f64,
+        average_color: Vec3d,
     ) -> Self {
         Self {
             bounding_box,
             bounding_circle,
             center_of_mass,
             area,
+            average_color,
         }
     }
 
@@ -431,8 +459,13 @@ impl CachedData {
     pub fn get_area(&self) -> f64 {
         self.area
     }
+
+    pub fn get_average_color_vec(&self) -> Vec3d {
+        self.average_color
+    }
 }
 
+#[derive(Clone)]
 pub struct BasicParams {
     do_grayscale: bool,
     gradient_threshold: u8,
@@ -596,8 +629,10 @@ impl ColoredRectangle {
     }
 }
 
-fn compute_smoothed_gradient(gray_image: &image::GrayImage, x: u32, y: u32) -> u16 {
-    let compute_gradient = |x: u32, y: u32| -> u16 {
+fn compute_smoothed_gradient(gray_image: &image::GrayImage, x: usize, y: usize) -> u16 {
+    let compute_gradient = |x_in: usize, y_in: usize| -> u16 {
+        let x = x_in as u32;
+        let y = y_in as u32;
         let tl = gray_image.get_pixel(x - 1, y - 1)[0] as f32;
         let tc = gray_image.get_pixel(x, y - 1)[0] as f32;
         let tr = gray_image.get_pixel(x + 1, y - 1)[0] as f32;
@@ -637,12 +672,15 @@ fn compute_smoothed_gradient(gray_image: &image::GrayImage, x: u32, y: u32) -> u
 }
 
 fn compute_smoothed_gradient_channel(
-    image: &image::ImageBuffer<image::Rgb<u8>, Vec<u8>>,
-    x: u32,
-    y: u32,
+    image: &WrappedRgbImage,
+    x: usize,
+    y: usize,
     channel: usize,
 ) -> u16 {
-    let compute_gradient = |x: u32, y: u32| -> u16 {
+    let compute_gradient = |x_in: usize, y_in: usize| -> u16 {
+        let x = x_in as u32;
+        let y = y_in as u32;
+        let image = image.image.lock().unwrap();
         let tl = image.get_pixel(x - 1, y - 1)[channel] as f32;
         let tc = image.get_pixel(x, y - 1)[channel] as f32;
         let tr = image.get_pixel(x + 1, y - 1)[channel] as f32;
@@ -688,12 +726,12 @@ fn emplace_current_slice(current_slice: &mut Option<AnnotatedSlice>, current_lin
 }
 
 pub fn calculate_slices(
-    image: image::ImageBuffer<image::Rgb<u8>, Vec<u8>>,
+    image: WrappedRgbImage,
     rectangle: Rectangle,
     params: BasicParams,
 ) -> SliceMatrix {
     // checkt the rectangle is within the bounds of the image
-    let (img_width, img_height) = image.dimensions();
+    let (img_width, img_height) = image.image.lock().unwrap().dimensions();
     if rectangle.top_left.x < 0.0
         || rectangle.top_left.y < 0.0
         || rectangle.bottom_right.x > img_width as f64
@@ -702,20 +740,23 @@ pub fn calculate_slices(
         panic!("Rectangle is out of bounds of the image");
     }
 
-    let mut slice_matrix = SliceMatrix::new();
+    let mut slice_matrix = SliceMatrix::new(image.clone());
 
     if params.do_grayscale {
         // Convert image to grayscale
-        let gray_image = image::imageops::grayscale(&image);
+        let gray_image = {
+            let image = image.image.lock().unwrap();
+            image::imageops::grayscale(&*image)
+        };
         let mut current_slice = None;
         let global_coordinate_system = WrappedCoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
         );
-        for y in rectangle.top_left.y as u32 + 2..rectangle.bottom_right.y as u32 - 2 {
+        for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
-            for x in rectangle.top_left.x as u32 + 2..rectangle.bottom_right.x as u32 - 2 {
+            for x in rectangle.top_left.x as usize + 2..rectangle.bottom_right.x as usize - 2 {
                 let gradient = compute_smoothed_gradient(&gray_image, x, y);
 
                 if gradient <= params.gradient_threshold as u16 {
@@ -751,9 +792,9 @@ pub fn calculate_slices(
         slice_matrix
     } else {
         let mut current_slice = None;
-        for y in rectangle.top_left.y as u32 + 2..rectangle.bottom_right.y as u32 - 2 {
+        for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
-            for x in rectangle.top_left.x as u32 + 2..rectangle.bottom_right.x as u32 - 2 {
+            for x in rectangle.top_left.x as usize + 2..rectangle.bottom_right.x as usize - 2 {
                 let gradient_0 = compute_smoothed_gradient_channel(&image, x, y, 0);
                 let gradient_1 = compute_smoothed_gradient_channel(&image, x, y, 1);
                 let gradient_2 = compute_smoothed_gradient_channel(&image, x, y, 2);
@@ -873,7 +914,7 @@ fn go_direction(
 }
 
 fn find_next_connected_slice_matrix(slice_matrix: &mut SliceMatrix) -> Option<SliceMatrix> {
-    let mut connected_matrix = SliceMatrix::new();
+    let mut connected_matrix = SliceMatrix::new(slice_matrix.image.clone());
     let mut direction = -1; // -1 = go top to bottom, 1 = go bottom to top
     let mut found_nothing_counter = 0;
     loop {
