@@ -12,6 +12,7 @@ use crate::math::CoordinatedPoint;
 use crate::math::CoordinatedRectangle;
 use crate::math::Rectangle as OtherRectangle;
 use crate::math::WrappedCoordinateSystem;
+use crate::mosaics::WrappedMosaic;
 
 #[derive(Clone)]
 pub struct Slice {
@@ -613,11 +614,12 @@ pub enum Color {
 pub struct ColoredRectangle {
     rectangle: Rectangle,
     color: Color,
+    mosaics: Vec<WrappedMosaic>,
 }
 
 impl ColoredRectangle {
-    pub fn new(rectangle: Rectangle, color: Color) -> Self {
-        Self { rectangle, color }
+    pub fn new(rectangle: Rectangle, color: Color, mosaics: Vec<WrappedMosaic>) -> Self {
+        Self { rectangle, color, mosaics }
     }
 
     pub fn get_rectangle(&self) -> Rectangle {
@@ -626,6 +628,10 @@ impl ColoredRectangle {
 
     pub fn get_color(&self) -> Color {
         self.color.clone()
+    }
+
+    pub fn get_mosaics(&self) -> Vec<WrappedMosaic> {
+        self.mosaics.clone()
     }
 }
 

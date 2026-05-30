@@ -90,6 +90,7 @@ pub fn deduce_rectangles(
                 next_mosaic.get_bounding_box().to_global_rectangle(),
             ),
             current_color,
+            vec![next_mosaic.clone()],
         ));
     }
     results

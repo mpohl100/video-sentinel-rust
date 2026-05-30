@@ -215,7 +215,7 @@ pub fn detect_objects(
                     })
                     .collect(),
             );
-            ColoredRectangle::new(bounding_box, Color::Green)
+            ColoredRectangle::new(bounding_box, Color::Green, candidate.get_mosaics(usize::MAX))
         })
         .collect()
 }
