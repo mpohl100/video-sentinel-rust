@@ -1,15 +1,17 @@
 use crate::eye::EyeParams;
 use crate::eye::ImageDecompositionParams;
+use crate::eye::deduce_rectangles;
 use crate::math::WrappedCoordinateSystem;
+use crate::mosaics::WrappedMosaic;
+use crate::mosaics::deduce_mosaics;
 use crate::object_detection::ObjectDetectionParams;
 use crate::slices::BasicParams;
-use crate::traces::TraceParams;
+use crate::slices::Color;
 use crate::slices::Rectangle;
+use crate::slices::WrappedRgbImage;
 use crate::slices::calculate_slices;
 use crate::slices::find_connected_slices;
-use crate::slices::WrappedRgbImage;
-use crate::slices::Color;
-use crate::mosaics::deduce_mosaics;
+use crate::traces::TraceParams;
 
 use rs_math3d::Vec3d;
 use std::collections::BTreeMap;
@@ -68,7 +70,7 @@ pub struct ObjectSession {
 }
 
 #[derive(Clone)]
-pub struct Point{
+pub struct Point {
     pub x: f64,
     pub y: f64,
 }
@@ -80,7 +82,7 @@ pub struct Slice {
 }
 
 #[derive(Clone)]
-pub struct SliceLine{
+pub struct SliceLine {
     pub slices: Vec<Slice>,
     pub line_number: usize,
 }
@@ -482,82 +484,122 @@ impl Service {
     fn get_rectangles(
         &self,
         session_id: String,
-        previous_frame: WrappedRgbImage,
-        next_frame: WrappedRgbImage,
-    ) -> Vec<EnrichedRectangle> {
+        image: WrappedRgbImage,
+        previous_image: Option<WrappedRgbImage>,
+    ) -> Vec<EnrichedMosaic> {
         match self.sessions.get(&session_id) {
-            Some(Session::Eye(eye_session)) => {
-                calculate_eye(eye_session, previous_frame, next_frame)
-            }
-            Some(Session::Object(object_session)) => {
-                calculate_object(object_session, previous_frame, next_frame)
-            }
-            Some(Session::Ordinary(ordinary_session)) => {
-                calculate_ordinary(ordinary_session, previous_frame, next_frame)
-            }
+            Some(Session::Eye(eye_session)) => match previous_image {
+                Some(previous_image) => calculate_eye(eye_session, image, previous_image),
+                None => vec![],
+            },
+            Some(Session::Object(object_session)) => calculate_object(object_session, image),
+            Some(Session::Ordinary(ordinary_session)) => calculate_ordinary(ordinary_session, image),
             None => vec![],
         }
     }
 }
 
-fn calculate_ordinary(
-    ordinary_session: &OrdinarySession,
-    _previous_frame: WrappedRgbImage,
-    next_frame: WrappedRgbImage,
-) -> Vec<EnrichedMosaic> {
-    let width = next_frame.image.lock().unwrap().width() as usize;
-    let height = next_frame.image.lock().unwrap().height() as usize;
+fn calculate_ordinary_mosaics(
+    basic_params: BasicParams,
+    image: WrappedRgbImage,
+) -> Vec<WrappedMosaic> {
+    let width = image.image.lock().unwrap().width() as usize;
+    let height = image.image.lock().unwrap().height() as usize;
     let rectangle = Rectangle::new(
         Vec3d::new(0.0, 0.0, 0.0),
         Vec3d::new(width as f64, height as f64, 0.0),
     );
-    let mut slices = calculate_slices(next_frame.clone(), rectangle, ordinary_session.basic_params.clone());
-    let connected_slices = find_connected_slices(&mut slices);
-    let mosaics = deduce_mosaics(connected_slices.clone());
+    let slices = calculate_slices(image.clone(), rectangle, basic_params);
+    let connected_slices = find_connected_slices(&mut slices.clone());
+    deduce_mosaics(connected_slices.clone())
+}
+
+fn deduce_enriched_mosaic(mosaic: WrappedMosaic) -> EnrichedMosaic {
+    let slice_matrix = mosaic.get_slice_matrix();
+    let global_coordinate_system = WrappedCoordinateSystem::new(
+        Vec3d::new(0.0, 0.0, 0.0),
+        Vec3d::new(1.0, 0.0, 0.0),
+        Vec3d::new(0.0, 1.0, 0.0),
+    );
+    let slice_matrix_output = slice_matrix
+        .get_slice_lines()
+        .into_iter()
+        .map(|slice_line| SliceLine {
+            line_number: slice_line.get_line_number(),
+            slices: slice_line
+                .get_slices()
+                .into_iter()
+                .map(|slice| Slice {
+                    start: Point {
+                        x: slice
+                            .get_start()
+                            .convert_to(global_coordinate_system.clone())
+                            .get_x(),
+                        y: slice
+                            .get_start()
+                            .convert_to(global_coordinate_system.clone())
+                            .get_y(),
+                    },
+                    end: Point {
+                        x: slice
+                            .get_end()
+                            .convert_to(global_coordinate_system.clone())
+                            .get_x(),
+                        y: slice
+                            .get_end()
+                            .convert_to(global_coordinate_system.clone())
+                            .get_y(),
+                    },
+                })
+                .collect(),
+        })
+        .collect();
+    EnrichedMosaic {
+        bounding_box: Rectangle::new_from_math_rectangle(mosaic.get_bounding_box()),
+        color: Color::Green,
+        area: mosaic.get_area(),
+        center_of_mass: mosaic.get_center_of_mass(),
+        slice_matrix: slice_matrix_output,
+        average_color: RgbColor {
+            red: mosaic.get_average_color().x as u8,
+            green: mosaic.get_average_color().y as u8,
+            blue: mosaic.get_average_color().z as u8,
+        },
+    }
+}
+
+fn calculate_ordinary(
+    ordinary_session: &OrdinarySession,
+    image: WrappedRgbImage,
+) -> Vec<EnrichedMosaic> {
+    let mosaics = calculate_ordinary_mosaics(ordinary_session.basic_params.clone(), image);
     mosaics
         .into_iter()
         .map(|mosaic| {
-            let slice_matrix = mosaic.get_slice_matrix();
-            let global_coordinate_system = WrappedCoordinateSystem::new(
-                Vec3d::new(0.0, 0.0, 0.0),
-                Vec3d::new(1.0, 0.0, 0.0),
-                Vec3d::new(0.0, 1.0, 0.0),
-            );
-            let slice_matrix_output = slice_matrix.get_slice_lines()
-                .into_iter()
-                .map(|slice_line| SliceLine {
-                    line_number: slice_line.get_line_number(),
-                    slices: slice_line
-                        .get_slices()
-                        .into_iter()
-                        .map(|slice| Slice {
-                            start: Point {
-                                x: slice.get_start().convert_to(global_coordinate_system.clone()).get_x(),
-                                y: slice.get_start().convert_to(global_coordinate_system.clone()).get_y(),
-                            },
-                            end: Point {
-                                x: slice.get_end().convert_to(global_coordinate_system.clone()).get_x(),
-                                y: slice.get_end().convert_to(global_coordinate_system.clone()).get_y(),
-                            },
-                        })
-                        .collect(),
-                })
-                .collect();
-            let coordinated_bounding_box = mosaic.get_bounding_box();
-            let bounding_box = Rectangle::new_from_math_rectangle(coordinated_bounding_box.to_global_rectangle());
-            let coordinated_center_of_mass = mosaic.get_center_of_mass();
-            let global_center_of_mass = coordinated_center_of_mass.convert_to(global_coordinate_system.clone());
-            EnrichedMosaic {
-            bounding_box,
-            color: Color::Green,
-            area: mosaic.get_area(),
-            center_of_mass: global_center_of_mass.get_local_point(),
-            slice_matrix: slice_matrix_output,
-            average_color: RgbColor {
-                red: mosaic.get_average_color().x as u8,
-                green: mosaic.get_average_color().y as u8,
-                blue: mosaic.get_average_color().z as u8,
-            },
-}})
+            deduce_enriched_mosaic(mosaic)
+        })
+        .collect()
+}
+
+fn calculate_eye(
+    eye_session: &EyeSession,
+    image: WrappedRgbImage,
+    previous_image: WrappedRgbImage,
+) -> Vec<EnrichedMosaic> {
+    let current_mosaics = calculate_ordinary_mosaics(eye_session.basic_params.clone(), image);
+    let previous_mosaics =
+        calculate_ordinary_mosaics(eye_session.basic_params.clone(), previous_image);
+    let rectangles = deduce_rectangles(
+        previous_mosaics,
+        current_mosaics,
+        eye_session.eye_params.clone(),
+    );
+    rectangles
+        .into_iter()
+        .map(|colored_rectangle| {
+            let mut enriched_rectangle = deduce_enriched_mosaic(colored_rectangle.get_mosaics()[0].clone());
+            enriched_rectangle.color = colored_rectangle.get_color();
+            enriched_rectangle
+        })
         .collect()
 }
