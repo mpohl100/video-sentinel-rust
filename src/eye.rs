@@ -49,21 +49,29 @@ impl EyeParams {
     }
 }
 
+pub fn deduce_bucketed_mosaics(
+    mosaics: Vec<WrappedMosaic>,
+    image_decomposition_params: ImageDecompositionParams,
+    bucket_delta: f64,
+) -> BucketedMosaics {
+    let rectangles =
+        calculate_rectangles_of_bucketed_mosaics(image_decomposition_params);
+    let mut bucketed_mosaics = BucketedMosaics::new(rectangles, bucket_delta);
+    for mosaic in mosaics.into_iter() {
+        bucketed_mosaics.add_mosaic(mosaic);
+    }
+    bucketed_mosaics
+}
+
 pub fn deduce_rectangles(
-    previous_mosaics: Vec<WrappedMosaic>,
+    previous_bucketed_mosaics: BucketedMosaics,
     next_mosaics: Vec<WrappedMosaic>,
     eye_params: EyeParams,
 ) -> Vec<ColoredRectangle> {
-    let rectangles =
-        calculate_rectangles_of_bucketed_mosaics(eye_params.image_decomposition_params);
-    let mut bucketed_mosaics = BucketedMosaics::new(rectangles, eye_params.bucket_delta);
-    for mosaic in previous_mosaics.into_iter() {
-        bucketed_mosaics.add_mosaic(mosaic);
-    }
     let mut results = Vec::new();
     for next_mosaic in next_mosaics.into_iter() {
         let potentially_similar_mosaics =
-            bucketed_mosaics.get_potentially_similar_mosaics(&next_mosaic);
+            previous_bucketed_mosaics.get_potentially_similar_mosaics(&next_mosaic);
         let mut current_color = Color::Red;
         for previous_mosaic in potentially_similar_mosaics.into_iter() {
             if are_mosaics_similar(

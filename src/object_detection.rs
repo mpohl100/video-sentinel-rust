@@ -3,13 +3,14 @@ use core::panic;
 use rs_math3d::Vec3d;
 
 use crate::bucketed_mosaics::BucketedMosaics;
-use crate::eye::{ImageDecompositionParams, calculate_rectangles_of_bucketed_mosaics};
+use crate::eye::ImageDecompositionParams;
 use crate::mosaics::WrappedMosaic;
 use crate::slices::Color;
 use crate::slices::RelativeRectangle;
 use crate::slices::{ColoredRectangle, Rectangle};
 use crate::traces::Trace;
 use crate::traces::TraceParams;
+use crate::eye::deduce_bucketed_mosaics;
 
 #[derive(Clone)]
 pub struct ReferenceObject {
@@ -101,18 +102,9 @@ impl ObjectDetectionParams {
 
 pub fn detect_objects(
     reference_object: ReferenceObject,
-    mosaics: Vec<WrappedMosaic>,
+    bucketed_mosaics: &BucketedMosaics,
     object_detection_params: ObjectDetectionParams,
 ) -> Vec<ColoredRectangle> {
-    let rectangles = calculate_rectangles_of_bucketed_mosaics(
-        object_detection_params.image_decomposition_params,
-    );
-    let mut bucketed_mosaics =
-        BucketedMosaics::new(rectangles, object_detection_params.bucket_delta);
-    for mosaic in mosaics {
-        bucketed_mosaics.add_mosaic(mosaic);
-    }
-
     let biggest_mosaic = reference_object.get_mosaics(1)[0].clone();
     let biggest_trace = Trace::new_from_mosaic(
         biggest_mosaic.clone(),

@@ -5,7 +5,7 @@ use image::{ImageBuffer, Rgb};
 use rs_math3d::Vec3d;
 use video_rs::{Decoder, Encoder, Frame};
 
-use video_sentinel::slices::{BasicParams, Rectangle, calculate_slices, find_connected_slices};
+use video_sentinel::slices::{BasicParams, Rectangle, WrappedRgbImage, calculate_slices, find_connected_slices};
 
 type RgbImage = ImageBuffer<Rgb<u8>, Vec<u8>>;
 
@@ -44,11 +44,12 @@ fn run() -> Result<(), Box<dyn Error>> {
 
         println!("processing frame {frame_index} at timestamp {timestamp} ms");
         let rgb_image = frame_to_rgb_image(frame)?;
+        let wrapped_rgb_image = WrappedRgbImage::new(rgb_image.clone());
         let rectangle = Rectangle::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(width as f64, height as f64, 0.0),
         );
-        let mut slices = calculate_slices(rgb_image.clone(), rectangle, BasicParams::new(true, 15));
+        let mut slices = calculate_slices(wrapped_rgb_image.clone(), rectangle, BasicParams::new(true, 15));
         println!("frame {frame_index}: calculated slices");
         let connected_slices = find_connected_slices(&mut slices);
         println!(
