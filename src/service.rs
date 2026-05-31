@@ -402,6 +402,38 @@ impl Service {
         }
     }
 
+    pub fn add_object_to_be_detected_as_image(&mut self, session_id: String, image: WrappedRgbImage, surrounding_rectangle: Rectangle) {
+        if let Some(session) = self.sessions.get_mut(&session_id) {
+            match session {
+                Session::Object(object_session) => {
+                    let mosaics = calculate_ordinary_mosaics(object_session.basic_params.clone(), image);
+                    let reference_mosaics = mosaics.into_iter().filter(|mosaic| {
+                        let bounding_box = Rectangle::new_from_math_rectangle(mosaic.get_bounding_box());
+                        bounding_box.overlaps(&surrounding_rectangle)
+                    }).collect();
+                    object_session.objects_to_be_detected.push(ReferenceObject::new(reference_mosaics));
+                }
+                _ => {}
+            }
+        }
+    }
+
+    pub fn add_object_to_be_detected_as_ascii_art(&mut self, session_id: String, ascii_art: String) {
+        if let Some(session) = self.sessions.get_mut(&session_id) {
+            match session {
+                Session::Object(_object_session) => {
+                    let image = WrappedRgbImage::new_from_ascii_art(ascii_art.as_str());
+                    let surrounding_rectangle = Rectangle::new(
+                        Vec3d::new(0.0, 0.0, 0.0),
+                        Vec3d::new(image.image.lock().unwrap().width() as f64, image.image.lock().unwrap().height() as f64, 0.0),
+                    );
+                    self.add_object_to_be_detected_as_image(session_id, image, surrounding_rectangle);
+                }
+                _ => {}
+            }
+        }
+    }
+
     // queries
     pub fn get_ordinary_session(&self, session_id: &String) -> Option<OrdinarySession> {
         if let Some(Session::Ordinary(ordinary_session)) = self.sessions.get(session_id) {

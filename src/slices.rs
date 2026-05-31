@@ -186,6 +186,20 @@ impl WrappedRgbImage {
         Self { image: Arc::new(Mutex::new(image)) }
     }
 
+    pub fn new_from_ascii_art(ascii_art: &str) -> Self {
+        let lines: Vec<&str> = ascii_art.lines().collect();
+        let height = lines.len() as u32;
+        let width = lines.iter().map(|line| line.len()).max().unwrap_or(0) as u32;
+        let mut image = ImageBuffer::new(width, height);
+        for (y, line) in lines.iter().enumerate() {
+            for (x, char) in line.chars().enumerate() {
+                let pixel_value = if char == '#' { 255 } else { 0 };
+                image.put_pixel(x as u32, y as u32, Rgb([pixel_value, pixel_value, pixel_value]));
+            }
+        }
+        WrappedRgbImage::new(image)
+    }
+
     pub fn get_pixel(&self, x: u32, y: u32) -> Rgb<u8> {
         self.image.lock().unwrap().get_pixel(x, y).clone()
     }
