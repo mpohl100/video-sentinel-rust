@@ -10,15 +10,15 @@ use crate::slices::RelativeRectangle;
 use crate::slices::{ColoredRectangle, Rectangle};
 use crate::traces::Trace;
 use crate::traces::TraceParams;
-use crate::eye::deduce_bucketed_mosaics;
 
 #[derive(Clone)]
 pub struct ReferenceObject {
+    object_id: String,
     mosaics: Vec<WrappedMosaic>,
 }
 
 impl ReferenceObject {
-    pub fn new(mosaics: Vec<WrappedMosaic>) -> Self {
+    pub fn new(object_id: String, mosaics: Vec<WrappedMosaic>) -> Self {
         let mut mosaics = mosaics;
         mosaics.sort_by(|a, b| {
             a.get_bounding_box()
@@ -28,11 +28,15 @@ impl ReferenceObject {
                 .unwrap()
         });
         mosaics.reverse();
-        ReferenceObject { mosaics }
+        ReferenceObject { object_id, mosaics }
     }
 
     pub fn get_mosaics(&self, until_index: usize) -> Vec<WrappedMosaic> {
         self.mosaics[..until_index].to_vec()
+    }
+
+    pub fn get_id(&self) -> String {
+        self.object_id.clone()
     }
 
     pub fn get_surrounding_bounding_box(&self) -> Rectangle {
@@ -120,13 +124,13 @@ pub fn detect_objects(
             candidate_trace.compare_with(object_detection_params.target_similarity, &biggest_trace)
                 >= object_detection_params.target_similarity
         })
-        .map(|candidate| ReferenceObject::new(vec![candidate]))
+        .map(|candidate| ReferenceObject::new("dummy_id".to_string(), vec![candidate]))
         .collect::<Vec<_>>();
     for i in 1..reference_object.get_mosaics(usize::MAX).len() {
         if candidates.is_empty() {
             break;
         }
-        let current_reference_object = ReferenceObject::new(reference_object.get_mosaics(i + 1));
+        let current_reference_object = ReferenceObject::new("dummy_id".to_string(), reference_object.get_mosaics(i + 1));
         let relative_rectangle = current_reference_object.get_relative_rectangle_to_smallest();
         let inverted_relative_rectangle = relative_rectangle.invert();
         let mut new_candidate_reference_objects = Vec::new();
@@ -174,7 +178,7 @@ pub fn detect_objects(
             for real_candidate in real_candidates {
                 let mut candidate_mosaics = candidate.get_mosaics(i + 1);
                 candidate_mosaics.push(real_candidate);
-                let current_candidate_reference_object = ReferenceObject::new(candidate_mosaics);
+                let current_candidate_reference_object = ReferenceObject::new("dummy_id".to_string(), candidate_mosaics);
                 let current_candidate_reference_object_trace = Trace::new_from_mosaics(
                     current_candidate_reference_object.get_mosaics(usize::MAX),
                     object_detection_params.trace_params.clone(),
