@@ -3,7 +3,7 @@ use core::panic;
 use rs_math3d::Vec3d;
 
 use crate::bucketed_mosaics::BucketedMosaics;
-use crate::eye::ImageDecompositionParams;
+use crate::eye::TileParams;
 use crate::mosaics::WrappedMosaic;
 use crate::slices::Color;
 use crate::slices::RelativeRectangle;
@@ -82,7 +82,7 @@ impl ReferenceObject {
 
 #[derive(Clone)]
 pub struct ObjectDetectionParams {
-    pub image_decomposition_params: ImageDecompositionParams,
+    pub image_decomposition_params: TileParams,
     pub bucket_delta: f64,
     pub trace_params: TraceParams,
     pub target_similarity: f64,
@@ -90,7 +90,7 @@ pub struct ObjectDetectionParams {
 
 impl ObjectDetectionParams {
     pub fn new(
-        image_decomposition_params: ImageDecompositionParams,
+        image_decomposition_params: TileParams,
         bucket_delta: f64,
         trace_params: TraceParams,
         target_similarity: f64,

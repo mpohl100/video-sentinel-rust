@@ -1,5 +1,5 @@
 use crate::eye::EyeParams;
-use crate::eye::ImageDecompositionParams;
+use crate::eye::TileParams;
 use crate::eye::deduce_bucketed_mosaics;
 use crate::eye::deduce_rectangles;
 use crate::math::WrappedCoordinateSystem;
@@ -28,11 +28,11 @@ pub struct BasicParamsInput {
 }
 
 #[derive(Clone)]
-pub struct ImageDecompositionParamsInput {
-    pub width: usize,
-    pub height: usize,
-    pub slice_width: usize,
-    pub slice_height: usize,
+pub struct TileParamsInput {
+    pub image_width: usize,
+    pub image_height: usize,
+    pub tile_width: usize,
+    pub tile_height: usize,
 }
 
 #[derive(Clone)]
@@ -43,7 +43,7 @@ pub struct TraceParamsInput {
 
 #[derive(Clone)]
 pub struct EyeParamsInput {
-    pub image_decomposition_params: ImageDecompositionParamsInput,
+    pub tile_params: TileParamsInput,
     pub bucket_delta: f64,
     pub trace_params: TraceParamsInput,
     pub target_similarity: f64,
@@ -51,7 +51,7 @@ pub struct EyeParamsInput {
 
 #[derive(Clone)]
 pub struct ObjectDetectionParamsInput {
-    pub image_decomposition_params: ImageDecompositionParamsInput,
+    pub tile_params: TileParamsInput,
     pub bucket_delta: f64,
     pub trace_params: TraceParamsInput,
     pub target_similarity: f64,
@@ -239,11 +239,11 @@ impl Service {
             basic_params_input.do_grayscale,
             basic_params_input.gradient_threshold,
         );
-        let image_decomposition_params = ImageDecompositionParams::new(
-            eye_params_input.image_decomposition_params.width,
-            eye_params_input.image_decomposition_params.height,
-            eye_params_input.image_decomposition_params.slice_width,
-            eye_params_input.image_decomposition_params.slice_height,
+        let image_decomposition_params = TileParams::new(
+            eye_params_input.tile_params.image_width,
+            eye_params_input.tile_params.image_height,
+            eye_params_input.tile_params.tile_width,
+            eye_params_input.tile_params.tile_height,
         );
         let trace_params = TraceParams::new(
             eye_params_input.trace_params.num_skeleton,
@@ -281,19 +281,19 @@ impl Service {
             basic_params_input.do_grayscale,
             basic_params_input.gradient_threshold,
         );
-        let image_decomposition_params = ImageDecompositionParams::new(
+        let image_decomposition_params = TileParams::new(
             object_detection_params_input
-                .image_decomposition_params
-                .width,
+                .tile_params
+                .image_width,
             object_detection_params_input
-                .image_decomposition_params
-                .height,
+                .tile_params
+                .image_height,
             object_detection_params_input
-                .image_decomposition_params
-                .slice_width,
+                .tile_params
+                .tile_width,
             object_detection_params_input
-                .image_decomposition_params
-                .slice_height,
+                .tile_params
+                .tile_height,
         );
         let trace_params = TraceParams::new(
             object_detection_params_input.trace_params.num_skeleton,
@@ -354,27 +354,27 @@ impl Service {
     pub fn update_image_decomposition_params(
         &mut self,
         session_id: String,
-        image_decomposition_params_input: ImageDecompositionParamsInput,
+        image_decomposition_params_input: TileParamsInput,
     ) -> ImageDecompositionParamsUpdateResult {
         if let Some(session) = self.sessions.get_mut(&session_id) {
             match session {
                 Session::Eye(eye_session) => {
                     eye_session.eye_params.image_decomposition_params =
-                        ImageDecompositionParams::new(
-                            image_decomposition_params_input.width,
-                            image_decomposition_params_input.height,
-                            image_decomposition_params_input.slice_width,
-                            image_decomposition_params_input.slice_height,
+                        TileParams::new(
+                            image_decomposition_params_input.image_width,
+                            image_decomposition_params_input.image_height,
+                            image_decomposition_params_input.tile_width,
+                            image_decomposition_params_input.tile_height,
                         );
                 }
                 Session::Object(object_session) => {
                     object_session
                         .object_detection_params
-                        .image_decomposition_params = ImageDecompositionParams::new(
-                        image_decomposition_params_input.width,
-                        image_decomposition_params_input.height,
-                        image_decomposition_params_input.slice_width,
-                        image_decomposition_params_input.slice_height,
+                        .image_decomposition_params = TileParams::new(
+                        image_decomposition_params_input.image_width,
+                        image_decomposition_params_input.image_height,
+                        image_decomposition_params_input.tile_width,
+                        image_decomposition_params_input.tile_height,
                     );
                 }
                 _ => return ImageDecompositionParamsUpdateResult::SessionTypeDoesNotSupportImageDecompositionParams,
@@ -450,11 +450,11 @@ impl Service {
         if let Some(session) = self.sessions.get_mut(&session_id) {
             match session {
                 Session::Eye(eye_session) => {
-                    let image_decomposition_params = ImageDecompositionParams::new(
-                        eye_params_input.image_decomposition_params.width,
-                        eye_params_input.image_decomposition_params.height,
-                        eye_params_input.image_decomposition_params.slice_width,
-                        eye_params_input.image_decomposition_params.slice_height,
+                    let image_decomposition_params = TileParams::new(
+                        eye_params_input.tile_params.image_width,
+                        eye_params_input.tile_params.image_height,
+                        eye_params_input.tile_params.tile_width,
+                        eye_params_input.tile_params.tile_height,
                     );
                     let trace_params = TraceParams::new(
                         eye_params_input.trace_params.num_skeleton,
@@ -484,19 +484,19 @@ impl Service {
         if let Some(session) = self.sessions.get_mut(&session_id) {
             match session {
                 Session::Object(object_session) => {
-                    let image_decomposition_params = ImageDecompositionParams::new(
+                    let image_decomposition_params = TileParams::new(
                         object_detection_params_input
-                            .image_decomposition_params
-                            .width,
+                            .tile_params
+                            .image_width,
                         object_detection_params_input
-                            .image_decomposition_params
-                            .height,
+                            .tile_params
+                            .image_height,
                         object_detection_params_input
-                            .image_decomposition_params
-                            .slice_width,
+                            .tile_params
+                            .tile_width,
                         object_detection_params_input
-                            .image_decomposition_params
-                            .slice_height,
+                            .tile_params
+                            .tile_height,
                     );
                     let trace_params = TraceParams::new(
                         object_detection_params_input.trace_params.num_skeleton,
@@ -652,7 +652,7 @@ impl Service {
     pub fn get_image_decomposition_params(
         &self,
         session_id: &String,
-    ) -> Option<ImageDecompositionParams> {
+    ) -> Option<TileParams> {
         match self.sessions.get(session_id) {
             Some(Session::Eye(eye_session)) => {
                 Some(eye_session.eye_params.image_decomposition_params.clone())
