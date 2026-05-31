@@ -137,10 +137,10 @@ pub enum UpdateBasicParamsResult {
     SessionNotFound,
 }
 
-pub enum ImageDecompositionParamsUpdateResult {
+pub enum TileParamsUpdateResult {
     Success,
     SessionNotFound,
-    SessionTypeDoesNotSupportImageDecompositionParams,
+    SessionTypeDoesNotSupportTileParams,
 }
 
 pub enum TraceParamsUpdateResult {
@@ -239,7 +239,7 @@ impl Service {
             basic_params_input.do_grayscale,
             basic_params_input.gradient_threshold,
         );
-        let image_decomposition_params = TileParams::new(
+        let tile_params = TileParams::new(
             eye_params_input.tile_params.image_width,
             eye_params_input.tile_params.image_height,
             eye_params_input.tile_params.tile_width,
@@ -250,7 +250,7 @@ impl Service {
             eye_params_input.trace_params.close_slice_threshold,
         );
         let eye_params = EyeParams::new(
-            image_decomposition_params,
+            tile_params,
             eye_params_input.bucket_delta,
             trace_params,
             eye_params_input.target_similarity,
@@ -281,7 +281,7 @@ impl Service {
             basic_params_input.do_grayscale,
             basic_params_input.gradient_threshold,
         );
-        let image_decomposition_params = TileParams::new(
+        let tile_params = TileParams::new(
             object_detection_params_input
                 .tile_params
                 .image_width,
@@ -302,7 +302,7 @@ impl Service {
                 .close_slice_threshold,
         );
         let object_detection_params = ObjectDetectionParams::new(
-            image_decomposition_params,
+            tile_params,
             object_detection_params_input.bucket_delta,
             trace_params,
             object_detection_params_input.target_similarity,
@@ -351,37 +351,37 @@ impl Service {
         }
     }
 
-    pub fn update_image_decomposition_params(
+    pub fn update_tile_params(
         &mut self,
         session_id: String,
-        image_decomposition_params_input: TileParamsInput,
-    ) -> ImageDecompositionParamsUpdateResult {
+        tile_params_input: TileParamsInput,
+    ) -> TileParamsUpdateResult {
         if let Some(session) = self.sessions.get_mut(&session_id) {
             match session {
                 Session::Eye(eye_session) => {
-                    eye_session.eye_params.image_decomposition_params =
+                    eye_session.eye_params.tile_params =
                         TileParams::new(
-                            image_decomposition_params_input.image_width,
-                            image_decomposition_params_input.image_height,
-                            image_decomposition_params_input.tile_width,
-                            image_decomposition_params_input.tile_height,
+                            tile_params_input.image_width,
+                            tile_params_input.image_height,
+                            tile_params_input.tile_width,
+                            tile_params_input.tile_height,
                         );
                 }
                 Session::Object(object_session) => {
                     object_session
                         .object_detection_params
-                        .image_decomposition_params = TileParams::new(
-                        image_decomposition_params_input.image_width,
-                        image_decomposition_params_input.image_height,
-                        image_decomposition_params_input.tile_width,
-                        image_decomposition_params_input.tile_height,
+                        .tile_params = TileParams::new(
+                        tile_params_input.image_width,
+                        tile_params_input.image_height,
+                        tile_params_input.tile_width,
+                        tile_params_input.tile_height,
                     );
                 }
-                _ => return ImageDecompositionParamsUpdateResult::SessionTypeDoesNotSupportImageDecompositionParams,
+                _ => return TileParamsUpdateResult::SessionTypeDoesNotSupportTileParams,
             }
-            ImageDecompositionParamsUpdateResult::Success
+            TileParamsUpdateResult::Success
         } else {
-            ImageDecompositionParamsUpdateResult::SessionNotFound
+            TileParamsUpdateResult::SessionNotFound
         }
     }
 
@@ -450,7 +450,7 @@ impl Service {
         if let Some(session) = self.sessions.get_mut(&session_id) {
             match session {
                 Session::Eye(eye_session) => {
-                    let image_decomposition_params = TileParams::new(
+                    let tile_params = TileParams::new(
                         eye_params_input.tile_params.image_width,
                         eye_params_input.tile_params.image_height,
                         eye_params_input.tile_params.tile_width,
@@ -461,7 +461,7 @@ impl Service {
                         eye_params_input.trace_params.close_slice_threshold,
                     );
                     eye_session.eye_params = EyeParams::new(
-                        image_decomposition_params,
+                        tile_params,
                         eye_params_input.bucket_delta,
                         trace_params,
                         eye_params_input.target_similarity,
@@ -484,7 +484,7 @@ impl Service {
         if let Some(session) = self.sessions.get_mut(&session_id) {
             match session {
                 Session::Object(object_session) => {
-                    let image_decomposition_params = TileParams::new(
+                    let tile_params = TileParams::new(
                         object_detection_params_input
                             .tile_params
                             .image_width,
@@ -505,7 +505,7 @@ impl Service {
                             .close_slice_threshold,
                     );
                     object_session.object_detection_params = ObjectDetectionParams::new(
-                        image_decomposition_params,
+                        tile_params,
                         object_detection_params_input.bucket_delta,
                         trace_params,
                         object_detection_params_input.target_similarity,
@@ -649,18 +649,18 @@ impl Service {
         }
     }
 
-    pub fn get_image_decomposition_params(
+    pub fn get_tile_params(
         &self,
         session_id: &String,
     ) -> Option<TileParams> {
         match self.sessions.get(session_id) {
             Some(Session::Eye(eye_session)) => {
-                Some(eye_session.eye_params.image_decomposition_params.clone())
+                Some(eye_session.eye_params.tile_params.clone())
             }
             Some(Session::Object(object_session)) => Some(
                 object_session
                     .object_detection_params
-                    .image_decomposition_params
+                    .tile_params
                     .clone(),
             ),
             _ => None,
@@ -807,7 +807,7 @@ fn calculate_eye(
         calculate_ordinary_mosaics(eye_session.basic_params.clone(), previous_image);
     let previous_bucketed_mosaics = deduce_bucketed_mosaics(
         previous_mosaics.clone(),
-        eye_session.eye_params.image_decomposition_params.clone(),
+        eye_session.eye_params.tile_params.clone(),
         eye_session.eye_params.bucket_delta,
     );
     let rectangles = deduce_rectangles(
@@ -832,7 +832,7 @@ fn calculate_object(object_session: &ObjectSession, image: WrappedRgbImage) -> V
         current_mosaics.clone(),
         object_session
             .object_detection_params
-            .image_decomposition_params
+            .tile_params
             .clone(),
         object_session.object_detection_params.bucket_delta,
     );
