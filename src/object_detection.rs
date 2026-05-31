@@ -82,7 +82,7 @@ impl ReferenceObject {
 
 #[derive(Clone)]
 pub struct ObjectDetectionParams {
-    pub image_decomposition_params: TileParams,
+    pub tile_params: TileParams,
     pub bucket_delta: f64,
     pub trace_params: TraceParams,
     pub target_similarity: f64,
@@ -90,13 +90,13 @@ pub struct ObjectDetectionParams {
 
 impl ObjectDetectionParams {
     pub fn new(
-        image_decomposition_params: TileParams,
+        tile_params: TileParams,
         bucket_delta: f64,
         trace_params: TraceParams,
         target_similarity: f64,
     ) -> Self {
         ObjectDetectionParams {
-            image_decomposition_params,
+            tile_params,
             bucket_delta,
             trace_params,
             target_similarity,
