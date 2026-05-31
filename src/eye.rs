@@ -7,27 +7,27 @@ use crate::traces::{Trace, TraceParams};
 use rs_math3d::Vec3d;
 
 #[derive(Clone, PartialEq)]
-pub struct ImageDecompositionParams {
-    width: usize,
-    height: usize,
-    slice_width: usize,
-    slice_height: usize,
+pub struct TileParams {
+    image_width: usize,
+    image_height: usize,
+    tile_width: usize,
+    tile_height: usize,
 }
 
-impl ImageDecompositionParams {
-    pub fn new(width: usize, height: usize, slice_width: usize, slice_height: usize) -> Self {
-        ImageDecompositionParams {
-            width,
-            height,
-            slice_width,
-            slice_height,
+impl TileParams {
+    pub fn new(image_width: usize, image_height: usize, tile_width: usize, tile_height: usize) -> Self {
+        TileParams {
+            image_width,
+            image_height,
+            tile_width,
+            tile_height,
         }
     }
 }
 
 #[derive(Clone, PartialEq)]
 pub struct EyeParams {
-    pub image_decomposition_params: ImageDecompositionParams,
+    pub image_decomposition_params: TileParams,
     pub bucket_delta: f64,
     pub trace_params: TraceParams,
     pub target_similarity: f64,
@@ -35,7 +35,7 @@ pub struct EyeParams {
 
 impl EyeParams {
     pub fn new(
-        image_decomposition_params: ImageDecompositionParams,
+        image_decomposition_params: TileParams,
         bucket_delta: f64,
         trace_params: TraceParams,
         target_similarity: f64,
@@ -51,7 +51,7 @@ impl EyeParams {
 
 pub fn deduce_bucketed_mosaics(
     mosaics: Vec<WrappedMosaic>,
-    image_decomposition_params: ImageDecompositionParams,
+    image_decomposition_params: TileParams,
     bucket_delta: f64,
 ) -> BucketedMosaics {
     let rectangles =
@@ -124,18 +124,18 @@ fn are_mosaics_similar(
 }
 
 pub fn calculate_rectangles_of_bucketed_mosaics(
-    image_decomposition_params: ImageDecompositionParams,
+    image_decomposition_params: TileParams,
 ) -> Vec<Rectangle> {
     let mut rectangles = Vec::new();
-    for y in (0..image_decomposition_params.height).step_by(image_decomposition_params.slice_height)
+    for y in (0..image_decomposition_params.image_height).step_by(image_decomposition_params.tile_height)
     {
         for x in
-            (0..image_decomposition_params.width).step_by(image_decomposition_params.slice_width)
+            (0..image_decomposition_params.image_width).step_by(image_decomposition_params.tile_width)
         {
             rectangles.push(Rectangle::new_from_dims(
                 Vec3d::new(x as f64, y as f64, 0.0),
-                image_decomposition_params.slice_width as f64,
-                image_decomposition_params.slice_height as f64,
+                image_decomposition_params.tile_width as f64,
+                image_decomposition_params.tile_height as f64,
             ));
         }
     }
