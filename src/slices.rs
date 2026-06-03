@@ -4,8 +4,10 @@ use rs_math3d::FloatVector;
 use rs_math3d::Vec3d;
 
 use crate::math::CoordinatedPoint;
+use crate::math::CoordinatedRectangle;
 use crate::math::Rectangle as OtherRectangle;
 use crate::math::WrappedCoordinateSystem;
+use crate::math::CoordinatedCircle;
 
 #[derive(Clone)]
 pub struct Slice {
@@ -169,6 +171,28 @@ impl SliceMatrix {
         self.lines.push(line);
     }
 
+    pub fn deduce_longest_distance_point(&self, point: CoordinatedPoint) -> Option<CoordinatedPoint> {
+        let mut longest_distance = 0.0;
+        let mut longest_distance_point = None;
+        for line in &self.lines {
+            for slice in &line.slices {
+                let slice_start = slice.get_slice().get_start();
+                let slice_end = slice.get_slice().get_end();
+                let distance_to_start = point.distance_to(slice_start.clone());
+                let distance_to_end = point.distance_to(slice_end.clone());
+                if distance_to_start > longest_distance {
+                    longest_distance = distance_to_start;
+                    longest_distance_point = Some(slice_start.clone());
+                }
+                if distance_to_end > longest_distance {
+                    longest_distance = distance_to_end;
+                    longest_distance_point = Some(slice_end.clone());
+                }
+            }
+        }
+        longest_distance_point
+    }
+
     pub fn get_top_line_number(&self) -> Option<u32> {
         self.lines.first().map(|line| line.line_number)
     }
@@ -301,7 +325,14 @@ impl SliceMatrix {
                 br.y = br.y.max(right_point.get_y());
             }
         }
-        let bounding_box = OtherRectangle::new(tl, br);
+        let global_coordinate_system = WrappedCoordinateSystem::new(
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(1.0, 0.0, 0.0),
+            Vec3d::new(0.0, 1.0, 0.0),
+        );
+        let tl_coordinated = CoordinatedPoint::new(global_coordinate_system.clone(), tl);
+        let br_coordinated = CoordinatedPoint::new(global_coordinate_system.clone(), br);
+        let bounding_box = CoordinatedRectangle::new(tl_coordinated.clone(), br_coordinated.clone());
         let center_of_mass =
             masses
                 .iter()
@@ -310,13 +341,17 @@ impl SliceMatrix {
                     acc + *midpoint * deref_mass
                 })
                 / masses.iter().map(|(mass, _)| *mass).sum::<f64>();
+        let coordinated_center_of_mass = CoordinatedPoint::new(
+            global_coordinate_system.clone(),
+            center_of_mass.clone(),
+        );
         let max_radius_from_center = masses
             .iter()
             .map(|(_, midpoint)| (*midpoint - center_of_mass).length())
             .fold(0.0, f64::max);
-        let bounding_circle = crate::math::Circle::new(center_of_mass, max_radius_from_center);
+        let bounding_circle = CoordinatedCircle::new(coordinated_center_of_mass.clone(), max_radius_from_center);
         let area = masses.iter().map(|(mass, _)| *mass).sum::<f64>();
-        CachedData::new(bounding_box, bounding_circle, center_of_mass, area)
+        CachedData::new(bounding_box, bounding_circle, coordinated_center_of_mass, area)
     }
 
     pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
@@ -352,17 +387,17 @@ impl Default for SliceMatrix {
 
 #[derive(Clone)]
 pub struct CachedData {
-    bounding_box: OtherRectangle,
-    bounding_circle: crate::math::Circle,
-    center_of_mass: Vec3d,
+    bounding_box: CoordinatedRectangle,
+    bounding_circle: CoordinatedCircle,
+    center_of_mass: CoordinatedPoint,
     area: f64,
 }
 
 impl CachedData {
     pub fn new(
-        bounding_box: OtherRectangle,
-        bounding_circle: crate::math::Circle,
-        center_of_mass: Vec3d,
+        bounding_box: CoordinatedRectangle,
+        bounding_circle: CoordinatedCircle,
+        center_of_mass: CoordinatedPoint,
         area: f64,
     ) -> Self {
         Self {
@@ -373,16 +408,16 @@ impl CachedData {
         }
     }
 
-    pub fn get_bounding_box(&self) -> OtherRectangle {
+    pub fn get_bounding_box(&self) -> CoordinatedRectangle {
         self.bounding_box.clone()
     }
 
-    pub fn get_bounding_circle(&self) -> crate::math::Circle {
+    pub fn get_bounding_circle(&self) -> CoordinatedCircle {
         self.bounding_circle.clone()
     }
 
-    pub fn get_center_of_mass(&self) -> Vec3d {
-        self.center_of_mass
+    pub fn get_center_of_mass(&self) -> CoordinatedPoint {
+        self.center_of_mass.clone()
     }
 
     pub fn get_area(&self) -> f64 {

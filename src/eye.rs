@@ -46,8 +46,8 @@ pub fn deduce_rectangles(
                 eye_params.target_similarity,
             ) {
                 let color = deduce_color(
-                    Rectangle::new_from_math_rectangle(previous_mosaic.get_bounding_box()),
-                    Rectangle::new_from_math_rectangle(next_mosaic.get_bounding_box()),
+                    Rectangle::new_from_math_rectangle(previous_mosaic.get_bounding_box().to_global_rectangle()),
+                    Rectangle::new_from_math_rectangle(next_mosaic.get_bounding_box().to_global_rectangle()),
                 );
                 if current_color != Color::Blue {
                     current_color = color;
@@ -55,7 +55,7 @@ pub fn deduce_rectangles(
             }
         }
         results.push(ColoredRectangle::new(
-            Rectangle::new_from_math_rectangle(next_mosaic.get_bounding_box()),
+            Rectangle::new_from_math_rectangle(next_mosaic.get_bounding_box().to_global_rectangle()),
             current_color,
         ));
     }

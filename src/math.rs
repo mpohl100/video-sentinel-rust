@@ -472,6 +472,10 @@ impl CoordinatedPoint {
         self.local_coordinates.y
     }
 
+    pub fn get_z(&self) -> f64 {
+        self.local_coordinates.z
+    }
+
     pub fn get_local_point(&self) -> Vec3d {
         self.local_coordinates
     }
