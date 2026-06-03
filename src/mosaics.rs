@@ -1,11 +1,11 @@
 use crate::{
     math::CoordinatedPoint,
+    math::CoordinatedRectangle,
+    math::CoordinatedCircle,
     slices::{CachedData, SliceMatrix},
 };
 
 use std::sync::{Arc, Mutex};
-
-use rs_math3d::Vec3d;
 
 #[derive(Clone)]
 struct Mosaic {
@@ -21,17 +21,17 @@ impl Mosaic {
         }
     }
 
-    pub fn get_bounding_box(&mut self) -> crate::math::Rectangle {
+    pub fn get_bounding_box(&mut self) -> CoordinatedRectangle {
         self.calculate_cached_data();
         self.cached_data.as_ref().unwrap().get_bounding_box()
     }
 
-    pub fn get_bounding_circle(&mut self) -> crate::math::Circle {
+    pub fn get_bounding_circle(&mut self) -> CoordinatedCircle {
         self.calculate_cached_data();
         self.cached_data.as_ref().unwrap().get_bounding_circle()
     }
 
-    pub fn get_center_of_mass(&mut self) -> Vec3d {
+    pub fn get_center_of_mass(&mut self) -> CoordinatedPoint {
         self.calculate_cached_data();
         self.cached_data.as_ref().unwrap().get_center_of_mass()
     }
@@ -39,6 +39,10 @@ impl Mosaic {
     pub fn get_area(&mut self) -> f64 {
         self.calculate_cached_data();
         self.cached_data.as_ref().unwrap().get_area()
+    }
+
+    pub fn deduce_longest_distance_point(&self, point: CoordinatedPoint) -> Option<CoordinatedPoint> {
+        self.slice_matrix.deduce_longest_distance_point(point)
     }
 
     fn calculate_cached_data(&mut self) {
@@ -66,17 +70,17 @@ impl WrappedMosaic {
         }
     }
 
-    pub fn get_bounding_box(&self) -> crate::math::Rectangle {
+    pub fn get_bounding_box(&self) -> CoordinatedRectangle {
         let mut mosaic = self.mosaic.lock().unwrap();
         mosaic.get_bounding_box()
     }
 
-    pub fn get_bounding_circle(&self) -> crate::math::Circle {
+    pub fn get_bounding_circle(&self) -> CoordinatedCircle {
         let mut mosaic = self.mosaic.lock().unwrap();
         mosaic.get_bounding_circle()
     }
 
-    pub fn get_center_of_mass(&self) -> Vec3d {
+    pub fn get_center_of_mass(&self) -> CoordinatedPoint {
         let mut mosaic = self.mosaic.lock().unwrap();
         mosaic.get_center_of_mass()
     }
@@ -89,5 +93,10 @@ impl WrappedMosaic {
     pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
         let mosaic = self.mosaic.lock().unwrap();
         mosaic.contains_point(point)
+    }
+
+    pub fn deduce_longest_distance_point(&self, point: CoordinatedPoint) -> Option<CoordinatedPoint> {
+        let mosaic = self.mosaic.lock().unwrap();
+        mosaic.deduce_longest_distance_point(point)
     }
 }

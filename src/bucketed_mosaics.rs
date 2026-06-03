@@ -19,7 +19,7 @@ impl BucketedMosaicsPerSection {
     }
 
     pub fn add_mosaic(&mut self, mosaic: WrappedMosaic) {
-        let bounding_box = Rectangle::new_from_math_rectangle(mosaic.get_bounding_box());
+        let bounding_box = Rectangle::new_from_math_rectangle(mosaic.get_bounding_box().to_global_rectangle());
         if bounding_box.overlaps(&self.rectangle) {
             self.bucket
                 .entry(self.get_bucket_key(&mosaic))
@@ -72,7 +72,7 @@ impl BucketedMosaics {
     pub fn get_potentially_similar_mosaics(&self, mosaic: &WrappedMosaic) -> Vec<WrappedMosaic> {
         let mut similar_mosaics = Vec::new();
         for section in self.get_overlapping_sections(Rectangle::new_from_math_rectangle(
-            mosaic.get_bounding_box(),
+            mosaic.get_bounding_box().to_global_rectangle(),
         )) {
             similar_mosaics.extend(section.get_potentially_similar_mosaics(mosaic));
         }

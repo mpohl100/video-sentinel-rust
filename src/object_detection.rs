@@ -20,9 +20,9 @@ impl ReferenceObject {
     pub fn new(mosaics: Vec<WrappedMosaic>) -> Self {
         let mut mosaics = mosaics;
         mosaics.sort_by(|a, b| {
-            a.get_bounding_box()
+            a.get_bounding_box().to_global_rectangle()
                 .get_area()
-                .partial_cmp(&b.get_bounding_box().get_area())
+                .partial_cmp(&b.get_bounding_box().to_global_rectangle().get_area())
                 .unwrap()
         });
         mosaics.reverse();
@@ -40,7 +40,7 @@ impl ReferenceObject {
         let mut max_y = f64::NEG_INFINITY;
 
         for mosaic in &self.mosaics {
-            let bounding_box = mosaic.get_bounding_box();
+            let bounding_box = mosaic.get_bounding_box().to_global_rectangle();
             min_x = min_x.min(bounding_box.get_top_left().x);
             min_y = min_y.min(bounding_box.get_top_left().y);
             max_x = max_x.max(bounding_box.get_bottom_right().x);
@@ -54,11 +54,11 @@ impl ReferenceObject {
             panic!("At least 2 mosaics are required to calculate the relative rectangle");
         }
         let smallest_bounding_box =
-            Rectangle::new_from_math_rectangle(self.mosaics.last().unwrap().get_bounding_box());
+            Rectangle::new_from_math_rectangle(self.mosaics.last().unwrap().get_bounding_box().to_global_rectangle());
         let biggest_bounding_box = combine_boxes(
             self.mosaics[..self.mosaics.len() - 1]
                 .iter()
-                .map(|mosaic| Rectangle::new_from_math_rectangle(mosaic.get_bounding_box()))
+                .map(|mosaic| Rectangle::new_from_math_rectangle(mosaic.get_bounding_box().to_global_rectangle()))
                 .collect(),
         );
         RelativeRectangle::new_from_rectangles(smallest_bounding_box, biggest_bounding_box)
@@ -121,7 +121,7 @@ pub fn detect_objects(
                 candidate
                     .get_mosaics(usize::MAX)
                     .iter()
-                    .map(|mosaic| Rectangle::new_from_math_rectangle(mosaic.get_bounding_box()))
+                    .map(|mosaic| Rectangle::new_from_math_rectangle(mosaic.get_bounding_box().to_global_rectangle()))
                     .collect(),
             );
             let suspected_region =
@@ -178,7 +178,7 @@ pub fn detect_objects(
                 candidate
                     .get_mosaics(usize::MAX)
                     .iter()
-                    .map(|mosaic| Rectangle::new_from_math_rectangle(mosaic.get_bounding_box()))
+                    .map(|mosaic| Rectangle::new_from_math_rectangle(mosaic.get_bounding_box().to_global_rectangle()))
                     .collect(),
             );
             ColoredRectangle::new(bounding_box, Color::Green)

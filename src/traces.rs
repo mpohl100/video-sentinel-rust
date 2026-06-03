@@ -37,10 +37,15 @@ pub struct Trace {
 
 impl Trace {
     pub fn new_from_mosaic(mosaic: WrappedMosaic, params: TraceParams) -> Self {
+        let global_coordinate_system = WrappedCoordinateSystem::new(
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(1.0, 0.0, 0.0),
+            Vec3d::new(0.0, 1.0, 0.0),
+        );
         let ratio_lines = (0..params.num_skeleton)
             .map(|i| {
                 let coordinate_system = WrappedCoordinateSystem::new(
-                    mosaic.get_center_of_mass(),
+                    mosaic.get_center_of_mass().convert_to(global_coordinate_system.clone()).get_local_point(),
                     Vec3d::new(1.0, 0.0, 0.0),
                     Vec3d::new(0.0, 1.0, 0.0),
                 );
@@ -64,9 +69,37 @@ impl Trace {
     }
 
     pub fn new_from_mosaics(mosaics: Vec<WrappedMosaic>, params: TraceParams) -> Self {
-        // todo implement
+        let global_coordinate_system = WrappedCoordinateSystem::new(
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(1.0, 0.0, 0.0),
+            Vec3d::new(0.0, 1.0, 0.0),
+        );
+        let center_of_mass = calculate_center_of_mass(&mosaics).convert_to(global_coordinate_system.clone());
+        let ratio_lines = (0..params.num_skeleton)
+            .map(|i| {
+                let coordinate_system = WrappedCoordinateSystem::new(
+                    center_of_mass.clone().get_local_point(),
+                    Vec3d::new(1.0, 0.0, 0.0),
+                    Vec3d::new(0.0, 1.0, 0.0),
+                );
+                coordinate_system.rotate(RegionedAngle::new(
+                    (i as f64) * (360.0 / params.num_skeleton as f64),
+                    -180.0,
+                    180.0,
+                ));
+                RatioLine {
+                    coordinate_system: coordinate_system.clone(),
+                    slices: deduce_slices_from_mosaic(
+                        mosaics.clone(),
+                        coordinate_system.clone(),
+                        deduce_longest_radius(&mosaics, center_of_mass.clone()),
+                        &params,
+                    ),
+                }
+            })
+            .collect();
         Trace {
-            ratio_lines: vec![],
+            ratio_lines,
         }
     }
 
@@ -259,4 +292,47 @@ fn combine_close_slices(slices: Vec<Slice>, threshold: f64) -> Vec<Slice> {
     }
     combined_slices.push(current_slice);
     combined_slices
+}
+
+fn calculate_center_of_mass(mosaics: &[WrappedMosaic]) -> CoordinatedPoint {
+    let mut total_mass = 0.0;
+    let mut center_of_mass = Vec3d::new(0.0, 0.0, 0.0);
+    for mosaic in mosaics {
+        let mass = mosaic.get_area();
+        let global_coordinate_system = WrappedCoordinateSystem::new(
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(1.0, 0.0, 0.0),
+            Vec3d::new(0.0, 1.0, 0.0),
+        );
+        let mosaic_center = mosaic.get_center_of_mass().convert_to(global_coordinate_system.clone());
+        center_of_mass.x += mosaic_center.get_x() * mass;
+        center_of_mass.y += mosaic_center.get_y() * mass;
+        center_of_mass.z += mosaic_center.get_z() * mass;
+        total_mass += mass;
+    }
+    if total_mass > 0.0 {
+        center_of_mass.x /= total_mass;
+        center_of_mass.y /= total_mass;
+        center_of_mass.z /= total_mass;
+    }
+    let global_coordinate_system = WrappedCoordinateSystem::new(
+        Vec3d::new(0.0, 0.0, 0.0),
+        Vec3d::new(1.0, 0.0, 0.0),
+        Vec3d::new(0.0, 1.0, 0.0),
+    );
+    CoordinatedPoint::new(global_coordinate_system, center_of_mass)
+}
+
+fn deduce_longest_radius(mosaics: &[WrappedMosaic], center_of_mass: CoordinatedPoint) -> f64 {
+    let mut longest_radius = 0.0;
+    for mosaic in mosaics {
+        let mosaic_longest_distance = mosaic.deduce_longest_distance_point(center_of_mass.clone());
+        if let Some(mosaic_longest_distance) = mosaic_longest_distance {
+            let distance = mosaic_longest_distance.distance_to(center_of_mass.clone());
+            if distance > longest_radius {
+                longest_radius = distance;
+            }
+        }
+    }
+    longest_radius
 }
