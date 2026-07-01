@@ -1,13 +1,13 @@
 use core::f64;
 
-use rs_math3d::FloatVector;
-use rs_math3d::Vec3d;
+use rs_math3d::Vector;
+use rs_math3d::{FloatVector, Vec3d, Vector3};
 
+use crate::math::CoordinatedCircle;
 use crate::math::CoordinatedPoint;
 use crate::math::CoordinatedRectangle;
 use crate::math::Rectangle as OtherRectangle;
 use crate::math::WrappedCoordinateSystem;
-use crate::math::CoordinatedCircle;
 
 #[derive(Clone)]
 pub struct Slice {
@@ -171,7 +171,10 @@ impl SliceMatrix {
         self.lines.push(line);
     }
 
-    pub fn deduce_longest_distance_point(&self, point: CoordinatedPoint) -> Option<CoordinatedPoint> {
+    pub fn deduce_longest_distance_point(
+        &self,
+        point: CoordinatedPoint,
+    ) -> Option<CoordinatedPoint> {
         let mut longest_distance = 0.0;
         let mut longest_distance_point = None;
         for line in &self.lines {
@@ -332,7 +335,8 @@ impl SliceMatrix {
         );
         let tl_coordinated = CoordinatedPoint::new(global_coordinate_system.clone(), tl);
         let br_coordinated = CoordinatedPoint::new(global_coordinate_system.clone(), br);
-        let bounding_box = CoordinatedRectangle::new(tl_coordinated.clone(), br_coordinated.clone());
+        let bounding_box =
+            CoordinatedRectangle::new(tl_coordinated.clone(), br_coordinated.clone());
         let center_of_mass =
             masses
                 .iter()
@@ -341,17 +345,21 @@ impl SliceMatrix {
                     acc + *midpoint * deref_mass
                 })
                 / masses.iter().map(|(mass, _)| *mass).sum::<f64>();
-        let coordinated_center_of_mass = CoordinatedPoint::new(
-            global_coordinate_system.clone(),
-            center_of_mass.clone(),
-        );
+        let coordinated_center_of_mass =
+            CoordinatedPoint::new(global_coordinate_system.clone(), center_of_mass);
         let max_radius_from_center = masses
             .iter()
             .map(|(_, midpoint)| (*midpoint - center_of_mass).length())
             .fold(0.0, f64::max);
-        let bounding_circle = CoordinatedCircle::new(coordinated_center_of_mass.clone(), max_radius_from_center);
+        let bounding_circle =
+            CoordinatedCircle::new(coordinated_center_of_mass.clone(), max_radius_from_center);
         let area = masses.iter().map(|(mass, _)| *mass).sum::<f64>();
-        CachedData::new(bounding_box, bounding_circle, coordinated_center_of_mass, area)
+        CachedData::new(
+            bounding_box,
+            bounding_circle,
+            coordinated_center_of_mass,
+            area,
+        )
     }
 
     pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
@@ -516,8 +524,23 @@ impl RelativeRectangle {
     }
 
     pub fn invert(&self) -> RelativeRectangle {
-        // todo implement
-        self.clone()
+        // convert the C++ code to rust code
+        let tl = self.top_left;
+        let br = self.bottom_right;
+
+        let middle_point = Vec3d::new(0.5, 0.5, 0.0);
+        let x_vec = Vec3d::new(1.0, 0.0, 0.0);
+        let y_vec = Vec3d::new(0.0, 1.0, 0.0);
+
+        let tl_new = rotate_onehundred_eighty_degrees(br, middle_point, x_vec, y_vec);
+        let br_new = rotate_onehundred_eighty_degrees(tl, middle_point, x_vec, y_vec);
+
+        let new_top_left = Vec3d::new(tl_new.x, tl_new.y, 0.0);
+        let new_bottom_right = Vec3d::new(br_new.x, br_new.y, 0.0);
+        RelativeRectangle {
+            top_left: new_top_left,
+            bottom_right: new_bottom_right,
+        }
     }
 
     pub fn multiply_with_rectangle(&self, rectangle: Rectangle) -> Rectangle {
@@ -527,6 +550,23 @@ impl RelativeRectangle {
         let abs_height = (self.bottom_right.y - self.top_left.y) * rectangle.get_height();
         Rectangle::new_from_dims(Vec3d::new(abs_x, abs_y, 0.0), abs_width, abs_height)
     }
+}
+
+fn rotate_onehundred_eighty_degrees(
+    point: Vec3d,
+    center: Vec3d,
+    x_vec: Vec3d,
+    y_vec: Vec3d,
+) -> Vec3d {
+    let first_mirror = mirror(point, center, x_vec);
+    mirror(first_mirror, center, y_vec)
+}
+
+fn mirror(point: Vec3d, center: Vec3d, direction: Vec3d) -> Vec3d {
+    let to_center = point - center;
+    let projection_length = Vector3::<f64>::dot(&to_center, &direction);
+    let projection = direction * projection_length;
+    point - projection * 2.0
 }
 
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord)]
