@@ -1,7 +1,7 @@
 use crate::{
+    math::CoordinatedCircle,
     math::CoordinatedPoint,
     math::CoordinatedRectangle,
-    math::CoordinatedCircle,
     slices::{CachedData, SliceMatrix},
 };
 
@@ -41,7 +41,10 @@ impl Mosaic {
         self.cached_data.as_ref().unwrap().get_area()
     }
 
-    pub fn deduce_longest_distance_point(&self, point: CoordinatedPoint) -> Option<CoordinatedPoint> {
+    pub fn deduce_longest_distance_point(
+        &self,
+        point: CoordinatedPoint,
+    ) -> Option<CoordinatedPoint> {
         self.slice_matrix.deduce_longest_distance_point(point)
     }
 
@@ -95,7 +98,10 @@ impl WrappedMosaic {
         mosaic.contains_point(point)
     }
 
-    pub fn deduce_longest_distance_point(&self, point: CoordinatedPoint) -> Option<CoordinatedPoint> {
+    pub fn deduce_longest_distance_point(
+        &self,
+        point: CoordinatedPoint,
+    ) -> Option<CoordinatedPoint> {
         let mosaic = self.mosaic.lock().unwrap();
         mosaic.deduce_longest_distance_point(point)
     }

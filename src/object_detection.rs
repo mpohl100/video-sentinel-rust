@@ -20,7 +20,8 @@ impl ReferenceObject {
     pub fn new(mosaics: Vec<WrappedMosaic>) -> Self {
         let mut mosaics = mosaics;
         mosaics.sort_by(|a, b| {
-            a.get_bounding_box().to_global_rectangle()
+            a.get_bounding_box()
+                .to_global_rectangle()
                 .get_area()
                 .partial_cmp(&b.get_bounding_box().to_global_rectangle().get_area())
                 .unwrap()
@@ -53,12 +54,21 @@ impl ReferenceObject {
         if self.mosaics.len() < 2 {
             panic!("At least 2 mosaics are required to calculate the relative rectangle");
         }
-        let smallest_bounding_box =
-            Rectangle::new_from_math_rectangle(self.mosaics.last().unwrap().get_bounding_box().to_global_rectangle());
+        let smallest_bounding_box = Rectangle::new_from_math_rectangle(
+            self.mosaics
+                .last()
+                .unwrap()
+                .get_bounding_box()
+                .to_global_rectangle(),
+        );
         let biggest_bounding_box = combine_boxes(
             self.mosaics[..self.mosaics.len() - 1]
                 .iter()
-                .map(|mosaic| Rectangle::new_from_math_rectangle(mosaic.get_bounding_box().to_global_rectangle()))
+                .map(|mosaic| {
+                    Rectangle::new_from_math_rectangle(
+                        mosaic.get_bounding_box().to_global_rectangle(),
+                    )
+                })
                 .collect(),
         );
         RelativeRectangle::new_from_rectangles(smallest_bounding_box, biggest_bounding_box)
@@ -121,7 +131,11 @@ pub fn detect_objects(
                 candidate
                     .get_mosaics(usize::MAX)
                     .iter()
-                    .map(|mosaic| Rectangle::new_from_math_rectangle(mosaic.get_bounding_box().to_global_rectangle()))
+                    .map(|mosaic| {
+                        Rectangle::new_from_math_rectangle(
+                            mosaic.get_bounding_box().to_global_rectangle(),
+                        )
+                    })
                     .collect(),
             );
             let suspected_region =
@@ -146,7 +160,6 @@ pub fn detect_objects(
                         .compare_with(object_detection_params.target_similarity, &current_trace)
                         >= object_detection_params.target_similarity
                 })
-                .map(|next_mosaic_candidate| next_mosaic_candidate.clone())
                 .collect();
 
             for real_candidate in real_candidates {
@@ -178,7 +191,11 @@ pub fn detect_objects(
                 candidate
                     .get_mosaics(usize::MAX)
                     .iter()
-                    .map(|mosaic| Rectangle::new_from_math_rectangle(mosaic.get_bounding_box().to_global_rectangle()))
+                    .map(|mosaic| {
+                        Rectangle::new_from_math_rectangle(
+                            mosaic.get_bounding_box().to_global_rectangle(),
+                        )
+                    })
                     .collect(),
             );
             ColoredRectangle::new(bounding_box, Color::Green)

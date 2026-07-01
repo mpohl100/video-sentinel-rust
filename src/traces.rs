@@ -45,7 +45,10 @@ impl Trace {
         let ratio_lines = (0..params.num_skeleton)
             .map(|i| {
                 let coordinate_system = WrappedCoordinateSystem::new(
-                    mosaic.get_center_of_mass().convert_to(global_coordinate_system.clone()).get_local_point(),
+                    mosaic
+                        .get_center_of_mass()
+                        .convert_to(global_coordinate_system.clone())
+                        .get_local_point(),
                     Vec3d::new(1.0, 0.0, 0.0),
                     Vec3d::new(0.0, 1.0, 0.0),
                 );
@@ -74,7 +77,8 @@ impl Trace {
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
         );
-        let center_of_mass = calculate_center_of_mass(&mosaics).convert_to(global_coordinate_system.clone());
+        let center_of_mass =
+            calculate_center_of_mass(&mosaics).convert_to(global_coordinate_system.clone());
         let ratio_lines = (0..params.num_skeleton)
             .map(|i| {
                 let coordinate_system = WrappedCoordinateSystem::new(
@@ -98,9 +102,7 @@ impl Trace {
                 }
             })
             .collect();
-        Trace {
-            ratio_lines,
-        }
+        Trace { ratio_lines }
     }
 
     pub fn compare_with(&self, target_similarity: f64, other: &Trace) -> f64 {
@@ -304,7 +306,9 @@ fn calculate_center_of_mass(mosaics: &[WrappedMosaic]) -> CoordinatedPoint {
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
         );
-        let mosaic_center = mosaic.get_center_of_mass().convert_to(global_coordinate_system.clone());
+        let mosaic_center = mosaic
+            .get_center_of_mass()
+            .convert_to(global_coordinate_system.clone());
         center_of_mass.x += mosaic_center.get_x() * mass;
         center_of_mass.y += mosaic_center.get_y() * mass;
         center_of_mass.z += mosaic_center.get_z() * mass;
