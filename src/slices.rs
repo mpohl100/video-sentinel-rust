@@ -387,7 +387,8 @@ impl SliceMatrix {
                 br.y = br.y.max(right_point.get_y());
                 for x in left_point.get_x() as u32..=right_point.get_x() as u32 {
                     colors.push(
-                        *self.image
+                        *self
+                            .image
                             .image
                             .lock()
                             .unwrap()

@@ -806,10 +806,7 @@ fn calculate_ordinary(
     image: WrappedRgbImage,
 ) -> Vec<EnrichedMosaic> {
     let mosaics = calculate_ordinary_mosaics(ordinary_session.basic_params.clone(), image);
-    mosaics
-        .into_iter()
-        .map(deduce_enriched_mosaic)
-        .collect()
+    mosaics.into_iter().map(deduce_enriched_mosaic).collect()
 }
 
 fn calculate_eye(

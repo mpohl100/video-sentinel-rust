@@ -124,8 +124,5 @@ impl WrappedMosaic {
 }
 
 pub fn deduce_mosaics(slice_matrices: Vec<SliceMatrix>) -> Vec<WrappedMosaic> {
-    slice_matrices
-        .into_iter()
-        .map(WrappedMosaic::new)
-        .collect()
+    slice_matrices.into_iter().map(WrappedMosaic::new).collect()
 }
