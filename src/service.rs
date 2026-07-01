@@ -19,7 +19,6 @@ use crate::traces::TraceParams;
 
 use rs_math3d::Vec3d;
 use std::collections::BTreeMap;
-use std::net::Ipv6MulticastScope::Global;
 
 #[derive(Clone)]
 pub struct BasicParamsInput {
