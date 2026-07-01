@@ -8,6 +8,7 @@ use crate::mosaics::deduce_mosaics;
 use crate::object_detection::ObjectDetectionParams;
 use crate::object_detection::ReferenceObject;
 use crate::object_detection::detect_objects;
+use crate::slices;
 use crate::slices::BasicParams;
 use crate::slices::Color;
 use crate::slices::Rectangle;
@@ -16,9 +17,7 @@ use crate::slices::calculate_slices;
 use crate::slices::find_connected_slices;
 use crate::traces::TraceParams;
 
-use image::flat::NormalForm::ImagePacked;
 use rs_math3d::Vec3d;
-use video_rs::ffmpeg::option::Target;
 use std::collections::BTreeMap;
 
 #[derive(Clone)]
@@ -282,18 +281,10 @@ impl Service {
             basic_params_input.gradient_threshold,
         );
         let tile_params = TileParams::new(
-            object_detection_params_input
-                .tile_params
-                .image_width,
-            object_detection_params_input
-                .tile_params
-                .image_height,
-            object_detection_params_input
-                .tile_params
-                .tile_width,
-            object_detection_params_input
-                .tile_params
-                .tile_height,
+            object_detection_params_input.tile_params.image_width,
+            object_detection_params_input.tile_params.image_height,
+            object_detection_params_input.tile_params.tile_width,
+            object_detection_params_input.tile_params.tile_height,
         );
         let trace_params = TraceParams::new(
             object_detection_params_input.trace_params.num_skeleton,
@@ -345,8 +336,7 @@ impl Service {
                 }
             }
             UpdateBasicParamsResult::Success
-        }
-        else {
+        } else {
             UpdateBasicParamsResult::SessionNotFound
         }
     }
@@ -359,18 +349,15 @@ impl Service {
         if let Some(session) = self.sessions.get_mut(&session_id) {
             match session {
                 Session::Eye(eye_session) => {
-                    eye_session.eye_params.tile_params =
-                        TileParams::new(
-                            tile_params_input.image_width,
-                            tile_params_input.image_height,
-                            tile_params_input.tile_width,
-                            tile_params_input.tile_height,
-                        );
+                    eye_session.eye_params.tile_params = TileParams::new(
+                        tile_params_input.image_width,
+                        tile_params_input.image_height,
+                        tile_params_input.tile_width,
+                        tile_params_input.tile_height,
+                    );
                 }
                 Session::Object(object_session) => {
-                    object_session
-                        .object_detection_params
-                        .tile_params = TileParams::new(
+                    object_session.object_detection_params.tile_params = TileParams::new(
                         tile_params_input.image_width,
                         tile_params_input.image_height,
                         tile_params_input.tile_width,
@@ -412,7 +399,11 @@ impl Service {
         }
     }
 
-    pub fn update_bucket_delta(&mut self, session_id: String, bucket_delta: f64) -> BucketDeltaUpdateResult {
+    pub fn update_bucket_delta(
+        &mut self,
+        session_id: String,
+        bucket_delta: f64,
+    ) -> BucketDeltaUpdateResult {
         if let Some(session) = self.sessions.get_mut(&session_id) {
             match session {
                 Session::Eye(eye_session) => {
@@ -429,7 +420,11 @@ impl Service {
         }
     }
 
-    pub fn update_target_similarity(&mut self, session_id: String, target_similarity: f64) -> TargetSimilarityUpdateResult {
+    pub fn update_target_similarity(
+        &mut self,
+        session_id: String,
+        target_similarity: f64,
+    ) -> TargetSimilarityUpdateResult {
         if let Some(session) = self.sessions.get_mut(&session_id) {
             match session {
                 Session::Eye(eye_session) => {
@@ -438,7 +433,9 @@ impl Service {
                 Session::Object(object_session) => {
                     object_session.object_detection_params.target_similarity = target_similarity;
                 }
-                _ => return TargetSimilarityUpdateResult::SessionTypeDoesNotSupportTargetSimilarity,
+                _ => {
+                    return TargetSimilarityUpdateResult::SessionTypeDoesNotSupportTargetSimilarity;
+                }
             }
             TargetSimilarityUpdateResult::Success
         } else {
@@ -446,7 +443,11 @@ impl Service {
         }
     }
 
-    pub fn update_eye_params(&mut self, session_id: String, eye_params_input: EyeParamsInput) -> EyeParamsUpdateResult {
+    pub fn update_eye_params(
+        &mut self,
+        session_id: String,
+        eye_params_input: EyeParamsInput,
+    ) -> EyeParamsUpdateResult {
         if let Some(session) = self.sessions.get_mut(&session_id) {
             match session {
                 Session::Eye(eye_session) => {
@@ -470,8 +471,7 @@ impl Service {
                 _ => return EyeParamsUpdateResult::SessionTypeDoesNotSupportEyeParams,
             }
             EyeParamsUpdateResult::Success
-        }
-        else {
+        } else {
             EyeParamsUpdateResult::SessionNotFound
         }
     }
@@ -534,8 +534,10 @@ impl Service {
                     let reference_mosaics = mosaics
                         .into_iter()
                         .filter(|mosaic| {
+                            let coordinated_bounding_box = mosaic.get_bounding_box();
+                            let global_bounding_box = coordinated_bounding_box.to_global_rectangle();
                             let bounding_box =
-                                Rectangle::new_from_math_rectangle(mosaic.get_bounding_box());
+                                Rectangle::new_from_math_rectangle(global_bounding_box);
                             bounding_box.overlaps(&surrounding_rectangle)
                         })
                         .collect();
@@ -579,8 +581,7 @@ impl Service {
                 _ => return AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected,
             }
             AddObjectToBeDetectedResult::Success
-        }
-        else {
+        } else {
             AddObjectToBeDetectedResult::SessionNotFound
         }
     }
@@ -593,7 +594,11 @@ impl Service {
         }
     }
 
-    pub fn delete_reference_object(&mut self, session_id: &String, object_id: String) -> DeleteReferenceObjectResult {
+    pub fn delete_reference_object(
+        &mut self,
+        session_id: &String,
+        object_id: String,
+    ) -> DeleteReferenceObjectResult {
         if let Some(session) = self.sessions.get_mut(session_id) {
             match session {
                 Session::Object(object_session) => {
@@ -649,20 +654,12 @@ impl Service {
         }
     }
 
-    pub fn get_tile_params(
-        &self,
-        session_id: &String,
-    ) -> Option<TileParams> {
+    pub fn get_tile_params(&self, session_id: &String) -> Option<TileParams> {
         match self.sessions.get(session_id) {
-            Some(Session::Eye(eye_session)) => {
-                Some(eye_session.eye_params.tile_params.clone())
+            Some(Session::Eye(eye_session)) => Some(eye_session.eye_params.tile_params.clone()),
+            Some(Session::Object(object_session)) => {
+                Some(object_session.object_detection_params.tile_params.clone())
             }
-            Some(Session::Object(object_session)) => Some(
-                object_session
-                    .object_detection_params
-                    .tile_params
-                    .clone(),
-            ),
             _ => None,
         }
     }
@@ -705,10 +702,14 @@ impl Service {
     ) -> GetRectanglesResult {
         match self.sessions.get(&session_id) {
             Some(Session::Eye(eye_session)) => match previous_image {
-                Some(previous_image) => GetRectanglesResult::Success(calculate_eye(eye_session, image, previous_image)),
+                Some(previous_image) => {
+                    GetRectanglesResult::Success(calculate_eye(eye_session, image, previous_image))
+                }
                 None => GetRectanglesResult::PreviousImageRequiredForEyeSession,
             },
-            Some(Session::Object(object_session)) => GetRectanglesResult::Success(calculate_object(object_session, image)),
+            Some(Session::Object(object_session)) => {
+                GetRectanglesResult::Success(calculate_object(object_session, image))
+            }
             Some(Session::Ordinary(ordinary_session)) => {
                 GetRectanglesResult::Success(calculate_ordinary(ordinary_session, image))
             }
@@ -772,11 +773,19 @@ fn deduce_enriched_mosaic(mosaic: WrappedMosaic) -> EnrichedMosaic {
                 .collect(),
         })
         .collect();
+    let bounding_box = mosaic.get_bounding_box().to_global_rectangle();
+    let coordinated_center_of_mass = mosaic.get_center_of_mass();
+    let global_center_of_mass =
+        coordinated_center_of_mass.convert_to(global_coordinate_system.clone());
     EnrichedMosaic {
-        bounding_box: Rectangle::new_from_math_rectangle(mosaic.get_bounding_box()),
+        bounding_box: slices::Rectangle::new_from_math_rectangle(bounding_box),
         color: Color::Green,
         area: mosaic.get_area(),
-        center_of_mass: mosaic.get_center_of_mass(),
+        center_of_mass: Vec3d::new(
+            global_center_of_mass.get_x(),
+            global_center_of_mass.get_y(),
+            0.0,
+        ),
         slice_matrix: slice_matrix_output,
         average_color: RgbColor {
             red: mosaic.get_average_color().x as u8,
@@ -830,10 +839,7 @@ fn calculate_object(object_session: &ObjectSession, image: WrappedRgbImage) -> V
     let current_mosaics = calculate_ordinary_mosaics(object_session.basic_params.clone(), image);
     let bucketed_mosaics = deduce_bucketed_mosaics(
         current_mosaics.clone(),
-        object_session
-            .object_detection_params
-            .tile_params
-            .clone(),
+        object_session.object_detection_params.tile_params.clone(),
         object_session.object_detection_params.bucket_delta,
     );
     let mut rectangles = Vec::new();

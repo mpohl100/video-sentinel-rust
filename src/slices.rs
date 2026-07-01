@@ -183,7 +183,9 @@ pub struct WrappedRgbImage {
 
 impl WrappedRgbImage {
     pub fn new(image: RgbImage) -> Self {
-        Self { image: Arc::new(Mutex::new(image)) }
+        Self {
+            image: Arc::new(Mutex::new(image)),
+        }
     }
 
     pub fn new_from_ascii_art(ascii_art: &str) -> Self {
@@ -194,7 +196,11 @@ impl WrappedRgbImage {
         for (y, line) in lines.iter().enumerate() {
             for (x, char) in line.chars().enumerate() {
                 let pixel_value = if char == '#' { 255 } else { 0 };
-                image.put_pixel(x as u32, y as u32, Rgb([pixel_value, pixel_value, pixel_value]));
+                image.put_pixel(
+                    x as u32,
+                    y as u32,
+                    Rgb([pixel_value, pixel_value, pixel_value]),
+                );
             }
         }
         WrappedRgbImage::new(image)
@@ -213,7 +219,10 @@ pub struct SliceMatrix {
 
 impl SliceMatrix {
     pub fn new(image: WrappedRgbImage) -> Self {
-        Self { lines: Vec::new(), image }
+        Self {
+            lines: Vec::new(),
+            image,
+        }
     }
 
     pub fn add(&mut self, line: SliceLine) {
@@ -377,7 +386,14 @@ impl SliceMatrix {
                 br.x = br.x.max(right_point.get_x());
                 br.y = br.y.max(right_point.get_y());
                 for x in left_point.get_x() as u32..=right_point.get_x() as u32 {
-                    colors.push(self.image.image.lock().unwrap().get_pixel(x, left_point.get_y() as u32).clone());
+                    colors.push(
+                        self.image
+                            .image
+                            .lock()
+                            .unwrap()
+                            .get_pixel(x, left_point.get_y() as u32)
+                            .clone(),
+                    );
                 }
             }
         }
@@ -411,7 +427,13 @@ impl SliceMatrix {
         let average_color_vec = colors.iter().fold(Vec3d::new(0.0, 0.0, 0.0), |acc, pixel| {
             acc + Vec3d::new(pixel[0] as f64, pixel[1] as f64, pixel[2] as f64)
         }) / colors.len() as f64;
-        CachedData::new(bounding_box, bounding_circle, coordinated_center_of_mass, area, average_color_vec)
+        CachedData::new(
+            bounding_box,
+            bounding_circle,
+            coordinated_center_of_mass,
+            area,
+            average_color_vec,
+        )
     }
 
     pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
@@ -643,7 +665,11 @@ pub struct ColoredRectangle {
 
 impl ColoredRectangle {
     pub fn new(rectangle: Rectangle, color: Color, mosaics: Vec<WrappedMosaic>) -> Self {
-        Self { rectangle, color, mosaics }
+        Self {
+            rectangle,
+            color,
+            mosaics,
+        }
     }
 
     pub fn get_rectangle(&self) -> Rectangle {

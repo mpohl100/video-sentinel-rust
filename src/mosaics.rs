@@ -111,7 +111,6 @@ impl WrappedMosaic {
     ) -> Option<CoordinatedPoint> {
         let mosaic = self.mosaic.lock().unwrap();
         mosaic.deduce_longest_distance_point(point)
-
     }
     pub fn get_slice_matrix(&self) -> SliceMatrix {
         let mosaic = self.mosaic.lock().unwrap();
