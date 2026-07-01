@@ -508,7 +508,7 @@ impl Rectangle {
 #[derive(Clone)]
 pub struct RelativeRectangle {
     top_left: Vec3d,
-    bottom_right: Vec3d,
+    dims: Vec3d,
 }
 
 impl RelativeRectangle {
@@ -519,14 +519,14 @@ impl RelativeRectangle {
         let rel_height = first.get_height() / second.get_height();
         Self {
             top_left: Vec3d::new(rel_x, rel_y, 0.0),
-            bottom_right: Vec3d::new(rel_x + rel_width, rel_y + rel_height, 0.0),
+            dims: Vec3d::new(rel_width, rel_height, 0.0),
         }
     }
 
     pub fn invert(&self) -> RelativeRectangle {
         // convert the C++ code to rust code
         let tl = self.top_left;
-        let br = self.bottom_right;
+        let br = self.top_left + self.dims;
 
         let middle_point = Vec3d::new(0.5, 0.5, 0.0);
         let x_vec = Vec3d::new(1.0, 0.0, 0.0);
@@ -539,15 +539,15 @@ impl RelativeRectangle {
         let new_bottom_right = Vec3d::new(br_new.x, br_new.y, 0.0);
         RelativeRectangle {
             top_left: new_top_left,
-            bottom_right: new_bottom_right,
+            dims: new_bottom_right - new_top_left,
         }
     }
 
     pub fn multiply_with_rectangle(&self, rectangle: Rectangle) -> Rectangle {
         let abs_x = rectangle.get_top_left().x + self.top_left.x * rectangle.get_width();
         let abs_y = rectangle.get_top_left().y + self.top_left.y * rectangle.get_height();
-        let abs_width = (self.bottom_right.x - self.top_left.x) * rectangle.get_width();
-        let abs_height = (self.bottom_right.y - self.top_left.y) * rectangle.get_height();
+        let abs_width = self.dims.x * rectangle.get_width();
+        let abs_height = self.dims.y * rectangle.get_height();
         Rectangle::new_from_dims(Vec3d::new(abs_x, abs_y, 0.0), abs_width, abs_height)
     }
 }
@@ -873,7 +873,6 @@ fn go_direction(
 }
 
 fn find_next_connected_slice_matrix(slice_matrix: &mut SliceMatrix) -> Option<SliceMatrix> {
-    // Placeholder implementation - in a real implementation, this would perform a search to find connected slices
     let mut connected_matrix = SliceMatrix::new();
     let mut direction = -1; // -1 = go top to bottom, 1 = go bottom to top
     let mut found_nothing_counter = 0;
