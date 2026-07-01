@@ -19,6 +19,7 @@ use crate::traces::TraceParams;
 
 use rs_math3d::Vec3d;
 use std::collections::BTreeMap;
+use std::net::Ipv6MulticastScope::Global;
 
 #[derive(Clone)]
 pub struct BasicParamsInput {
@@ -787,11 +788,7 @@ fn deduce_enriched_mosaic(mosaic: WrappedMosaic) -> EnrichedMosaic {
         bounding_box: slices::Rectangle::new_from_math_rectangle(bounding_box),
         color: Color::Green,
         area: mosaic.get_area(),
-        center_of_mass: Vec3d::new(
-            global_center_of_mass.get_x(),
-            global_center_of_mass.get_y(),
-            0.0,
-        ),
+        center_of_mass: global_center_of_mass.get_local_point(),
         slice_matrix: slice_matrix_output,
         average_color: RgbColor {
             red: mosaic.get_average_color().x as u8,
