@@ -207,7 +207,7 @@ impl WrappedRgbImage {
     }
 
     pub fn get_pixel(&self, x: u32, y: u32) -> Rgb<u8> {
-        self.image.lock().unwrap().get_pixel(x, y).clone()
+        *self.image.lock().unwrap().get_pixel(x, y)
     }
 }
 
@@ -387,12 +387,11 @@ impl SliceMatrix {
                 br.y = br.y.max(right_point.get_y());
                 for x in left_point.get_x() as u32..=right_point.get_x() as u32 {
                     colors.push(
-                        self.image
+                        *self.image
                             .image
                             .lock()
                             .unwrap()
-                            .get_pixel(x, left_point.get_y() as u32)
-                            .clone(),
+                            .get_pixel(x, left_point.get_y() as u32),
                     );
                 }
             }
