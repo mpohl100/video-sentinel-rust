@@ -130,7 +130,8 @@ pub fn detect_objects(
         if candidates.is_empty() {
             break;
         }
-        let current_reference_object = ReferenceObject::new("dummy_id".to_string(), reference_object.get_mosaics(i + 1));
+        let current_reference_object =
+            ReferenceObject::new("dummy_id".to_string(), reference_object.get_mosaics(i + 1));
         let relative_rectangle = current_reference_object.get_relative_rectangle_to_smallest();
         let inverted_relative_rectangle = relative_rectangle.invert();
         let mut new_candidate_reference_objects = Vec::new();
@@ -178,7 +179,8 @@ pub fn detect_objects(
             for real_candidate in real_candidates {
                 let mut candidate_mosaics = candidate.get_mosaics(i + 1);
                 candidate_mosaics.push(real_candidate);
-                let current_candidate_reference_object = ReferenceObject::new("dummy_id".to_string(), candidate_mosaics);
+                let current_candidate_reference_object =
+                    ReferenceObject::new("dummy_id".to_string(), candidate_mosaics);
                 let current_candidate_reference_object_trace = Trace::new_from_mosaics(
                     current_candidate_reference_object.get_mosaics(usize::MAX),
                     object_detection_params.trace_params.clone(),
@@ -211,7 +213,11 @@ pub fn detect_objects(
                     })
                     .collect(),
             );
-            ColoredRectangle::new(bounding_box, Color::Green, candidate.get_mosaics(usize::MAX))
+            ColoredRectangle::new(
+                bounding_box,
+                Color::Green,
+                candidate.get_mosaics(usize::MAX),
+            )
         })
         .collect()
 }

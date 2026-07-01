@@ -15,7 +15,12 @@ pub struct TileParams {
 }
 
 impl TileParams {
-    pub fn new(image_width: usize, image_height: usize, tile_width: usize, tile_height: usize) -> Self {
+    pub fn new(
+        image_width: usize,
+        image_height: usize,
+        tile_width: usize,
+        tile_height: usize,
+    ) -> Self {
         TileParams {
             image_width,
             image_height,
@@ -54,8 +59,7 @@ pub fn deduce_bucketed_mosaics(
     tile_params: TileParams,
     bucket_delta: f64,
 ) -> BucketedMosaics {
-    let rectangles =
-        calculate_rectangles_of_bucketed_mosaics(tile_params);
+    let rectangles = calculate_rectangles_of_bucketed_mosaics(tile_params);
     let mut bucketed_mosaics = BucketedMosaics::new(rectangles, bucket_delta);
     for mosaic in mosaics.into_iter() {
         bucketed_mosaics.add_mosaic(mosaic);
@@ -123,15 +127,10 @@ fn are_mosaics_similar(
     result >= target_similarity
 }
 
-pub fn calculate_rectangles_of_bucketed_mosaics(
-    tile_params: TileParams,
-) -> Vec<Rectangle> {
+pub fn calculate_rectangles_of_bucketed_mosaics(tile_params: TileParams) -> Vec<Rectangle> {
     let mut rectangles = Vec::new();
-    for y in (0..tile_params.image_height).step_by(tile_params.tile_height)
-    {
-        for x in
-            (0..tile_params.image_width).step_by(tile_params.tile_width)
-        {
+    for y in (0..tile_params.image_height).step_by(tile_params.tile_height) {
+        for x in (0..tile_params.image_width).step_by(tile_params.tile_width) {
             rectangles.push(Rectangle::new_from_dims(
                 Vec3d::new(x as f64, y as f64, 0.0),
                 tile_params.tile_width as f64,

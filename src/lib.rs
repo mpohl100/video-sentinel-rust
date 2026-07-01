@@ -3,7 +3,7 @@ pub mod eye;
 pub mod math;
 pub mod mosaics;
 pub mod object_detection;
+pub mod service;
 pub mod slices;
 pub mod traced_mosaics;
 pub mod traces;
-pub mod service;
