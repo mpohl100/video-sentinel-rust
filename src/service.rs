@@ -200,6 +200,12 @@ pub struct Service {
     sessions: BTreeMap<String, Session>,
 }
 
+impl Default for Service {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Service {
     pub fn new() -> Self {
         Service {
@@ -802,7 +808,7 @@ fn calculate_ordinary(
     let mosaics = calculate_ordinary_mosaics(ordinary_session.basic_params.clone(), image);
     mosaics
         .into_iter()
-        .map(|mosaic| deduce_enriched_mosaic(mosaic))
+        .map(deduce_enriched_mosaic)
         .collect()
 }
 
