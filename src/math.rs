@@ -770,6 +770,7 @@ fn get_circle_line_intersection_points(circle: &Circle, line: &Line) -> Vec<Vec3
     }
 }
 
+#[derive(Clone)]
 pub struct CoordinatedRegionedAngle {
     wrapped_coordinate_system: WrappedCoordinateSystem,
     regioned_angle: RegionedAngle,
@@ -836,3 +837,43 @@ impl CoordinatedRegionedAngle {
         self.regioned_angle.max_degrees
     }
 }
+
+#[derive(Clone)]
+pub struct PolarCoordinates {
+    radius: f64,
+    angle: CoordinatedRegionedAngle,
+}
+
+impl PolarCoordinates {
+    pub fn new(radius: f64, angle: CoordinatedRegionedAngle) -> Self {
+        Self { radius, angle }
+    }
+
+    pub fn convert_to(
+        &self,
+        wrapped_coordinate_system: WrappedCoordinateSystem,
+    ) -> PolarCoordinates {
+        let new_angle = self.angle.convert_to(wrapped_coordinate_system);
+        PolarCoordinates::new(self.radius, new_angle)
+    }
+
+    pub fn to_cartesian(&self) -> CoordinatedPoint {
+        let angle_radians = self.angle.get_regioned_angle().radians();
+        let x = self.radius * angle_radians.cos();
+        let y = self.radius * angle_radians.sin();
+        CoordinatedPoint::new(
+            self.angle.get_coordinate_system(),
+            Vec3d::new(x, y, 0.0),
+        )
+    }
+
+    pub fn get_radius(&self) -> f64 {
+        self.radius
+    }
+
+    pub fn get_angle(&self) -> CoordinatedRegionedAngle {
+        self.angle.clone()
+    }
+}
+
+
