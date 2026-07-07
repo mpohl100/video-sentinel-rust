@@ -1,24 +1,44 @@
 use crate::math::CoordinatedLine;
 use crate::math::CoordinatedPoint;
 use crate::math::CoordinatedRectangle;
+use crate::math::CoordinatedRegionedAngle;
 use crate::math::Rectangle;
 use crate::math::RegionedAngle;
 use crate::math::WrappedCoordinateSystem;
+use crate::math::PolarCoordinates;
 use crate::mosaics::WrappedMosaic;
 use crate::slices::Slice;
 
 use rs_math3d::Vec3d;
 
 #[derive(Clone)]
+struct PolarSlice {
+    start: PolarCoordinates,
+    end: PolarCoordinates,
+}
+
+impl PolarSlice {
+    fn new(start: PolarCoordinates, end: PolarCoordinates) -> Self {
+        PolarSlice { start, end }
+    }
+
+    fn get_start(&self) -> &PolarCoordinates {
+        &self.start
+    }
+
+    fn get_end(&self) -> &PolarCoordinates {
+        &self.end
+    }
+}
+
+#[derive(Clone)]
 struct RatioLine {
-    coordinate_system: WrappedCoordinateSystem,
-    slices: Vec<Slice>,
+    slices: Vec<PolarSlice>,
 }
 
 impl RatioLine {
     fn duplicate(&self) -> Self {
         RatioLine {
-            coordinate_system: self.coordinate_system.duplicate(),
             slices: self.slices.clone(),
         }
     }
@@ -61,16 +81,15 @@ impl Trace {
                     Vec3d::new(1.0, 0.0, 0.0),
                     Vec3d::new(0.0, 1.0, 0.0),
                 );
-                coordinate_system.rotate(RegionedAngle::new(
+                let coordinated_regioned_angle = RegionedAngle::new(
                     (i as f64) * (360.0 / params.num_skeleton as f64),
-                    -180.0,
-                    180.0,
-                ));
+                    0.0,
+                    360.0,
+                );
                 RatioLine {
-                    coordinate_system: coordinate_system.clone(),
                     slices: deduce_slices_from_mosaic(
                         vec![mosaic.clone()],
-                        coordinate_system.clone(),
+                        coordinated_regioned_angle.clone(),
                         mosaic.get_bounding_circle().get_radius(),
                         &params,
                     ),
@@ -182,24 +201,21 @@ struct TaggedRatio {
 }
 
 fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
-    let coordinate_system = line1.coordinate_system.clone();
-    let converted_slices_1: Vec<Slice> = line1
-        .slices
-        .iter()
-        .map(|slice| slice.convert_to(coordinate_system.clone()))
-        .collect();
+    if line1.slices.is_empty() || line2.slices.is_empty() {
+        panic!("Both lines must have at least one slice to compare.");
+    }
     // convert the following code to rust
     let mut overlaps: Vec<TaggedRatio> = Vec::new();
     let mut interesting_points: Vec<f64> = Vec::new();
     interesting_points.push(0.0);
     interesting_points.push(1.0);
-    for ratio in &converted_slices_1 {
-        interesting_points.push(ratio.get_start().get_x());
-        interesting_points.push(ratio.get_end().get_x());
+    for polar_slice in &line1.slices {
+        interesting_points.push(polar_slice.get_start().get_radius());
+        interesting_points.push(polar_slice.get_end().get_radius());
     }
-    for ratio in &line2.slices {
-        interesting_points.push(ratio.get_start().get_x());
-        interesting_points.push(ratio.get_end().get_x());
+    for polar_slice in &line2.slices {
+        interesting_points.push(polar_slice.get_start().get_radius());
+        interesting_points.push(polar_slice.get_end().get_radius());
     }
     interesting_points.sort_by(|a, b| a.partial_cmp(b).unwrap());
     for i in 0..interesting_points.len() - 1 {
@@ -209,9 +225,9 @@ fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
             continue; // skip zero-length intervals
         }
         let current_midpoint = (from + to) / 2.0;
-        let pred = |ratio: &Slice| {
-            ratio.get_start().get_x() <= current_midpoint
-                && ratio.get_end().get_x() >= current_midpoint
+        let pred = |polar_ratio: &PolarSlice| {
+            polar_ratio.get_start().get_radius() <= current_midpoint
+                && polar_ratio.get_end().get_radius() >= current_midpoint
         };
         let lit = line1.slices.iter().find(|&ratio| pred(ratio));
         let rit = line2.slices.iter().find(|&ratio| pred(ratio));
@@ -237,21 +253,22 @@ fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
 
 fn deduce_slices_from_mosaic(
     mosaics: Vec<WrappedMosaic>,
-    coordinate_system: WrappedCoordinateSystem,
+    coordinated_regioned_angle: CoordinatedRegionedAngle,
     radius: f64,
     params: &TraceParams,
-) -> Vec<Slice> {
+) -> Vec<PolarSlice> {
     let mut slices = Vec::new();
     // for every x in the range of -radius to radius with a step of 0.5, find the intersections with the mosaic and create slices
     let step = 0.5;
-    let mut x = -radius;
+    let mut x = 0.0;
     while x <= radius {
         let global_coordinate_system = WrappedCoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
         );
-        let point = CoordinatedPoint::new(coordinate_system.clone(), Vec3d::new(x, 0.0, 0.0));
+        let current_polar_coordinates = PolarCoordinates::new(x, coordinated_regioned_angle.clone());
+        let point = current_polar_coordinates.to_cartesian();
         let contains_point = mosaics
             .iter()
             .any(|mosaic| mosaic.contains_point(point.clone()));
@@ -270,15 +287,19 @@ fn deduce_slices_from_mosaic(
             let rectangle = Rectangle::new(tl, br);
             let coordinated_rectangle =
                 CoordinatedRectangle::new_from_rectangle(rectangle, global_coordinate_system)
-                    .convert_to(coordinate_system.clone());
+                    .convert_to(coordinated_regioned_angle.get_coordinate_system());
+            let mut line_coordinate_system = coordinated_regioned_angle.get_coordinate_system();
+            line_coordinate_system.rotate(coordinated_regioned_angle.get_regioned_angle());
             let x_line_start =
-                CoordinatedPoint::new(coordinate_system.clone(), Vec3d::new(-radius, 0.0, 0.0));
+                CoordinatedPoint::new(line_coordinate_system.clone(), Vec3d::new(-radius, 0.0, 0.0));
             let x_line_end =
-                CoordinatedPoint::new(coordinate_system.clone(), Vec3d::new(radius, 0.0, 0.0));
+                CoordinatedPoint::new(line_coordinate_system.clone(), Vec3d::new(radius, 0.0, 0.0));
             let x_axis_line = CoordinatedLine::new(x_line_start, x_line_end);
             let clipped_line = coordinated_rectangle.get_intersection_line(x_axis_line);
             if let Some(clipped_line) = clipped_line {
-                let slice = Slice::new(clipped_line.get_start(), clipped_line.get_end());
+                let polar_start = PolarCoordinates::new(clipped_line.get_start().get_x(), coordinated_regioned_angle.clone());
+                let polar_end = PolarCoordinates::new(clipped_line.get_end().get_x(), coordinated_regioned_angle.clone());
+                let slice = PolarSlice::new(polar_start, polar_end);
                 slices.push(slice);
             }
         }
@@ -287,15 +308,15 @@ fn deduce_slices_from_mosaic(
     combine_close_slices(slices, params.close_slice_threshold)
 }
 
-fn combine_close_slices(slices: Vec<Slice>, threshold: f64) -> Vec<Slice> {
+fn combine_close_slices(slices: Vec<PolarSlice>, threshold: f64) -> Vec<PolarSlice> {
     if slices.is_empty() {
         return slices;
     }
     let mut combined_slices = Vec::new();
     let mut current_slice = slices[0].clone();
     for slice in slices.iter().skip(1) {
-        if slice.get_start().get_x() - current_slice.get_end().get_x() <= threshold {
-            current_slice = Slice::new(current_slice.get_start(), slice.get_end());
+        if slice.get_start().get_radius() - current_slice.get_end().get_radius() <= threshold {
+            current_slice = PolarSlice::new(current_slice.get_start().clone(), slice.get_end().clone());
         } else {
             combined_slices.push(current_slice);
             current_slice = slice.clone();
