@@ -2,12 +2,11 @@ use crate::math::CoordinatedLine;
 use crate::math::CoordinatedPoint;
 use crate::math::CoordinatedRectangle;
 use crate::math::CoordinatedRegionedAngle;
+use crate::math::PolarCoordinates;
 use crate::math::Rectangle;
 use crate::math::RegionedAngle;
 use crate::math::WrappedCoordinateSystem;
-use crate::math::PolarCoordinates;
 use crate::mosaics::WrappedMosaic;
-use crate::slices::Slice;
 
 use rs_math3d::Vec3d;
 
@@ -34,14 +33,6 @@ impl PolarSlice {
 #[derive(Clone)]
 struct RatioLine {
     slices: Vec<PolarSlice>,
-}
-
-impl RatioLine {
-    fn duplicate(&self) -> Self {
-        RatioLine {
-            slices: self.slices.clone(),
-        }
-    }
 }
 
 #[derive(Clone, PartialEq, PartialOrd)]
@@ -81,10 +72,13 @@ impl Trace {
                     Vec3d::new(1.0, 0.0, 0.0),
                     Vec3d::new(0.0, 1.0, 0.0),
                 );
-                let coordinated_regioned_angle = RegionedAngle::new(
-                    (i as f64) * (360.0 / params.num_skeleton as f64),
-                    0.0,
-                    360.0,
+                let coordinated_regioned_angle = CoordinatedRegionedAngle::new(
+                    coordinate_system,
+                    RegionedAngle::new(
+                        (i as f64) * (360.0 / params.num_skeleton as f64),
+                        0.0,
+                        360.0,
+                    ),
                 );
                 RatioLine {
                     slices: deduce_slices_from_mosaic(
@@ -114,16 +108,18 @@ impl Trace {
                     Vec3d::new(1.0, 0.0, 0.0),
                     Vec3d::new(0.0, 1.0, 0.0),
                 );
-                coordinate_system.rotate(RegionedAngle::new(
-                    (i as f64) * (360.0 / params.num_skeleton as f64),
-                    -180.0,
-                    180.0,
-                ));
+                let coordinated_regioned_angle = CoordinatedRegionedAngle::new(
+                    coordinate_system,
+                    RegionedAngle::new(
+                        (i as f64) * (360.0 / params.num_skeleton as f64),
+                        0.0,
+                        360.0,
+                    ),
+                );
                 RatioLine {
-                    coordinate_system: coordinate_system.clone(),
                     slices: deduce_slices_from_mosaic(
                         mosaics.clone(),
-                        coordinate_system.clone(),
+                        coordinated_regioned_angle.clone(),
                         deduce_longest_radius(&mosaics, center_of_mass.clone()),
                         &params,
                     ),
@@ -135,19 +131,9 @@ impl Trace {
 
     pub fn compare_with(&self, target_similarity: f64, other: &Trace) -> f64 {
         for i in 0..self.ratio_lines.len() {
-            let mut duplicated_ratio_lines = self
-                .ratio_lines
-                .iter()
-                .map(|line| line.duplicate())
-                .collect::<Vec<_>>();
-            for line in duplicated_ratio_lines.iter_mut() {
-                line.coordinate_system.rotate(RegionedAngle::new(
-                    (i as f64) * (360.0 / self.ratio_lines.len() as f64),
-                    -180.0,
-                    180.0,
-                ));
-            }
-            let similarity = compare_with(&mut duplicated_ratio_lines, &other.ratio_lines);
+            let mut second_ratio_lines = other.ratio_lines.clone();
+            second_ratio_lines.rotate_right(i);
+            let similarity = compare_with(&self.ratio_lines, &second_ratio_lines);
             if similarity >= target_similarity {
                 return similarity;
             }
@@ -156,12 +142,9 @@ impl Trace {
     }
 }
 
-fn compare_with(first_ratio_lines: &mut [RatioLine], second_ratio_lines: &[RatioLine]) -> f64 {
+fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine]) -> f64 {
     let mut total_similarity = 0.0;
-    for (line1, line2) in first_ratio_lines.iter_mut().zip(second_ratio_lines.iter()) {
-        line1
-            .coordinate_system
-            .align_x_axis_with(&line2.coordinate_system);
+    for (line1, line2) in first_ratio_lines.iter().zip(second_ratio_lines.iter()) {
         let similarity = compare_lines(line1, line2);
         total_similarity += similarity;
     }
@@ -175,27 +158,27 @@ fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
         .into_iter()
         .filter(|tr| (tr.left_tag + tr.right_tag) != 1)
         .collect();
-    filtered_overlaps.sort_by(|lhs, rhs| {
-        rhs.slice
-            .get_end()
-            .get_x()
-            .partial_cmp(&lhs.slice.get_end().get_x())
-            .unwrap()
-    });
+    filtered_overlaps.sort_by(|lhs, rhs| rhs.ratio.from.partial_cmp(&lhs.ratio.from).unwrap());
     let left_quantile_index = 2 * line1.slices.len() + 1;
     let right_quantile_index = 2 * line2.slices.len() + 1;
     let quantile_index = std::cmp::max(left_quantile_index, right_quantile_index) + 1;
     let n = std::cmp::min(filtered_overlaps.len(), quantile_index);
     let mut similarity = 0.0;
     for item in filtered_overlaps.iter().take(n) {
-        similarity += item.slice.get_end().get_x() - item.slice.get_start().get_x();
+        similarity += item.ratio.to - item.ratio.from;
     }
     similarity
 }
 
 #[derive(Clone)]
+struct Ratio {
+    from: f64,
+    to: f64,
+}
+
+#[derive(Clone)]
 struct TaggedRatio {
-    slice: Slice,
+    ratio: Ratio,
     left_tag: usize,
     right_tag: usize,
 }
@@ -240,10 +223,7 @@ fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
             right_tag = 0;
         }
         overlaps.push(TaggedRatio {
-            slice: Slice::new(
-                CoordinatedPoint::new(coordinate_system.clone(), Vec3d::new(from, 0.0, 0.0)),
-                CoordinatedPoint::new(coordinate_system.clone(), Vec3d::new(to, 0.0, 0.0)),
-            ),
+            ratio: Ratio { from, to },
             left_tag,
             right_tag,
         });
@@ -267,7 +247,8 @@ fn deduce_slices_from_mosaic(
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
         );
-        let current_polar_coordinates = PolarCoordinates::new(x, coordinated_regioned_angle.clone());
+        let current_polar_coordinates =
+            PolarCoordinates::new(x, coordinated_regioned_angle.clone());
         let point = current_polar_coordinates.to_cartesian();
         let contains_point = mosaics
             .iter()
@@ -288,17 +269,25 @@ fn deduce_slices_from_mosaic(
             let coordinated_rectangle =
                 CoordinatedRectangle::new_from_rectangle(rectangle, global_coordinate_system)
                     .convert_to(coordinated_regioned_angle.get_coordinate_system());
-            let mut line_coordinate_system = coordinated_regioned_angle.get_coordinate_system();
+            let line_coordinate_system = coordinated_regioned_angle.get_coordinate_system();
             line_coordinate_system.rotate(coordinated_regioned_angle.get_regioned_angle());
-            let x_line_start =
-                CoordinatedPoint::new(line_coordinate_system.clone(), Vec3d::new(-radius, 0.0, 0.0));
+            let x_line_start = CoordinatedPoint::new(
+                line_coordinate_system.clone(),
+                Vec3d::new(-radius, 0.0, 0.0),
+            );
             let x_line_end =
                 CoordinatedPoint::new(line_coordinate_system.clone(), Vec3d::new(radius, 0.0, 0.0));
             let x_axis_line = CoordinatedLine::new(x_line_start, x_line_end);
             let clipped_line = coordinated_rectangle.get_intersection_line(x_axis_line);
             if let Some(clipped_line) = clipped_line {
-                let polar_start = PolarCoordinates::new(clipped_line.get_start().get_x(), coordinated_regioned_angle.clone());
-                let polar_end = PolarCoordinates::new(clipped_line.get_end().get_x(), coordinated_regioned_angle.clone());
+                let polar_start = PolarCoordinates::new(
+                    clipped_line.get_start().get_x() / radius,
+                    coordinated_regioned_angle.clone(),
+                );
+                let polar_end = PolarCoordinates::new(
+                    clipped_line.get_end().get_x() / radius,
+                    coordinated_regioned_angle.clone(),
+                );
                 let slice = PolarSlice::new(polar_start, polar_end);
                 slices.push(slice);
             }
@@ -316,7 +305,8 @@ fn combine_close_slices(slices: Vec<PolarSlice>, threshold: f64) -> Vec<PolarSli
     let mut current_slice = slices[0].clone();
     for slice in slices.iter().skip(1) {
         if slice.get_start().get_radius() - current_slice.get_end().get_radius() <= threshold {
-            current_slice = PolarSlice::new(current_slice.get_start().clone(), slice.get_end().clone());
+            current_slice =
+                PolarSlice::new(current_slice.get_start().clone(), slice.get_end().clone());
         } else {
             combined_slices.push(current_slice);
             current_slice = slice.clone();
