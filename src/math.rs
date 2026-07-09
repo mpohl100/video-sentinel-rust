@@ -861,10 +861,7 @@ impl PolarCoordinates {
         let angle_radians = self.angle.get_regioned_angle().radians();
         let x = self.radius * angle_radians.cos();
         let y = self.radius * angle_radians.sin();
-        CoordinatedPoint::new(
-            self.angle.get_coordinate_system(),
-            Vec3d::new(x, y, 0.0),
-        )
+        CoordinatedPoint::new(self.angle.get_coordinate_system(), Vec3d::new(x, y, 0.0))
     }
 
     pub fn get_radius(&self) -> f64 {
@@ -874,6 +871,8 @@ impl PolarCoordinates {
     pub fn get_angle(&self) -> CoordinatedRegionedAngle {
         self.angle.clone()
     }
+
+    pub fn get_coordinate_system(&self) -> WrappedCoordinateSystem {
+        self.angle.get_coordinate_system()
+    }
 }
-
-
