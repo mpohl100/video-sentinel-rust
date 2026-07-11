@@ -7,9 +7,9 @@ use rs_math3d::Vec3d;
 use video_rs::{Decoder, Encoder, Frame};
 
 use video_sentinel::service::{
-    BasicParamsInput, CreateEyeSessionResult, CreateObjectSessionResult, CreateOrdinarySessionResult,
-    EyeParamsInput, GetRectanglesResult, ObjectDetectionParamsInput, Service, TileParamsInput,
-    TraceParamsInput,
+    BasicParamsInput, CreateEyeSessionResult, CreateObjectSessionResult,
+    CreateOrdinarySessionResult, EyeParamsInput, GetRectanglesResult, ObjectDetectionParamsInput,
+    Service, TileParamsInput, TraceParamsInput,
 };
 use video_sentinel::slices::{Color, Rectangle, WrappedRgbImage};
 
@@ -136,10 +136,10 @@ fn run() -> Result<(), Box<dyn Error>> {
         ) {
             GetRectanglesResult::Success(mosaics) => mosaics,
             GetRectanglesResult::SessionNotFound => {
-                return Err(format!("session {} not found", args.session_id).into())
+                return Err(format!("session {} not found", args.session_id).into());
             }
             GetRectanglesResult::PreviousImageRequiredForEyeSession => {
-                return Err("eye session requires a previous frame".into())
+                return Err("eye session requires a previous frame".into());
             }
         };
 
@@ -203,12 +203,16 @@ fn configure_session(
                 .into());
             }
 
-            let object_params = to_object_params_input(&object_args.tracking, video_width, video_height);
-            match service.create_object_session(args.session_id.clone(), basic_params, object_params)
-            {
+            let object_params =
+                to_object_params_input(&object_args.tracking, video_width, video_height);
+            match service.create_object_session(
+                args.session_id.clone(),
+                basic_params,
+                object_params,
+            ) {
                 CreateObjectSessionResult::Success => {}
                 CreateObjectSessionResult::SessionAlreadyExists => {
-                    return Err(format!("session {} already exists", args.session_id).into())
+                    return Err(format!("session {} already exists", args.session_id).into());
                 }
             }
 
@@ -303,10 +307,7 @@ fn parse_rectangle(input: &str) -> Result<Rectangle, Box<dyn Error>> {
 
     let (x1, y1, x2, y2) = (coords[0], coords[1], coords[2], coords[3]);
     if x2 < x1 || y2 < y1 {
-        return Err(format!(
-            "invalid rectangle `{input}`; expected x2>=x1 and y2>=y1"
-        )
-        .into());
+        return Err(format!("invalid rectangle `{input}`; expected x2>=x1 and y2>=y1").into());
     }
 
     Ok(Rectangle::new(
