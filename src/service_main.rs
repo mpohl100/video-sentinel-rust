@@ -31,7 +31,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
     let args = CliArgs::parse();
     let schema = create_schema();
 
-    let (tls_config, _temp_dir) = build_tls_config().await?;
+    let tls_config = build_tls_config().await?;
 
     let app = Router::new()
         .route("/graphql", post(graphql_handler).get(graphql_playground))
@@ -50,20 +50,12 @@ async fn run() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-async fn build_tls_config() -> Result<(RustlsConfig, tempfile::TempDir), Box<dyn Error>> {
+async fn build_tls_config() -> Result<RustlsConfig, Box<dyn Error>> {
     let cert = rcgen::generate_simple_self_signed(vec!["localhost".to_string()])?;
-    let cert_pem = cert.cert.pem();
-    let key_pem = cert.signing_key.serialize_pem();
-
-    let temp_dir = tempfile::tempdir()?;
-    let cert_path = temp_dir.path().join("localhost-cert.pem");
-    let key_path = temp_dir.path().join("localhost-key.pem");
-
-    std::fs::write(&cert_path, cert_pem)?;
-    std::fs::write(&key_path, key_pem)?;
-
-    let tls_config = RustlsConfig::from_pem_file(cert_path, key_path).await?;
-    Ok((tls_config, temp_dir))
+    let cert_pem = cert.cert.pem().into_bytes();
+    let key_pem = cert.signing_key.serialize_pem().into_bytes();
+    let tls_config = RustlsConfig::from_pem(cert_pem, key_pem).await?;
+    Ok(tls_config)
 }
 
 async fn graphql_handler(
