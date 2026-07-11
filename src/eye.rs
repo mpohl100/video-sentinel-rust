@@ -147,7 +147,7 @@ pub fn calculate_rectangles_of_bucketed_mosaics(
 ) -> Vec<WrappedRelativeRectangle> {
     let mut rectangles = Vec::new();
     // Rectangle width/height are inclusive (+1), so identical points represent a unit scale.
-    let base_rectangle = Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.0, 0.0, 0.0));
+    let unit_scale_reference = Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.0, 0.0, 0.0));
     let mut y = 0.0;
     while y < 1.0 {
         let mut x = 0.0;
@@ -158,7 +158,7 @@ pub fn calculate_rectangles_of_bucketed_mosaics(
                 tile_params.relative_tile_y.min(1.0 - y),
             );
             rectangles.push(WrappedRelativeRectangle::new(
-                RelativeRectangle::new_from_rectangles(rectangle, base_rectangle.clone()),
+                RelativeRectangle::new_from_rectangles(rectangle, unit_scale_reference.clone()),
             ));
             x += tile_params.relative_tile_x;
         }

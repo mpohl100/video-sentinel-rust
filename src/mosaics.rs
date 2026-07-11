@@ -281,11 +281,12 @@ impl RelativeMosaic {
         );
         let absolute_rectangle =
             SliceRectangle::new_from_math_rectangle(self.absolute_rectangle.clone());
-        let unit_rectangle =
+        let unit_scale_reference =
             SliceRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.0, 0.0, 0.0));
         let relative_rectangle =
             RelativeRectangle::new_from_rectangles(bounding_box, absolute_rectangle);
-        let relative_bounding_box = relative_rectangle.multiply_with_rectangle(unit_rectangle);
+        let relative_bounding_box =
+            relative_rectangle.multiply_with_rectangle(unit_scale_reference);
         CoordinatedRectangle::new(
             CoordinatedPoint::new(
                 relative_coordinate_system.clone(),
