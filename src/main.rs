@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use image::{ImageBuffer, Rgb};
 use rs_math3d::Vec3d;
 use video_rs::{Decoder, Encoder, Frame};
@@ -9,7 +9,7 @@ use video_rs::{Decoder, Encoder, Frame};
 use video_sentinel::service::{
     BasicParamsInput, CreateEyeSessionResult, CreateObjectSessionResult,
     CreateOrdinarySessionResult, EyeParamsInput, GetRectanglesResult, ObjectDetectionParamsInput,
-    Service, TileParamsInput, TraceParamsInput,
+    Results, Service, TileParamsInput, TraceParamsInput,
 };
 use video_sentinel::slices::{Color, Rectangle, WrappedRgbImage};
 
@@ -33,6 +33,9 @@ struct CliArgs {
     #[arg(long, default_value_t = 15)]
     gradient_threshold: u8,
 
+    #[arg(long, value_enum, default_value_t = ResultModeArg::Absolute)]
+    results: ResultModeArg,
+
     #[command(subcommand)]
     session: SessionArgs,
 }
@@ -42,6 +45,12 @@ enum SessionArgs {
     Ordinary,
     Eye(TrackingParamsArgs),
     Object(ObjectDetectionArgs),
+}
+
+#[derive(Copy, Clone, ValueEnum)]
+enum ResultModeArg {
+    Absolute,
+    Relative,
 }
 
 #[derive(clap::Args, Clone)]
@@ -164,9 +173,14 @@ fn configure_session(service: &mut Service, args: &CliArgs) -> Result<(), Box<dy
         gradient_threshold: args.gradient_threshold,
     };
 
+    let results = match args.results {
+        ResultModeArg::Absolute => Results::Absolute,
+        ResultModeArg::Relative => Results::Relative,
+    };
+
     match &args.session {
         SessionArgs::Ordinary => {
-            match service.create_ordinary_session(args.session_id.clone(), basic_params) {
+            match service.create_ordinary_session(args.session_id.clone(), basic_params, results) {
                 CreateOrdinarySessionResult::Success => Ok(()),
                 CreateOrdinarySessionResult::SessionAlreadyExists => {
                     Err(format!("session {} already exists", args.session_id).into())
@@ -175,7 +189,12 @@ fn configure_session(service: &mut Service, args: &CliArgs) -> Result<(), Box<dy
         }
         SessionArgs::Eye(tracking) => {
             let eye_params = to_eye_params_input(tracking);
-            match service.create_eye_session(args.session_id.clone(), basic_params, eye_params) {
+            match service.create_eye_session(
+                args.session_id.clone(),
+                basic_params,
+                eye_params,
+                results,
+            ) {
                 CreateEyeSessionResult::Success => Ok(()),
                 CreateEyeSessionResult::SessionAlreadyExists => {
                     Err(format!("session {} already exists", args.session_id).into())
@@ -197,6 +216,7 @@ fn configure_session(service: &mut Service, args: &CliArgs) -> Result<(), Box<dy
                 args.session_id.clone(),
                 basic_params,
                 object_params,
+                results,
             ) {
                 CreateObjectSessionResult::Success => {}
                 CreateObjectSessionResult::SessionAlreadyExists => {
