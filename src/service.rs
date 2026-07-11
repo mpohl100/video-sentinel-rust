@@ -21,7 +21,9 @@ use crate::traces::TraceParams;
 use rs_math3d::Vec3d;
 use std::collections::BTreeMap;
 
-#[derive(Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+/// Controls whether enriched outputs use source mosaic coordinates (`Absolute`)
+/// or normalized coordinates derived from `WrappedRelativeMosaic` (`Relative`).
 pub enum Results {
     Absolute,
     Relative,
@@ -108,6 +110,9 @@ pub struct RgbColor {
 }
 
 #[derive(Clone)]
+/// Bounding circle returned with each `EnrichedMosaic`.
+/// The center is exported in the global coordinate system representation.
+/// In `Results::Relative`, the values remain normalized (0..1) before export.
 pub struct Circle {
     pub center: Vec3d,
     pub radius: f64,
@@ -709,17 +714,17 @@ impl Service {
         let (results, mosaics) = match self.sessions.get(&session_id) {
             Some(Session::Eye(eye_session)) => match previous_image {
                 Some(previous_image) => (
-                    eye_session.results.clone(),
+                    eye_session.results,
                     calculate_eye(eye_session, image, previous_image),
                 ),
                 None => return GetRectanglesResult::PreviousImageRequiredForEyeSession,
             },
             Some(Session::Object(object_session)) => (
-                object_session.results.clone(),
+                object_session.results,
                 calculate_object(object_session, image),
             ),
             Some(Session::Ordinary(ordinary_session)) => (
-                ordinary_session.results.clone(),
+                ordinary_session.results,
                 calculate_ordinary(ordinary_session, image),
             ),
             None => return GetRectanglesResult::SessionNotFound,
@@ -731,7 +736,7 @@ impl Service {
                     deduce_enriched_mosaic(
                         colored_relative_mosaic.mosaic,
                         colored_relative_mosaic.color,
-                        results.clone(),
+                        results,
                     )
                 })
                 .collect(),
@@ -754,6 +759,7 @@ fn calculate_ordinary_mosaics(
     deduce_mosaics(connected_slices.clone())
 }
 
+/// Internal pairing of a color and a wrapped relative mosaic before enrichment.
 struct ColoredRelativeMosaic {
     color: Color,
     mosaic: WrappedRelativeMosaic,
@@ -804,7 +810,7 @@ fn deduce_enriched_mosaic(
                 .collect(),
         })
         .collect();
-    let (bounding_box, bounding_circle, coordinated_center_of_mass, area) = match results.clone() {
+    let (bounding_box, bounding_circle, coordinated_center_of_mass, area) = match results {
         Results::Absolute => (
             mosaic.get_bounding_box(),
             mosaic.get_bounding_circle(),
@@ -848,8 +854,10 @@ fn calculate_ordinary(
     ordinary_session: &OrdinarySession,
     image: WrappedRgbImage,
 ) -> Vec<ColoredRelativeMosaic> {
-    let image_width = image.image.lock().unwrap().width() as f64;
-    let image_height = image.image.lock().unwrap().height() as f64;
+    let image_guard = image.image.lock().unwrap();
+    let image_width = image_guard.width() as f64;
+    let image_height = image_guard.height() as f64;
+    drop(image_guard);
     let surrounding_rectangle = crate::math::Rectangle::new(
         Vec3d::new(0.0, 0.0, 0.0),
         Vec3d::new(image_width, image_height, 0.0),
