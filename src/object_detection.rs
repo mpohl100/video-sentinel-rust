@@ -3,11 +3,13 @@ use core::panic;
 use rs_math3d::Vec3d;
 
 use crate::bucketed_mosaics::BucketedMosaics;
+use crate::math::Rectangle as MathRectangle;
 use crate::eye::TileParams;
 use crate::mosaics::WrappedMosaic;
+use crate::mosaics::WrappedRelativeMosaic;
 use crate::slices::Color;
 use crate::slices::RelativeRectangle;
-use crate::slices::{ColoredRectangle, Rectangle};
+use crate::slices::{ColoredRectangle, Rectangle, WrappedRelativeRectangle};
 use crate::traces::Trace;
 use crate::traces::TraceParams;
 
@@ -108,13 +110,24 @@ pub fn detect_objects(
     reference_object: ReferenceObject,
     bucketed_mosaics: &BucketedMosaics,
     object_detection_params: ObjectDetectionParams,
+    surrounding_rectangle: Rectangle,
 ) -> Vec<ColoredRectangle> {
+    let surrounding_math_rectangle = MathRectangle::new(
+        surrounding_rectangle.get_top_left(),
+        surrounding_rectangle.get_bottom_right(),
+    );
     let biggest_mosaic = reference_object.get_mosaics(1)[0].clone();
+    let wrapped_biggest_mosaic =
+        WrappedRelativeMosaic::new(biggest_mosaic.clone(), surrounding_math_rectangle.clone());
     let biggest_trace = Trace::new_from_mosaic(
         biggest_mosaic.clone(),
         object_detection_params.trace_params.clone(),
     );
-    let biggest_candidates = bucketed_mosaics.get_all_similar_mosaics(&biggest_mosaic);
+    let biggest_candidates = bucketed_mosaics
+        .get_all_similar_mosaics(&wrapped_biggest_mosaic)
+        .into_iter()
+        .map(|wrapped_relative_mosaic| wrapped_relative_mosaic.get_mosaic())
+        .collect::<Vec<_>>();
     let cloned_trace_params = object_detection_params.trace_params.clone();
     let mut candidates = biggest_candidates
         .into_iter()
@@ -136,6 +149,8 @@ pub fn detect_objects(
         let inverted_relative_rectangle = relative_rectangle.invert();
         let mut new_candidate_reference_objects = Vec::new();
         let current_mosaic = current_reference_object.get_mosaics(i + 1)[i].clone();
+        let wrapped_current_mosaic =
+            WrappedRelativeMosaic::new(current_mosaic.clone(), surrounding_math_rectangle.clone());
         let current_trace = Trace::new_from_mosaic(
             current_mosaic.clone(),
             object_detection_params.trace_params.clone(),
@@ -161,8 +176,18 @@ pub fn detect_objects(
                 absolute_rectangle,
                 inverted_suspected_region,
             ]);
+            let relative_combined_region = WrappedRelativeRectangle::new_from_rectangles(
+                combined_regions,
+                surrounding_rectangle.clone(),
+            );
             let next_mosaic_candidates = bucketed_mosaics
-                .get_similar_mosaics_from_rectangle(&current_mosaic.clone(), combined_regions);
+                .get_similar_mosaics_from_rectangle(
+                    &wrapped_current_mosaic.clone(),
+                    relative_combined_region,
+                )
+                .into_iter()
+                .map(|wrapped_relative_mosaic| wrapped_relative_mosaic.get_mosaic())
+                .collect::<Vec<_>>();
             let real_candidates: Vec<_> = next_mosaic_candidates
                 .into_iter()
                 .filter(|next_mosaic_candidate| {

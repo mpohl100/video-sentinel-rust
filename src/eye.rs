@@ -1,31 +1,26 @@
 use crate::bucketed_mosaics::BucketedMosaics;
+use crate::math::Rectangle as MathRectangle;
 use crate::mosaics::WrappedMosaic;
+use crate::mosaics::WrappedRelativeMosaic;
 use crate::slices::Color;
-use crate::slices::{ColoredRectangle, Rectangle};
+use crate::slices::{ColoredRectangle, Rectangle, RelativeRectangle, WrappedRelativeRectangle};
 use crate::traces::{Trace, TraceParams};
 
 use rs_math3d::Vec3d;
 
 #[derive(Clone, PartialEq)]
 pub struct TileParams {
-    image_width: usize,
-    image_height: usize,
-    tile_width: usize,
-    tile_height: usize,
+    relative_tile_x: f64,
+    relative_tile_y: f64,
 }
 
 impl TileParams {
-    pub fn new(
-        image_width: usize,
-        image_height: usize,
-        tile_width: usize,
-        tile_height: usize,
-    ) -> Self {
+    pub fn new(relative_tile_x: f64, relative_tile_y: f64) -> Self {
+        assert!(relative_tile_x > 0.0, "relative_tile_x must be positive");
+        assert!(relative_tile_y > 0.0, "relative_tile_y must be positive");
         TileParams {
-            image_width,
-            image_height,
-            tile_width,
-            tile_height,
+            relative_tile_x,
+            relative_tile_y,
         }
     }
 }
@@ -56,13 +51,21 @@ impl EyeParams {
 
 pub fn deduce_bucketed_mosaics(
     mosaics: Vec<WrappedMosaic>,
+    surrounding_rectangle: Rectangle,
     tile_params: TileParams,
     bucket_delta: f64,
 ) -> BucketedMosaics {
     let rectangles = calculate_rectangles_of_bucketed_mosaics(tile_params);
     let mut bucketed_mosaics = BucketedMosaics::new(rectangles, bucket_delta);
+    let absolute_rectangle = MathRectangle::new(
+        surrounding_rectangle.get_top_left(),
+        surrounding_rectangle.get_bottom_right(),
+    );
     for mosaic in mosaics.into_iter() {
-        bucketed_mosaics.add_mosaic(mosaic);
+        bucketed_mosaics.add_mosaic(WrappedRelativeMosaic::new(
+            mosaic,
+            absolute_rectangle.clone(),
+        ));
     }
     bucketed_mosaics
 }
@@ -71,11 +74,21 @@ pub fn deduce_rectangles(
     previous_bucketed_mosaics: BucketedMosaics,
     next_mosaics: Vec<WrappedMosaic>,
     eye_params: EyeParams,
+    surrounding_rectangle: Rectangle,
 ) -> Vec<ColoredRectangle> {
     let mut results = Vec::new();
+    let absolute_rectangle = MathRectangle::new(
+        surrounding_rectangle.get_top_left(),
+        surrounding_rectangle.get_bottom_right(),
+    );
     for next_mosaic in next_mosaics.into_iter() {
-        let potentially_similar_mosaics =
-            previous_bucketed_mosaics.get_potentially_similar_mosaics(&next_mosaic);
+        let wrapped_next_mosaic =
+            WrappedRelativeMosaic::new(next_mosaic.clone(), absolute_rectangle.clone());
+        let potentially_similar_mosaics = previous_bucketed_mosaics
+            .get_potentially_similar_mosaics(&wrapped_next_mosaic)
+            .into_iter()
+            .map(|wrapped_relative_mosaic| wrapped_relative_mosaic.get_mosaic())
+            .collect::<Vec<_>>();
         let mut current_color = Color::Red;
         for previous_mosaic in potentially_similar_mosaics.into_iter() {
             if are_mosaics_similar(
@@ -127,16 +140,27 @@ fn are_mosaics_similar(
     result >= target_similarity
 }
 
-pub fn calculate_rectangles_of_bucketed_mosaics(tile_params: TileParams) -> Vec<Rectangle> {
+pub fn calculate_rectangles_of_bucketed_mosaics(
+    tile_params: TileParams,
+) -> Vec<WrappedRelativeRectangle> {
     let mut rectangles = Vec::new();
-    for y in (0..tile_params.image_height).step_by(tile_params.tile_height) {
-        for x in (0..tile_params.image_width).step_by(tile_params.tile_width) {
-            rectangles.push(Rectangle::new_from_dims(
-                Vec3d::new(x as f64, y as f64, 0.0),
-                tile_params.tile_width as f64,
-                tile_params.tile_height as f64,
-            ));
+    let base_rectangle = Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.0, 0.0, 0.0));
+    let mut y = 0.0;
+    while y < 1.0 {
+        let mut x = 0.0;
+        while x < 1.0 {
+            let rectangle = Rectangle::new_from_dims(
+                Vec3d::new(x, y, 0.0),
+                tile_params.relative_tile_x.min(1.0 - x),
+                tile_params.relative_tile_y.min(1.0 - y),
+            );
+            rectangles.push(WrappedRelativeRectangle::new(RelativeRectangle::new_from_rectangles(
+                rectangle,
+                base_rectangle.clone(),
+            )));
+            x += tile_params.relative_tile_x;
         }
+        y += tile_params.relative_tile_y;
     }
     rectangles
 }

@@ -4,6 +4,8 @@ use crate::{
     math::CoordinatedRectangle,
     math::Rectangle,
     math::WrappedCoordinateSystem,
+    slices::Rectangle as SliceRectangle,
+    slices::RelativeRectangle,
     slices::{CachedData, SliceMatrix},
 };
 
@@ -194,29 +196,7 @@ impl RelativeMosaic {
         assert!(width > 0.0, "Absolute rectangle width must be positive");
         assert!(height > 0.0, "Absolute rectangle height must be positive");
         let absolute_area = width * height;
-        let bounding_box = self.mosaic.get_bounding_box().to_global_rectangle();
-        let relative_top_left = Self::map_to_relative_point(
-            CoordinatedPoint::new(
-                relative_coordinate_system.clone(),
-                bounding_box.get_top_left(),
-            ),
-            &relative_coordinate_system,
-            top_left,
-            width,
-            height,
-        );
-        let relative_bottom_right = Self::map_to_relative_point(
-            CoordinatedPoint::new(
-                relative_coordinate_system.clone(),
-                bounding_box.get_bottom_right(),
-            ),
-            &relative_coordinate_system,
-            top_left,
-            width,
-            height,
-        );
-        let relative_bounding_box =
-            CoordinatedRectangle::new(relative_top_left, relative_bottom_right);
+        let relative_bounding_box = self.get_relative_bounding_box(relative_coordinate_system.clone());
         let bounding_circle = self.mosaic.get_bounding_circle();
         let relative_circle_center = Self::map_to_relative_point(
             bounding_circle.get_center(),
@@ -287,6 +267,30 @@ impl RelativeMosaic {
                 (converted_point.get_x() - top_left.x) / width,
                 (converted_point.get_y() - top_left.y) / height,
                 0.0,
+            ),
+        )
+    }
+
+    fn get_relative_bounding_box(
+        &self,
+        relative_coordinate_system: WrappedCoordinateSystem,
+    ) -> CoordinatedRectangle {
+        let bounding_box = SliceRectangle::new_from_math_rectangle(
+            self.mosaic.get_bounding_box().to_global_rectangle(),
+        );
+        let absolute_rectangle = SliceRectangle::new_from_math_rectangle(self.absolute_rectangle.clone());
+        let unit_rectangle = SliceRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.0, 0.0, 0.0));
+        let relative_rectangle =
+            RelativeRectangle::new_from_rectangles(bounding_box, absolute_rectangle);
+        let relative_bounding_box = relative_rectangle.multiply_with_rectangle(unit_rectangle);
+        CoordinatedRectangle::new(
+            CoordinatedPoint::new(
+                relative_coordinate_system.clone(),
+                relative_bounding_box.get_top_left(),
+            ),
+            CoordinatedPoint::new(
+                relative_coordinate_system,
+                relative_bounding_box.get_bottom_right(),
             ),
         )
     }
