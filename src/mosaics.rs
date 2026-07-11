@@ -135,17 +135,26 @@ impl RelativeMosaic {
 
     pub fn get_bounding_box(&mut self) -> CoordinatedRectangle {
         self.calculate_cached_relative_data();
-        self.cached_relative_data.as_ref().unwrap().get_bounding_box()
+        self.cached_relative_data
+            .as_ref()
+            .unwrap()
+            .get_bounding_box()
     }
 
     pub fn get_bounding_circle(&mut self) -> CoordinatedCircle {
         self.calculate_cached_relative_data();
-        self.cached_relative_data.as_ref().unwrap().get_bounding_circle()
+        self.cached_relative_data
+            .as_ref()
+            .unwrap()
+            .get_bounding_circle()
     }
 
     pub fn get_center_of_mass(&mut self) -> CoordinatedPoint {
         self.calculate_cached_relative_data();
-        self.cached_relative_data.as_ref().unwrap().get_center_of_mass()
+        self.cached_relative_data
+            .as_ref()
+            .unwrap()
+            .get_center_of_mass()
     }
 
     pub fn get_area(&mut self) -> f64 {
@@ -210,7 +219,8 @@ impl RelativeMosaic {
             relative_coordinate_system.clone(),
             bounding_box.get_bottom_right(),
         ));
-        let relative_bounding_box = CoordinatedRectangle::new(relative_top_left, relative_bottom_right);
+        let relative_bounding_box =
+            CoordinatedRectangle::new(relative_top_left, relative_bottom_right);
         let bounding_circle = cached_data.get_bounding_circle();
         let center = bounding_circle.get_center();
         let relative_center = map_to_relative(center.clone());
@@ -226,8 +236,10 @@ impl RelativeMosaic {
             center_global.get_local_point() + Vec3d::new(0.0, radius, 0.0),
         ))
         .distance_to(relative_center.clone());
-        let relative_bounding_circle =
-            CoordinatedCircle::new(relative_center.clone(), relative_x_radius.max(relative_y_radius));
+        let relative_bounding_circle = CoordinatedCircle::new(
+            relative_center.clone(),
+            relative_x_radius.max(relative_y_radius),
+        );
         let relative_area = cached_data.get_area() / absolute_area;
         self.cached_relative_data = Some(CachedRelativeData::new(
             relative_bounding_box,
