@@ -14,7 +14,6 @@ axum = "0.8"
 axum-server = { version = "0.7", features = ["tls-rustls"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 rcgen = "0.14"
-tempfile = "3"
 
 
 [[bin]]

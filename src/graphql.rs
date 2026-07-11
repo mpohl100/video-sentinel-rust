@@ -492,19 +492,8 @@ fn app_state(ctx: &Context<'_>) -> Result<GraphqlAppState> {
         .map_err(|_| Error::new("GraphQL app state not available"))
 }
 
-fn read_upload_bytes(ctx: &Context<'_>, upload: Upload, require_jpeg: bool) -> Result<Vec<u8>> {
+fn read_upload_bytes(ctx: &Context<'_>, upload: Upload) -> Result<Vec<u8>> {
     let upload_value = upload.value(ctx)?;
-    if require_jpeg
-        && upload_value
-            .content_type
-            .as_deref()
-            .is_some_and(|value| !value.eq_ignore_ascii_case("image/jpeg"))
-    {
-        return Err(Error::new(
-            "Uploaded file must have content type image/jpeg",
-        ));
-    }
-
     let mut content = upload_value.content;
     let mut bytes = Vec::new();
     content
@@ -520,7 +509,7 @@ fn wrapped_rgb_image_from_jpeg(bytes: &[u8]) -> Result<WrappedRgbImage> {
     Ok(WrappedRgbImage::new(rgb_image))
 }
 
-fn enum_error(message: &str) -> Error {
+fn message_error(message: &str) -> Error {
     Error::new(message)
 }
 
@@ -609,11 +598,11 @@ impl QueryRoot {
         image: Upload,
         previous_image: Option<Upload>,
     ) -> Result<Vec<EnrichedMosaicGql>> {
-        let image_bytes = read_upload_bytes(ctx, image, true)?;
+        let image_bytes = read_upload_bytes(ctx, image)?;
         let image = wrapped_rgb_image_from_jpeg(&image_bytes)?;
         let previous_image = previous_image
             .map(|upload| {
-                let bytes = read_upload_bytes(ctx, upload, true)?;
+                let bytes = read_upload_bytes(ctx, upload)?;
                 wrapped_rgb_image_from_jpeg(&bytes)
             })
             .transpose()?;
@@ -625,9 +614,9 @@ impl QueryRoot {
             GetRectanglesResult::Success(mosaics) => {
                 Ok(mosaics.into_iter().map(Into::into).collect())
             }
-            GetRectanglesResult::SessionNotFound => Err(enum_error("Session not found")),
+            GetRectanglesResult::SessionNotFound => Err(message_error("Session not found")),
             GetRectanglesResult::PreviousImageRequiredForEyeSession => {
-                Err(enum_error("Previous image required for eye session"))
+                Err(message_error("Previous image required for eye session"))
             }
         }
     }
@@ -647,7 +636,7 @@ impl MutationRoot {
         match service.create_ordinary_session(session_id, basic_params.into(), results.into()) {
             CreateOrdinarySessionResult::Success => Ok(true),
             CreateOrdinarySessionResult::SessionAlreadyExists => {
-                Err(enum_error("Session already exists"))
+                Err(message_error("Session already exists"))
             }
         }
     }
@@ -670,7 +659,7 @@ impl MutationRoot {
         ) {
             CreateEyeSessionResult::Success => Ok(true),
             CreateEyeSessionResult::SessionAlreadyExists => {
-                Err(enum_error("Session already exists"))
+                Err(message_error("Session already exists"))
             }
         }
     }
@@ -693,7 +682,7 @@ impl MutationRoot {
         ) {
             CreateObjectSessionResult::Success => Ok(true),
             CreateObjectSessionResult::SessionAlreadyExists => {
-                Err(enum_error("Session already exists"))
+                Err(message_error("Session already exists"))
             }
         }
     }
@@ -708,7 +697,7 @@ impl MutationRoot {
         let mut service = service.lock().await;
         match service.update_basic_params(session_id, basic_params.into()) {
             UpdateBasicParamsResult::Success => Ok(true),
-            UpdateBasicParamsResult::SessionNotFound => Err(enum_error("Session not found")),
+            UpdateBasicParamsResult::SessionNotFound => Err(message_error("Session not found")),
         }
     }
 
@@ -722,9 +711,9 @@ impl MutationRoot {
         let mut service = service.lock().await;
         match service.update_tile_params(session_id, tile_params.into()) {
             TileParamsUpdateResult::Success => Ok(true),
-            TileParamsUpdateResult::SessionNotFound => Err(enum_error("Session not found")),
+            TileParamsUpdateResult::SessionNotFound => Err(message_error("Session not found")),
             TileParamsUpdateResult::SessionTypeDoesNotSupportTileParams => {
-                Err(enum_error("Session type does not support tile params"))
+                Err(message_error("Session type does not support tile params"))
             }
         }
     }
@@ -739,9 +728,9 @@ impl MutationRoot {
         let mut service = service.lock().await;
         match service.update_trace_params(session_id, trace_params.into()) {
             TraceParamsUpdateResult::Success => Ok(true),
-            TraceParamsUpdateResult::SessionNotFound => Err(enum_error("Session not found")),
+            TraceParamsUpdateResult::SessionNotFound => Err(message_error("Session not found")),
             TraceParamsUpdateResult::SessionTypeDoesNotSupportTraceParams => {
-                Err(enum_error("Session type does not support trace params"))
+                Err(message_error("Session type does not support trace params"))
             }
         }
     }
@@ -756,9 +745,9 @@ impl MutationRoot {
         let mut service = service.lock().await;
         match service.update_bucket_delta(session_id, bucket_delta) {
             BucketDeltaUpdateResult::Success => Ok(true),
-            BucketDeltaUpdateResult::SessionNotFound => Err(enum_error("Session not found")),
+            BucketDeltaUpdateResult::SessionNotFound => Err(message_error("Session not found")),
             BucketDeltaUpdateResult::SessionTypeDoesNotSupportBucketDelta => {
-                Err(enum_error("Session type does not support bucket delta"))
+                Err(message_error("Session type does not support bucket delta"))
             }
         }
     }
@@ -773,9 +762,11 @@ impl MutationRoot {
         let mut service = service.lock().await;
         match service.update_target_similarity(session_id, target_similarity) {
             TargetSimilarityUpdateResult::Success => Ok(true),
-            TargetSimilarityUpdateResult::SessionNotFound => Err(enum_error("Session not found")),
+            TargetSimilarityUpdateResult::SessionNotFound => {
+                Err(message_error("Session not found"))
+            }
             TargetSimilarityUpdateResult::SessionTypeDoesNotSupportTargetSimilarity => Err(
-                enum_error("Session type does not support target similarity"),
+                message_error("Session type does not support target similarity"),
             ),
         }
     }
@@ -790,9 +781,9 @@ impl MutationRoot {
         let mut service = service.lock().await;
         match service.update_eye_params(session_id, eye_params.into()) {
             EyeParamsUpdateResult::Success => Ok(true),
-            EyeParamsUpdateResult::SessionNotFound => Err(enum_error("Session not found")),
+            EyeParamsUpdateResult::SessionNotFound => Err(message_error("Session not found")),
             EyeParamsUpdateResult::SessionTypeDoesNotSupportEyeParams => {
-                Err(enum_error("Session type does not support eye params"))
+                Err(message_error("Session type does not support eye params"))
             }
         }
     }
@@ -808,10 +799,10 @@ impl MutationRoot {
         match service.update_object_detection_params(session_id, object_detection_params.into()) {
             ObjectDetectionParamsUpdateResult::Success => Ok(true),
             ObjectDetectionParamsUpdateResult::SessionNotFound => {
-                Err(enum_error("Session not found"))
+                Err(message_error("Session not found"))
             }
             ObjectDetectionParamsUpdateResult::SessionTypeDoesNotSupportObjectDetectionParams => {
-                Err(enum_error(
+                Err(message_error(
                     "Session type does not support object detection params",
                 ))
             }
@@ -826,7 +817,7 @@ impl MutationRoot {
         image: Upload,
         surrounding_rectangle: RectangleInputGql,
     ) -> Result<bool> {
-        let image_bytes = read_upload_bytes(ctx, image, true)?;
+        let image_bytes = read_upload_bytes(ctx, image)?;
         let wrapped_image = wrapped_rgb_image_from_jpeg(&image_bytes)?;
 
         let service = app_state(ctx)?.service;
@@ -838,9 +829,9 @@ impl MutationRoot {
             surrounding_rectangle.into(),
         ) {
             AddObjectToBeDetectedResult::Success => Ok(true),
-            AddObjectToBeDetectedResult::SessionNotFound => Err(enum_error("Session not found")),
+            AddObjectToBeDetectedResult::SessionNotFound => Err(message_error("Session not found")),
             AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected => Err(
-                enum_error("Session type does not support adding object to be detected"),
+                message_error("Session type does not support adding object to be detected"),
             ),
         }
     }
@@ -856,9 +847,9 @@ impl MutationRoot {
         let mut service = service.lock().await;
         match service.add_object_to_be_detected_as_ascii_art(session_id, object_id, ascii_art) {
             AddObjectToBeDetectedResult::Success => Ok(true),
-            AddObjectToBeDetectedResult::SessionNotFound => Err(enum_error("Session not found")),
+            AddObjectToBeDetectedResult::SessionNotFound => Err(message_error("Session not found")),
             AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected => Err(
-                enum_error("Session type does not support adding object to be detected"),
+                message_error("Session type does not support adding object to be detected"),
             ),
         }
     }
@@ -868,7 +859,7 @@ impl MutationRoot {
         let mut service = service.lock().await;
         match service.delete_session(&session_id) {
             DeleteSessionResult::Success => Ok(true),
-            DeleteSessionResult::SessionNotFound => Err(enum_error("Session not found")),
+            DeleteSessionResult::SessionNotFound => Err(message_error("Session not found")),
         }
     }
 
@@ -882,12 +873,12 @@ impl MutationRoot {
         let mut service = service.lock().await;
         match service.delete_reference_object(&session_id, object_id) {
             DeleteReferenceObjectResult::Success => Ok(true),
-            DeleteReferenceObjectResult::SessionNotFound => Err(enum_error("Session not found")),
+            DeleteReferenceObjectResult::SessionNotFound => Err(message_error("Session not found")),
             DeleteReferenceObjectResult::SessionTypeDoesNotSupportDeletingReferenceObject => Err(
-                enum_error("Session type does not support deleting reference object"),
+                message_error("Session type does not support deleting reference object"),
             ),
             DeleteReferenceObjectResult::ReferenceObjectNotFound => {
-                Err(enum_error("Reference object not found"))
+                Err(message_error("Reference object not found"))
             }
         }
     }
