@@ -3,8 +3,8 @@ use core::panic;
 use rs_math3d::Vec3d;
 
 use crate::bucketed_mosaics::BucketedMosaics;
-use crate::math::Rectangle as MathRectangle;
 use crate::eye::TileParams;
+use crate::math::Rectangle as MathRectangle;
 use crate::mosaics::WrappedMosaic;
 use crate::mosaics::WrappedRelativeMosaic;
 use crate::slices::Color;

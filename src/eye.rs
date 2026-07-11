@@ -154,10 +154,9 @@ pub fn calculate_rectangles_of_bucketed_mosaics(
                 tile_params.relative_tile_x.min(1.0 - x),
                 tile_params.relative_tile_y.min(1.0 - y),
             );
-            rectangles.push(WrappedRelativeRectangle::new(RelativeRectangle::new_from_rectangles(
-                rectangle,
-                base_rectangle.clone(),
-            )));
+            rectangles.push(WrappedRelativeRectangle::new(
+                RelativeRectangle::new_from_rectangles(rectangle, base_rectangle.clone()),
+            ));
             x += tile_params.relative_tile_x;
         }
         y += tile_params.relative_tile_y;

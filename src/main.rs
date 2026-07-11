@@ -158,10 +158,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn configure_session(
-    service: &mut Service,
-    args: &CliArgs,
-) -> Result<(), Box<dyn Error>> {
+fn configure_session(service: &mut Service, args: &CliArgs) -> Result<(), Box<dyn Error>> {
     let basic_params = BasicParamsInput {
         do_grayscale: args.do_grayscale,
         gradient_threshold: args.gradient_threshold,
