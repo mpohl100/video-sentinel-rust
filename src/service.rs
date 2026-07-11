@@ -349,16 +349,12 @@ impl Service {
         if let Some(session) = self.sessions.get_mut(&session_id) {
             match session {
                 Session::Eye(eye_session) => {
-                    eye_session.eye_params.tile_params = TileParams::new(
-                        tile_params_input.tile_x,
-                        tile_params_input.tile_y,
-                    );
+                    eye_session.eye_params.tile_params =
+                        TileParams::new(tile_params_input.tile_x, tile_params_input.tile_y);
                 }
                 Session::Object(object_session) => {
-                    object_session.object_detection_params.tile_params = TileParams::new(
-                        tile_params_input.tile_x,
-                        tile_params_input.tile_y,
-                    );
+                    object_session.object_detection_params.tile_params =
+                        TileParams::new(tile_params_input.tile_x, tile_params_input.tile_y);
                 }
                 _ => return TileParamsUpdateResult::SessionTypeDoesNotSupportTileParams,
             }

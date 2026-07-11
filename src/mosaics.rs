@@ -196,7 +196,8 @@ impl RelativeMosaic {
         assert!(width > 0.0, "Absolute rectangle width must be positive");
         assert!(height > 0.0, "Absolute rectangle height must be positive");
         let absolute_area = width * height;
-        let relative_bounding_box = self.get_relative_bounding_box(relative_coordinate_system.clone());
+        let relative_bounding_box =
+            self.get_relative_bounding_box(relative_coordinate_system.clone());
         let bounding_circle = self.mosaic.get_bounding_circle();
         let relative_circle_center = Self::map_to_relative_point(
             bounding_circle.get_center(),
@@ -278,8 +279,10 @@ impl RelativeMosaic {
         let bounding_box = SliceRectangle::new_from_math_rectangle(
             self.mosaic.get_bounding_box().to_global_rectangle(),
         );
-        let absolute_rectangle = SliceRectangle::new_from_math_rectangle(self.absolute_rectangle.clone());
-        let unit_rectangle = SliceRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.0, 0.0, 0.0));
+        let absolute_rectangle =
+            SliceRectangle::new_from_math_rectangle(self.absolute_rectangle.clone());
+        let unit_rectangle =
+            SliceRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.0, 0.0, 0.0));
         let relative_rectangle =
             RelativeRectangle::new_from_rectangles(bounding_box, absolute_rectangle);
         let relative_bounding_box = relative_rectangle.multiply_with_rectangle(unit_rectangle);
