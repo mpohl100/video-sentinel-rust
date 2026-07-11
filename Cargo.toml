@@ -7,6 +7,7 @@ edition = "2024"
 rs-math3d = "0.9.24"
 image = "0.25"
 video-rs = { version = "0.11", features = ["ndarray"] }
+clap = { version = "4.5", features = ["derive"] }
 
 
 [[bin]]
