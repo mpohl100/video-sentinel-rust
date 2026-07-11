@@ -1,5 +1,6 @@
 pub mod bucketed_mosaics;
 pub mod eye;
+pub mod graphql;
 pub mod math;
 pub mod mosaics;
 pub mod object_detection;

@@ -8,8 +8,19 @@ rs-math3d = "0.9.24"
 image = "0.25"
 video-rs = { version = "0.11", features = ["ndarray"] }
 clap = { version = "4.5", features = ["derive"] }
+async-graphql = "7"
+async-graphql-axum = "7"
+axum = "0.8"
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+rcgen = "0.14"
+tempfile = "3"
 
 
 [[bin]]
 name = "video-sentinel-exe"
 path = "src/main.rs"
+
+[[bin]]
+name = "video-sentinel-service"
+path = "src/service_main.rs"

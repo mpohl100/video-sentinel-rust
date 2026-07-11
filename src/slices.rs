@@ -525,6 +525,14 @@ impl BasicParams {
             gradient_threshold,
         }
     }
+
+    pub fn do_grayscale(&self) -> bool {
+        self.do_grayscale
+    }
+
+    pub fn gradient_threshold(&self) -> u8 {
+        self.gradient_threshold
+    }
 }
 
 #[derive(Clone)]
