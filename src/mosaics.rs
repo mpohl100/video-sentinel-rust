@@ -187,67 +187,108 @@ impl RelativeMosaic {
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
         );
-        let cached_data = CachedData::new(
-            self.mosaic.get_bounding_box(),
-            self.mosaic.get_bounding_circle(),
-            self.mosaic.get_center_of_mass(),
-            self.mosaic.get_area(),
-            self.mosaic.get_average_color(),
-        );
         let top_left = self.absolute_rectangle.get_top_left();
         let bottom_right = self.absolute_rectangle.get_bottom_right();
         let width = bottom_right.x - top_left.x;
         let height = bottom_right.y - top_left.y;
+        assert!(width > 0.0, "Absolute rectangle width must be positive");
+        assert!(height > 0.0, "Absolute rectangle height must be positive");
         let absolute_area = width * height;
-        let map_to_relative = |point: CoordinatedPoint| {
-            let global_point = point.convert_to(relative_coordinate_system.clone());
+        let bounding_box = self.mosaic.get_bounding_box().to_global_rectangle();
+        let relative_top_left = Self::map_to_relative_point(
             CoordinatedPoint::new(
                 relative_coordinate_system.clone(),
-                Vec3d::new(
-                    (global_point.get_x() - top_left.x) / width,
-                    (global_point.get_y() - top_left.y) / height,
-                    0.0,
-                ),
-            )
-        };
-        let bounding_box = cached_data.get_bounding_box().to_global_rectangle();
-        let relative_top_left = map_to_relative(CoordinatedPoint::new(
-            relative_coordinate_system.clone(),
-            bounding_box.get_top_left(),
-        ));
-        let relative_bottom_right = map_to_relative(CoordinatedPoint::new(
-            relative_coordinate_system.clone(),
-            bounding_box.get_bottom_right(),
-        ));
+                bounding_box.get_top_left(),
+            ),
+            &relative_coordinate_system,
+            top_left,
+            width,
+            height,
+        );
+        let relative_bottom_right = Self::map_to_relative_point(
+            CoordinatedPoint::new(
+                relative_coordinate_system.clone(),
+                bounding_box.get_bottom_right(),
+            ),
+            &relative_coordinate_system,
+            top_left,
+            width,
+            height,
+        );
         let relative_bounding_box =
             CoordinatedRectangle::new(relative_top_left, relative_bottom_right);
-        let bounding_circle = cached_data.get_bounding_circle();
-        let center = bounding_circle.get_center();
-        let relative_center = map_to_relative(center.clone());
-        let center_global = center.convert_to(relative_coordinate_system.clone());
+        let bounding_circle = self.mosaic.get_bounding_circle();
+        let relative_circle_center = Self::map_to_relative_point(
+            bounding_circle.get_center(),
+            &relative_coordinate_system,
+            top_left,
+            width,
+            height,
+        );
         let radius = bounding_circle.get_radius();
-        let relative_x_radius = map_to_relative(CoordinatedPoint::new(
-            relative_coordinate_system.clone(),
-            center_global.get_local_point() + Vec3d::new(radius, 0.0, 0.0),
-        ))
-        .distance_to(relative_center.clone());
-        let relative_y_radius = map_to_relative(CoordinatedPoint::new(
-            relative_coordinate_system.clone(),
-            center_global.get_local_point() + Vec3d::new(0.0, radius, 0.0),
-        ))
-        .distance_to(relative_center.clone());
+        let circle_center_global = bounding_circle
+            .get_center()
+            .convert_to(relative_coordinate_system.clone())
+            .get_local_point();
+        let relative_x_radius = Self::map_to_relative_point(
+            CoordinatedPoint::new(
+                relative_coordinate_system.clone(),
+                circle_center_global + Vec3d::new(radius, 0.0, 0.0),
+            ),
+            &relative_coordinate_system,
+            top_left,
+            width,
+            height,
+        )
+        .distance_to(relative_circle_center.clone());
+        let relative_y_radius = Self::map_to_relative_point(
+            CoordinatedPoint::new(
+                relative_coordinate_system.clone(),
+                circle_center_global + Vec3d::new(0.0, radius, 0.0),
+            ),
+            &relative_coordinate_system,
+            top_left,
+            width,
+            height,
+        )
+        .distance_to(relative_circle_center.clone());
         let relative_bounding_circle = CoordinatedCircle::new(
-            relative_center.clone(),
+            relative_circle_center,
             relative_x_radius.max(relative_y_radius),
         );
-        let relative_area = cached_data.get_area() / absolute_area;
+        let relative_center_of_mass = Self::map_to_relative_point(
+            self.mosaic.get_center_of_mass(),
+            &relative_coordinate_system,
+            top_left,
+            width,
+            height,
+        );
+        let relative_area = self.mosaic.get_area() / absolute_area;
         self.cached_relative_data = Some(CachedRelativeData::new(
             relative_bounding_box,
             relative_bounding_circle,
-            relative_center,
+            relative_center_of_mass,
             relative_area,
-            cached_data.get_average_color_vec(),
+            self.mosaic.get_average_color(),
         ));
+    }
+
+    fn map_to_relative_point(
+        point: CoordinatedPoint,
+        relative_coordinate_system: &WrappedCoordinateSystem,
+        top_left: Vec3d,
+        width: f64,
+        height: f64,
+    ) -> CoordinatedPoint {
+        let converted_point = point.convert_to(relative_coordinate_system.clone());
+        CoordinatedPoint::new(
+            relative_coordinate_system.clone(),
+            Vec3d::new(
+                (converted_point.get_x() - top_left.x) / width,
+                (converted_point.get_y() - top_left.y) / height,
+                0.0,
+            ),
+        )
     }
 }
 
