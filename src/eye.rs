@@ -25,6 +25,14 @@ impl TileParams {
             relative_tile_y,
         }
     }
+
+    pub fn relative_tile_x(&self) -> f64 {
+        self.relative_tile_x
+    }
+
+    pub fn relative_tile_y(&self) -> f64 {
+        self.relative_tile_y
+    }
 }
 
 #[derive(Clone, PartialEq)]

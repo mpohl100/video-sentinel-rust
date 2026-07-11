@@ -48,6 +48,14 @@ impl TraceParams {
             close_slice_threshold,
         }
     }
+
+    pub fn num_skeleton(&self) -> usize {
+        self.num_skeleton
+    }
+
+    pub fn close_slice_threshold(&self) -> f64 {
+        self.close_slice_threshold
+    }
 }
 
 #[derive(Clone)]
