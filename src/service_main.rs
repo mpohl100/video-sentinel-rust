@@ -3,10 +3,10 @@ use std::net::SocketAddr;
 
 use async_graphql::http::{GraphQLPlaygroundConfig, playground_source};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
+use axum::Router;
 use axum::extract::State;
 use axum::response::Html;
 use axum::routing::{get, post};
-use axum::Router;
 use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
 

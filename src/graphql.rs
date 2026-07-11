@@ -1,7 +1,9 @@
 use std::io::Read;
 use std::sync::Arc;
 
-use async_graphql::{Context, EmptySubscription, Enum, Error, InputObject, Object, Result, Schema, Upload};
+use async_graphql::{
+    Context, EmptySubscription, Enum, Error, InputObject, Object, Result, Schema, Upload,
+};
 use rs_math3d::Vec3d;
 use tokio::sync::Mutex;
 
@@ -470,7 +472,11 @@ pub struct RectangleInputGql {
 impl From<RectangleInputGql> for Rectangle {
     fn from(value: RectangleInputGql) -> Self {
         Self::new(
-            Vec3d::new(value.top_left.x, value.top_left.y, value.top_left.z.unwrap_or(0.0)),
+            Vec3d::new(
+                value.top_left.x,
+                value.top_left.y,
+                value.top_left.z.unwrap_or(0.0),
+            ),
             Vec3d::new(
                 value.bottom_right.x,
                 value.bottom_right.y,
@@ -494,7 +500,9 @@ fn read_upload_bytes(ctx: &Context<'_>, upload: Upload, require_jpeg: bool) -> R
             .as_deref()
             .is_some_and(|value| !value.eq_ignore_ascii_case("image/jpeg"))
     {
-        return Err(Error::new("Uploaded file must have content type image/jpeg"));
+        return Err(Error::new(
+            "Uploaded file must have content type image/jpeg",
+        ));
     }
 
     let mut content = upload_value.content;
@@ -578,11 +586,7 @@ impl QueryRoot {
         Ok(service.get_trace_params(&session_id).map(Into::into))
     }
 
-    async fn get_bucket_delta(
-        &self,
-        ctx: &Context<'_>,
-        session_id: String,
-    ) -> Result<Option<f64>> {
+    async fn get_bucket_delta(&self, ctx: &Context<'_>, session_id: String) -> Result<Option<f64>> {
         let service = app_state(ctx)?.service;
         let service = service.lock().await;
         Ok(service.get_bucket_delta(&session_id))
@@ -618,10 +622,10 @@ impl QueryRoot {
         let service = service.lock().await;
 
         match service.get_rectangles(session_id, image, previous_image) {
-            GetRectanglesResult::Success(mosaics) => Ok(mosaics.into_iter().map(Into::into).collect()),
-            GetRectanglesResult::SessionNotFound => {
-                Err(enum_error("Session not found"))
+            GetRectanglesResult::Success(mosaics) => {
+                Ok(mosaics.into_iter().map(Into::into).collect())
             }
+            GetRectanglesResult::SessionNotFound => Err(enum_error("Session not found")),
             GetRectanglesResult::PreviousImageRequiredForEyeSession => {
                 Err(enum_error("Previous image required for eye session"))
             }
@@ -770,9 +774,9 @@ impl MutationRoot {
         match service.update_target_similarity(session_id, target_similarity) {
             TargetSimilarityUpdateResult::Success => Ok(true),
             TargetSimilarityUpdateResult::SessionNotFound => Err(enum_error("Session not found")),
-            TargetSimilarityUpdateResult::SessionTypeDoesNotSupportTargetSimilarity => {
-                Err(enum_error("Session type does not support target similarity"))
-            }
+            TargetSimilarityUpdateResult::SessionTypeDoesNotSupportTargetSimilarity => Err(
+                enum_error("Session type does not support target similarity"),
+            ),
         }
     }
 
@@ -835,11 +839,9 @@ impl MutationRoot {
         ) {
             AddObjectToBeDetectedResult::Success => Ok(true),
             AddObjectToBeDetectedResult::SessionNotFound => Err(enum_error("Session not found")),
-            AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected => {
-                Err(enum_error(
-                    "Session type does not support adding object to be detected",
-                ))
-            }
+            AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected => Err(
+                enum_error("Session type does not support adding object to be detected"),
+            ),
         }
     }
 
@@ -855,11 +857,9 @@ impl MutationRoot {
         match service.add_object_to_be_detected_as_ascii_art(session_id, object_id, ascii_art) {
             AddObjectToBeDetectedResult::Success => Ok(true),
             AddObjectToBeDetectedResult::SessionNotFound => Err(enum_error("Session not found")),
-            AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected => {
-                Err(enum_error(
-                    "Session type does not support adding object to be detected",
-                ))
-            }
+            AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected => Err(
+                enum_error("Session type does not support adding object to be detected"),
+            ),
         }
     }
 
@@ -883,11 +883,9 @@ impl MutationRoot {
         match service.delete_reference_object(&session_id, object_id) {
             DeleteReferenceObjectResult::Success => Ok(true),
             DeleteReferenceObjectResult::SessionNotFound => Err(enum_error("Session not found")),
-            DeleteReferenceObjectResult::SessionTypeDoesNotSupportDeletingReferenceObject => {
-                Err(enum_error(
-                    "Session type does not support deleting reference object",
-                ))
-            }
+            DeleteReferenceObjectResult::SessionTypeDoesNotSupportDeletingReferenceObject => Err(
+                enum_error("Session type does not support deleting reference object"),
+            ),
             DeleteReferenceObjectResult::ReferenceObjectNotFound => {
                 Err(enum_error("Reference object not found"))
             }
