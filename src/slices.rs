@@ -655,6 +655,7 @@ impl WrappedRelativeRectangle {
 
     pub fn to_rectangle(&self) -> Rectangle {
         let unit_rectangle = Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.0, 0.0, 0.0));
+        // Rectangle width/height are inclusive (+1), so identical points represent a unit scale.
         self.multiply_with_rectangle(unit_rectangle)
     }
 

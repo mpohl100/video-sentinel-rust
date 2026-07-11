@@ -18,6 +18,8 @@ impl TileParams {
     pub fn new(relative_tile_x: f64, relative_tile_y: f64) -> Self {
         assert!(relative_tile_x > 0.0, "relative_tile_x must be positive");
         assert!(relative_tile_y > 0.0, "relative_tile_y must be positive");
+        assert!(relative_tile_x <= 1.0, "relative_tile_x must be <= 1.0");
+        assert!(relative_tile_y <= 1.0, "relative_tile_y must be <= 1.0");
         TileParams {
             relative_tile_x,
             relative_tile_y,
@@ -144,6 +146,7 @@ pub fn calculate_rectangles_of_bucketed_mosaics(
     tile_params: TileParams,
 ) -> Vec<WrappedRelativeRectangle> {
     let mut rectangles = Vec::new();
+    // Rectangle width/height are inclusive (+1), so identical points represent a unit scale.
     let base_rectangle = Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.0, 0.0, 0.0));
     let mut y = 0.0;
     while y < 1.0 {
