@@ -46,17 +46,11 @@ enum SessionArgs {
 
 #[derive(clap::Args, Clone)]
 struct TrackingParamsArgs {
-    #[arg(long)]
-    tile_image_width: Option<usize>,
+    #[arg(long, default_value_t = 0.1)]
+    tile_x: f64,
 
-    #[arg(long)]
-    tile_image_height: Option<usize>,
-
-    #[arg(long, default_value_t = 64)]
-    tile_width: usize,
-
-    #[arg(long, default_value_t = 64)]
-    tile_height: usize,
+    #[arg(long, default_value_t = 0.1)]
+    tile_y: f64,
 
     #[arg(long, default_value_t = 10.0)]
     bucket_delta: f64,
@@ -103,7 +97,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     let mut encoder = Encoder::new(args.output_video.as_path(), settings)?;
 
     let mut service = Service::new();
-    configure_session(&mut service, &args, width as usize, height as usize)?;
+    configure_session(&mut service, &args)?;
 
     let mut previous_image: Option<WrappedRgbImage> = None;
 
@@ -167,8 +161,6 @@ fn run() -> Result<(), Box<dyn Error>> {
 fn configure_session(
     service: &mut Service,
     args: &CliArgs,
-    video_width: usize,
-    video_height: usize,
 ) -> Result<(), Box<dyn Error>> {
     let basic_params = BasicParamsInput {
         do_grayscale: args.do_grayscale,
@@ -185,7 +177,7 @@ fn configure_session(
             }
         }
         SessionArgs::Eye(tracking) => {
-            let eye_params = to_eye_params_input(tracking, video_width, video_height);
+            let eye_params = to_eye_params_input(tracking);
             match service.create_eye_session(args.session_id.clone(), basic_params, eye_params) {
                 CreateEyeSessionResult::Success => Ok(()),
                 CreateEyeSessionResult::SessionAlreadyExists => {
@@ -203,8 +195,7 @@ fn configure_session(
                 .into());
             }
 
-            let object_params =
-                to_object_params_input(&object_args.tracking, video_width, video_height);
+            let object_params = to_object_params_input(&object_args.tracking);
             match service.create_object_session(
                 args.session_id.clone(),
                 basic_params,
@@ -252,17 +243,11 @@ fn configure_session(
     }
 }
 
-fn to_eye_params_input(
-    args: &TrackingParamsArgs,
-    video_width: usize,
-    video_height: usize,
-) -> EyeParamsInput {
+fn to_eye_params_input(args: &TrackingParamsArgs) -> EyeParamsInput {
     EyeParamsInput {
         tile_params: TileParamsInput {
-            image_width: args.tile_image_width.unwrap_or(video_width),
-            image_height: args.tile_image_height.unwrap_or(video_height),
-            tile_width: args.tile_width,
-            tile_height: args.tile_height,
+            tile_x: args.tile_x,
+            tile_y: args.tile_y,
         },
         bucket_delta: args.bucket_delta,
         trace_params: TraceParamsInput {
@@ -273,17 +258,11 @@ fn to_eye_params_input(
     }
 }
 
-fn to_object_params_input(
-    args: &TrackingParamsArgs,
-    video_width: usize,
-    video_height: usize,
-) -> ObjectDetectionParamsInput {
+fn to_object_params_input(args: &TrackingParamsArgs) -> ObjectDetectionParamsInput {
     ObjectDetectionParamsInput {
         tile_params: TileParamsInput {
-            image_width: args.tile_image_width.unwrap_or(video_width),
-            image_height: args.tile_image_height.unwrap_or(video_height),
-            tile_width: args.tile_width,
-            tile_height: args.tile_height,
+            tile_x: args.tile_x,
+            tile_y: args.tile_y,
         },
         bucket_delta: args.bucket_delta,
         trace_params: TraceParamsInput {

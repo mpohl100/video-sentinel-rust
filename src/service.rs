@@ -28,10 +28,8 @@ pub struct BasicParamsInput {
 
 #[derive(Clone)]
 pub struct TileParamsInput {
-    pub image_width: usize,
-    pub image_height: usize,
-    pub tile_width: usize,
-    pub tile_height: usize,
+    pub tile_x: f64,
+    pub tile_y: f64,
 }
 
 #[derive(Clone)]
@@ -245,10 +243,8 @@ impl Service {
             basic_params_input.gradient_threshold,
         );
         let tile_params = TileParams::new(
-            eye_params_input.tile_params.image_width,
-            eye_params_input.tile_params.image_height,
-            eye_params_input.tile_params.tile_width,
-            eye_params_input.tile_params.tile_height,
+            eye_params_input.tile_params.tile_x,
+            eye_params_input.tile_params.tile_y,
         );
         let trace_params = TraceParams::new(
             eye_params_input.trace_params.num_skeleton,
@@ -287,10 +283,8 @@ impl Service {
             basic_params_input.gradient_threshold,
         );
         let tile_params = TileParams::new(
-            object_detection_params_input.tile_params.image_width,
-            object_detection_params_input.tile_params.image_height,
-            object_detection_params_input.tile_params.tile_width,
-            object_detection_params_input.tile_params.tile_height,
+            object_detection_params_input.tile_params.tile_x,
+            object_detection_params_input.tile_params.tile_y,
         );
         let trace_params = TraceParams::new(
             object_detection_params_input.trace_params.num_skeleton,
@@ -356,18 +350,14 @@ impl Service {
             match session {
                 Session::Eye(eye_session) => {
                     eye_session.eye_params.tile_params = TileParams::new(
-                        tile_params_input.image_width,
-                        tile_params_input.image_height,
-                        tile_params_input.tile_width,
-                        tile_params_input.tile_height,
+                        tile_params_input.tile_x,
+                        tile_params_input.tile_y,
                     );
                 }
                 Session::Object(object_session) => {
                     object_session.object_detection_params.tile_params = TileParams::new(
-                        tile_params_input.image_width,
-                        tile_params_input.image_height,
-                        tile_params_input.tile_width,
-                        tile_params_input.tile_height,
+                        tile_params_input.tile_x,
+                        tile_params_input.tile_y,
                     );
                 }
                 _ => return TileParamsUpdateResult::SessionTypeDoesNotSupportTileParams,
@@ -458,10 +448,8 @@ impl Service {
             match session {
                 Session::Eye(eye_session) => {
                     let tile_params = TileParams::new(
-                        eye_params_input.tile_params.image_width,
-                        eye_params_input.tile_params.image_height,
-                        eye_params_input.tile_params.tile_width,
-                        eye_params_input.tile_params.tile_height,
+                        eye_params_input.tile_params.tile_x,
+                        eye_params_input.tile_params.tile_y,
                     );
                     let trace_params = TraceParams::new(
                         eye_params_input.trace_params.num_skeleton,
@@ -491,18 +479,8 @@ impl Service {
             match session {
                 Session::Object(object_session) => {
                     let tile_params = TileParams::new(
-                        object_detection_params_input
-                            .tile_params
-                            .image_width,
-                        object_detection_params_input
-                            .tile_params
-                            .image_height,
-                        object_detection_params_input
-                            .tile_params
-                            .tile_width,
-                        object_detection_params_input
-                            .tile_params
-                            .tile_height,
+                        object_detection_params_input.tile_params.tile_x,
+                        object_detection_params_input.tile_params.tile_y,
                     );
                     let trace_params = TraceParams::new(
                         object_detection_params_input.trace_params.num_skeleton,
@@ -810,11 +788,18 @@ fn calculate_eye(
     image: WrappedRgbImage,
     previous_image: WrappedRgbImage,
 ) -> Vec<EnrichedMosaic> {
+    let image_width = image.image.lock().unwrap().width() as f64;
+    let image_height = image.image.lock().unwrap().height() as f64;
+    let surrounding_rectangle = Rectangle::new(
+        Vec3d::new(0.0, 0.0, 0.0),
+        Vec3d::new(image_width, image_height, 0.0),
+    );
     let current_mosaics = calculate_ordinary_mosaics(eye_session.basic_params.clone(), image);
     let previous_mosaics =
         calculate_ordinary_mosaics(eye_session.basic_params.clone(), previous_image);
     let previous_bucketed_mosaics = deduce_bucketed_mosaics(
         previous_mosaics.clone(),
+        surrounding_rectangle.clone(),
         eye_session.eye_params.tile_params.clone(),
         eye_session.eye_params.bucket_delta,
     );
@@ -822,6 +807,7 @@ fn calculate_eye(
         previous_bucketed_mosaics,
         current_mosaics,
         eye_session.eye_params.clone(),
+        surrounding_rectangle.clone(),
     );
     rectangles
         .into_iter()
@@ -835,9 +821,16 @@ fn calculate_eye(
 }
 
 fn calculate_object(object_session: &ObjectSession, image: WrappedRgbImage) -> Vec<EnrichedMosaic> {
+    let image_width = image.image.lock().unwrap().width() as f64;
+    let image_height = image.image.lock().unwrap().height() as f64;
+    let surrounding_rectangle = Rectangle::new(
+        Vec3d::new(0.0, 0.0, 0.0),
+        Vec3d::new(image_width, image_height, 0.0),
+    );
     let current_mosaics = calculate_ordinary_mosaics(object_session.basic_params.clone(), image);
     let bucketed_mosaics = deduce_bucketed_mosaics(
         current_mosaics.clone(),
+        surrounding_rectangle.clone(),
         object_session.object_detection_params.tile_params.clone(),
         object_session.object_detection_params.bucket_delta,
     );
@@ -847,6 +840,7 @@ fn calculate_object(object_session: &ObjectSession, image: WrappedRgbImage) -> V
             reference_object.clone(),
             &bucketed_mosaics,
             object_session.object_detection_params.clone(),
+            surrounding_rectangle.clone(),
         ));
     }
     rectangles

@@ -632,6 +632,37 @@ impl RelativeRectangle {
     }
 }
 
+#[derive(Clone)]
+pub struct WrappedRelativeRectangle {
+    relative_rectangle: Arc<Mutex<RelativeRectangle>>,
+}
+
+impl WrappedRelativeRectangle {
+    pub fn new(relative_rectangle: RelativeRectangle) -> Self {
+        Self {
+            relative_rectangle: Arc::new(Mutex::new(relative_rectangle)),
+        }
+    }
+
+    pub fn new_from_rectangles(first: Rectangle, second: Rectangle) -> Self {
+        Self::new(RelativeRectangle::new_from_rectangles(first, second))
+    }
+
+    pub fn multiply_with_rectangle(&self, rectangle: Rectangle) -> Rectangle {
+        let relative_rectangle = self.relative_rectangle.lock().unwrap();
+        relative_rectangle.multiply_with_rectangle(rectangle)
+    }
+
+    pub fn to_rectangle(&self) -> Rectangle {
+        let unit_rectangle = Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.0, 0.0, 0.0));
+        self.multiply_with_rectangle(unit_rectangle)
+    }
+
+    pub fn overlaps(&self, other: &Rectangle) -> bool {
+        self.to_rectangle().overlaps(other)
+    }
+}
+
 fn rotate_onehundred_eighty_degrees(
     point: Vec3d,
     center: Vec3d,
