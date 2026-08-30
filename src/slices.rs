@@ -538,18 +538,19 @@ impl SliceMatrix {
 
         let mut inserted_top = false;
         if let Some(first_line) = original_lines.first()
-            && first_line.line_number > 0 {
-                let mut new_top_slices = first_line.slices.clone();
-                for slice in &mut new_top_slices {
-                    slice.line_number -= 1;
-                    slice.slice.start = slice.slice.start.plus(Vec3d::new(0.0, -1.0, 0.0));
-                    slice.slice.end = slice.slice.end.plus(Vec3d::new(0.0, -1.0, 0.0));
-                }
-                let mut new_top_line = SliceLine::new(first_line.line_number - 1, new_top_slices);
-                new_top_line.merge_overlapping_slices();
-                self.insert_where_needed(new_top_line);
-                inserted_top = true;
+            && first_line.line_number > 0
+        {
+            let mut new_top_slices = first_line.slices.clone();
+            for slice in &mut new_top_slices {
+                slice.line_number -= 1;
+                slice.slice.start = slice.slice.start.plus(Vec3d::new(0.0, -1.0, 0.0));
+                slice.slice.end = slice.slice.end.plus(Vec3d::new(0.0, -1.0, 0.0));
             }
+            let mut new_top_line = SliceLine::new(first_line.line_number - 1, new_top_slices);
+            new_top_line.merge_overlapping_slices();
+            self.insert_where_needed(new_top_line);
+            inserted_top = true;
+        }
 
         if let Some(last_line) = original_lines.last() {
             let mut new_bottom_slices = last_line.slices.clone();
