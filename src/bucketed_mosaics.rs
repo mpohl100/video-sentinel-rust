@@ -59,6 +59,18 @@ pub struct BucketedMosaics {
 }
 
 impl BucketedMosaics {
+    fn push_unique(
+        similar_mosaics: &mut Vec<WrappedRelativeMosaic>,
+        candidate: WrappedRelativeMosaic,
+    ) {
+        if !similar_mosaics
+            .iter()
+            .any(|existing| existing.shares_identity_with(&candidate))
+        {
+            similar_mosaics.push(candidate);
+        }
+    }
+
     pub fn new(regions: Vec<WrappedRelativeRectangle>, delta: f64) -> Self {
         let sections = regions
             .into_iter()
@@ -77,11 +89,13 @@ impl BucketedMosaics {
         &self,
         mosaic: &WrappedRelativeMosaic,
     ) -> Vec<WrappedRelativeMosaic> {
-        let mut similar_mosaics = Vec::new();
+        let mut similar_mosaics: Vec<WrappedRelativeMosaic> = Vec::new();
         for section in self.get_overlapping_sections(Rectangle::new_from_math_rectangle(
             mosaic.get_bounding_box().to_global_rectangle(),
         )) {
-            similar_mosaics.extend(section.get_potentially_similar_mosaics(mosaic));
+            for candidate in section.get_potentially_similar_mosaics(mosaic) {
+                Self::push_unique(&mut similar_mosaics, candidate);
+            }
         }
         similar_mosaics
     }
@@ -93,12 +107,7 @@ impl BucketedMosaics {
         let mut similar_mosaics: Vec<WrappedRelativeMosaic> = Vec::new();
         for section in &self.sections {
             for candidate in section.get_potentially_similar_mosaics(mosaic) {
-                if !similar_mosaics
-                    .iter()
-                    .any(|existing| existing.shares_identity_with(&candidate))
-                {
-                    similar_mosaics.push(candidate);
-                }
+                Self::push_unique(&mut similar_mosaics, candidate);
             }
         }
         similar_mosaics
@@ -109,10 +118,11 @@ impl BucketedMosaics {
         mosaic: &WrappedRelativeMosaic,
         region: WrappedRelativeRectangle,
     ) -> Vec<WrappedRelativeMosaic> {
-        let mut similar_mosaics = Vec::new();
+        let mut similar_mosaics: Vec<WrappedRelativeMosaic> = Vec::new();
         for section in self.get_overlapping_sections(region.to_rectangle()) {
-            let mosaics = section.get_potentially_similar_mosaics(mosaic);
-            similar_mosaics.extend(mosaics);
+            for candidate in section.get_potentially_similar_mosaics(mosaic) {
+                Self::push_unique(&mut similar_mosaics, candidate);
+            }
         }
         similar_mosaics
     }
