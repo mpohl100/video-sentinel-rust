@@ -537,8 +537,8 @@ impl SliceMatrix {
         }
 
         let mut inserted_top = false;
-        if let Some(first_line) = original_lines.first() {
-            if first_line.line_number > 0 {
+        if let Some(first_line) = original_lines.first()
+            && first_line.line_number > 0 {
                 let mut new_top_slices = first_line.slices.clone();
                 for slice in &mut new_top_slices {
                     slice.line_number -= 1;
@@ -550,7 +550,6 @@ impl SliceMatrix {
                 self.insert_where_needed(new_top_line);
                 inserted_top = true;
             }
-        }
 
         if let Some(last_line) = original_lines.last() {
             let mut new_bottom_slices = last_line.slices.clone();
