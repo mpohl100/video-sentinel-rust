@@ -214,7 +214,12 @@ mod tests {
         for (line_number, start, end) in ranges {
             matrix.add(SliceLine::new(
                 *line_number,
-                vec![annotated_slice(*start, *line_number as f64, *end, *line_number)],
+                vec![annotated_slice(
+                    *start,
+                    *line_number as f64,
+                    *end,
+                    *line_number,
+                )],
             ));
         }
         WrappedMosaic::new(matrix)
@@ -260,7 +265,8 @@ mod tests {
     #[test]
     fn deduce_bucketed_mosaics_makes_inserted_mosaic_retrievable() {
         let surrounding_rectangle = sample_surrounding_rectangle();
-        let mosaic = mosaic_from_ranges(&[(3, 3.0, 5.0), (4, 3.0, 5.0), (5, 3.0, 5.0)], [40, 50, 60]);
+        let mosaic =
+            mosaic_from_ranges(&[(3, 3.0, 5.0), (4, 3.0, 5.0), (5, 3.0, 5.0)], [40, 50, 60]);
         let bucketed = deduce_bucketed_mosaics(
             vec![mosaic.clone()],
             surrounding_rectangle.clone(),
@@ -280,7 +286,10 @@ mod tests {
         assert_eq!(similar.len(), 1);
         assert_float_eq(similar[0].get_area(), wrapped.get_area());
         assert_float_eq(
-            similar[0].get_bounding_box().to_global_rectangle().get_area(),
+            similar[0]
+                .get_bounding_box()
+                .to_global_rectangle()
+                .get_area(),
             wrapped.get_bounding_box().to_global_rectangle().get_area(),
         );
     }
@@ -288,7 +297,8 @@ mod tests {
     #[test]
     fn deduce_rectangles_marks_identical_mosaics_blue() {
         let surrounding_rectangle = sample_surrounding_rectangle();
-        let previous = mosaic_from_ranges(&[(3, 3.0, 5.0), (4, 3.0, 5.0), (5, 3.0, 5.0)], [70, 80, 90]);
+        let previous =
+            mosaic_from_ranges(&[(3, 3.0, 5.0), (4, 3.0, 5.0), (5, 3.0, 5.0)], [70, 80, 90]);
         let next = previous.clone();
         let bucketed = deduce_bucketed_mosaics(
             vec![previous],
@@ -300,7 +310,12 @@ mod tests {
         let rectangles = deduce_rectangles(
             bucketed,
             vec![next.clone()],
-            EyeParams::new(TileParams::new(0.5, 0.5), 0.25, TraceParams::new(12, 0.2), 0.9),
+            EyeParams::new(
+                TileParams::new(0.5, 0.5),
+                0.25,
+                TraceParams::new(12, 0.2),
+                0.9,
+            ),
             surrounding_rectangle,
         );
 
@@ -308,15 +323,22 @@ mod tests {
         assert!(rectangles[0].get_color() == Color::Blue);
         assert_float_eq(
             rectangles[0].get_rectangle().get_area(),
-            Rectangle::new_from_math_rectangle(next.get_bounding_box().to_global_rectangle()).get_area(),
+            Rectangle::new_from_math_rectangle(next.get_bounding_box().to_global_rectangle())
+                .get_area(),
         );
     }
 
     #[test]
     fn deduce_rectangles_keeps_red_when_similarity_threshold_is_unreachable() {
         let surrounding_rectangle = sample_surrounding_rectangle();
-        let previous = mosaic_from_ranges(&[(3, 3.0, 5.0), (4, 3.0, 5.0), (5, 3.0, 5.0)], [120, 20, 20]);
-        let next = mosaic_from_ranges(&[(8, 8.0, 10.0), (9, 8.0, 10.0), (10, 8.0, 10.0)], [120, 20, 20]);
+        let previous = mosaic_from_ranges(
+            &[(3, 3.0, 5.0), (4, 3.0, 5.0), (5, 3.0, 5.0)],
+            [120, 20, 20],
+        );
+        let next = mosaic_from_ranges(
+            &[(8, 8.0, 10.0), (9, 8.0, 10.0), (10, 8.0, 10.0)],
+            [120, 20, 20],
+        );
         let bucketed = deduce_bucketed_mosaics(
             vec![previous],
             surrounding_rectangle.clone(),
@@ -327,7 +349,12 @@ mod tests {
         let rectangles = deduce_rectangles(
             bucketed,
             vec![next],
-            EyeParams::new(TileParams::new(0.5, 0.5), 0.25, TraceParams::new(12, 0.2), 1.1),
+            EyeParams::new(
+                TileParams::new(0.5, 0.5),
+                0.25,
+                TraceParams::new(12, 0.2),
+                1.1,
+            ),
             surrounding_rectangle,
         );
 
@@ -352,9 +379,20 @@ mod tests {
 
     #[test]
     fn are_mosaics_similar_matches_trace_comparison_behavior() {
-        let mosaic = mosaic_from_ranges(&[(2, 2.0, 4.0), (3, 2.0, 4.0), (4, 2.0, 4.0)], [30, 30, 30]);
+        let mosaic =
+            mosaic_from_ranges(&[(2, 2.0, 4.0), (3, 2.0, 4.0), (4, 2.0, 4.0)], [30, 30, 30]);
 
-        assert!(are_mosaics_similar(&mosaic, &mosaic, TraceParams::new(16, 0.2), 0.9));
-        assert!(!are_mosaics_similar(&mosaic, &mosaic, TraceParams::new(16, 0.2), 1.1));
+        assert!(are_mosaics_similar(
+            &mosaic,
+            &mosaic,
+            TraceParams::new(16, 0.2),
+            0.9
+        ));
+        assert!(!are_mosaics_similar(
+            &mosaic,
+            &mosaic,
+            TraceParams::new(16, 0.2),
+            1.1
+        ));
     }
 }

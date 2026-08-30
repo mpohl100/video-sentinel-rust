@@ -643,10 +643,7 @@ mod tests {
 
         let slices = deduce_slices_from_mosaic(
             vec![mosaic.clone()],
-            CoordinatedRegionedAngle::new(
-                coordinate_system,
-                RegionedAngle::new(45.0, 0.0, 360.0),
-            ),
+            CoordinatedRegionedAngle::new(coordinate_system, RegionedAngle::new(45.0, 0.0, 360.0)),
             mosaic.get_bounding_circle().get_radius(),
             &params,
         );

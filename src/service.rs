@@ -1030,11 +1030,20 @@ mod tests {
         let mut service = Service::new();
 
         assert!(matches!(
-            service.create_ordinary_session("ordinary".to_string(), basic_params_input(), Results::Absolute),
+            service.create_ordinary_session(
+                "ordinary".to_string(),
+                basic_params_input(),
+                Results::Absolute
+            ),
             CreateOrdinarySessionResult::Success
         ));
         assert!(matches!(
-            service.create_eye_session("eye".to_string(), basic_params_input(), eye_params_input(), Results::Relative),
+            service.create_eye_session(
+                "eye".to_string(),
+                basic_params_input(),
+                eye_params_input(),
+                Results::Relative
+            ),
             CreateEyeSessionResult::Success
         ));
         assert!(matches!(
@@ -1047,15 +1056,28 @@ mod tests {
             CreateObjectSessionResult::Success
         ));
 
-        assert!(service.get_ordinary_session(&"ordinary".to_string()).is_some());
+        assert!(
+            service
+                .get_ordinary_session(&"ordinary".to_string())
+                .is_some()
+        );
         assert!(service.get_eye_session(&"eye".to_string()).is_some());
         assert!(service.get_object_session(&"object".to_string()).is_some());
         assert!(matches!(
-            service.create_ordinary_session("ordinary".to_string(), basic_params_input(), Results::Absolute),
+            service.create_ordinary_session(
+                "ordinary".to_string(),
+                basic_params_input(),
+                Results::Absolute
+            ),
             CreateOrdinarySessionResult::SessionAlreadyExists
         ));
         assert!(matches!(
-            service.create_eye_session("eye".to_string(), basic_params_input(), eye_params_input(), Results::Relative),
+            service.create_eye_session(
+                "eye".to_string(),
+                basic_params_input(),
+                eye_params_input(),
+                Results::Relative
+            ),
             CreateEyeSessionResult::SessionAlreadyExists
         ));
         assert!(matches!(
@@ -1072,8 +1094,17 @@ mod tests {
     #[test]
     fn service_updates_supported_sessions_and_rejects_wrong_types() {
         let mut service = Service::new();
-        service.create_ordinary_session("ordinary".to_string(), basic_params_input(), Results::Absolute);
-        service.create_eye_session("eye".to_string(), basic_params_input(), eye_params_input(), Results::Relative);
+        service.create_ordinary_session(
+            "ordinary".to_string(),
+            basic_params_input(),
+            Results::Absolute,
+        );
+        service.create_eye_session(
+            "eye".to_string(),
+            basic_params_input(),
+            eye_params_input(),
+            Results::Relative,
+        );
         service.create_object_session(
             "object".to_string(),
             basic_params_input(),
@@ -1091,8 +1122,19 @@ mod tests {
             ),
             UpdateBasicParamsResult::Success
         ));
-        assert!(service.get_basic_params(&"ordinary".to_string()).unwrap().do_grayscale());
-        assert_eq!(service.get_basic_params(&"ordinary".to_string()).unwrap().gradient_threshold(), 7);
+        assert!(
+            service
+                .get_basic_params(&"ordinary".to_string())
+                .unwrap()
+                .do_grayscale()
+        );
+        assert_eq!(
+            service
+                .get_basic_params(&"ordinary".to_string())
+                .unwrap()
+                .gradient_threshold(),
+            7
+        );
 
         assert!(matches!(
             service.update_tile_params(
@@ -1104,8 +1146,20 @@ mod tests {
             ),
             TileParamsUpdateResult::Success
         ));
-        assert_float_eq(service.get_tile_params(&"eye".to_string()).unwrap().relative_tile_x(), 0.25);
-        assert_float_eq(service.get_tile_params(&"eye".to_string()).unwrap().relative_tile_y(), 0.75);
+        assert_float_eq(
+            service
+                .get_tile_params(&"eye".to_string())
+                .unwrap()
+                .relative_tile_x(),
+            0.25,
+        );
+        assert_float_eq(
+            service
+                .get_tile_params(&"eye".to_string())
+                .unwrap()
+                .relative_tile_y(),
+            0.75,
+        );
         assert!(matches!(
             service.update_tile_params("ordinary".to_string(), tile_params_input()),
             TileParamsUpdateResult::SessionTypeDoesNotSupportTileParams
@@ -1121,9 +1175,18 @@ mod tests {
             ),
             TraceParamsUpdateResult::Success
         ));
-        assert_eq!(service.get_trace_params(&"object".to_string()).unwrap().num_skeleton(), 24);
+        assert_eq!(
+            service
+                .get_trace_params(&"object".to_string())
+                .unwrap()
+                .num_skeleton(),
+            24
+        );
         assert_float_eq(
-            service.get_trace_params(&"object".to_string()).unwrap().close_slice_threshold(),
+            service
+                .get_trace_params(&"object".to_string())
+                .unwrap()
+                .close_slice_threshold(),
             0.4,
         );
         assert!(matches!(
@@ -1131,7 +1194,10 @@ mod tests {
             TraceParamsUpdateResult::SessionTypeDoesNotSupportTraceParams
         ));
 
-        assert!(matches!(service.update_bucket_delta("eye".to_string(), 0.6), BucketDeltaUpdateResult::Success));
+        assert!(matches!(
+            service.update_bucket_delta("eye".to_string(), 0.6),
+            BucketDeltaUpdateResult::Success
+        ));
         assert_float_eq(service.get_bucket_delta(&"eye".to_string()).unwrap(), 0.6);
         assert!(matches!(
             service.update_bucket_delta("ordinary".to_string(), 0.6),
@@ -1142,7 +1208,12 @@ mod tests {
             service.update_target_similarity("object".to_string(), 0.82),
             TargetSimilarityUpdateResult::Success
         ));
-        assert_float_eq(service.get_target_similarity(&"object".to_string()).unwrap(), 0.82);
+        assert_float_eq(
+            service
+                .get_target_similarity(&"object".to_string())
+                .unwrap(),
+            0.82,
+        );
         assert!(matches!(
             service.update_target_similarity("ordinary".to_string(), 0.82),
             TargetSimilarityUpdateResult::SessionTypeDoesNotSupportTargetSimilarity
@@ -1167,8 +1238,17 @@ mod tests {
             EyeParamsUpdateResult::Success
         ));
         assert_float_eq(service.get_bucket_delta(&"eye".to_string()).unwrap(), 0.3);
-        assert_eq!(service.get_trace_params(&"eye".to_string()).unwrap().num_skeleton(), 30);
-        assert_float_eq(service.get_target_similarity(&"eye".to_string()).unwrap(), 0.88);
+        assert_eq!(
+            service
+                .get_trace_params(&"eye".to_string())
+                .unwrap()
+                .num_skeleton(),
+            30
+        );
+        assert_float_eq(
+            service.get_target_similarity(&"eye".to_string()).unwrap(),
+            0.88,
+        );
         assert!(matches!(
             service.update_eye_params("ordinary".to_string(), eye_params_input()),
             EyeParamsUpdateResult::SessionTypeDoesNotSupportEyeParams
@@ -1192,12 +1272,33 @@ mod tests {
             ),
             ObjectDetectionParamsUpdateResult::Success
         ));
-        assert_float_eq(service.get_tile_params(&"object".to_string()).unwrap().relative_tile_x(), 0.4);
-        assert_float_eq(service.get_bucket_delta(&"object".to_string()).unwrap(), 0.5);
-        assert_eq!(service.get_trace_params(&"object".to_string()).unwrap().num_skeleton(), 20);
-        assert_float_eq(service.get_target_similarity(&"object".to_string()).unwrap(), 0.91);
+        assert_float_eq(
+            service
+                .get_tile_params(&"object".to_string())
+                .unwrap()
+                .relative_tile_x(),
+            0.4,
+        );
+        assert_float_eq(
+            service.get_bucket_delta(&"object".to_string()).unwrap(),
+            0.5,
+        );
+        assert_eq!(
+            service
+                .get_trace_params(&"object".to_string())
+                .unwrap()
+                .num_skeleton(),
+            20
+        );
+        assert_float_eq(
+            service
+                .get_target_similarity(&"object".to_string())
+                .unwrap(),
+            0.91,
+        );
         assert!(matches!(
-            service.update_object_detection_params("eye".to_string(), object_detection_params_input()),
+            service
+                .update_object_detection_params("eye".to_string(), object_detection_params_input()),
             ObjectDetectionParamsUpdateResult::SessionTypeDoesNotSupportObjectDetectionParams
         ));
     }
@@ -1211,7 +1312,11 @@ mod tests {
             object_detection_params_input(),
             Results::Absolute,
         );
-        service.create_ordinary_session("ordinary".to_string(), basic_params_input(), Results::Absolute);
+        service.create_ordinary_session(
+            "ordinary".to_string(),
+            basic_params_input(),
+            Results::Absolute,
+        );
 
         assert!(matches!(
             service.add_object_to_be_detected_as_image(
@@ -1272,15 +1377,30 @@ mod tests {
                 .len(),
             0
         );
-        assert!(matches!(service.delete_session(&"object".to_string()), DeleteSessionResult::Success));
-        assert!(matches!(service.delete_session(&"object".to_string()), DeleteSessionResult::SessionNotFound));
+        assert!(matches!(
+            service.delete_session(&"object".to_string()),
+            DeleteSessionResult::Success
+        ));
+        assert!(matches!(
+            service.delete_session(&"object".to_string()),
+            DeleteSessionResult::SessionNotFound
+        ));
     }
 
     #[test]
     fn service_rectangles_and_enrichment_helpers_return_expected_shapes() {
         let mut service = Service::new();
-        service.create_ordinary_session("ordinary".to_string(), basic_params_input(), Results::Absolute);
-        service.create_eye_session("eye".to_string(), basic_params_input(), eye_params_input(), Results::Relative);
+        service.create_ordinary_session(
+            "ordinary".to_string(),
+            basic_params_input(),
+            Results::Absolute,
+        );
+        service.create_eye_session(
+            "eye".to_string(),
+            basic_params_input(),
+            eye_params_input(),
+            Results::Relative,
+        );
 
         assert!(matches!(
             service.get_rectangles("missing".to_string(), solid_image([255, 255, 255]), None),
@@ -1306,11 +1426,8 @@ mod tests {
             Color::Green,
             Results::Absolute,
         );
-        let enriched_relative = deduce_enriched_mosaic(
-            wrapped_relative_mosaic,
-            Color::Blue,
-            Results::Relative,
-        );
+        let enriched_relative =
+            deduce_enriched_mosaic(wrapped_relative_mosaic, Color::Blue, Results::Relative);
 
         assert!(matches!(
             service.get_rectangles(

@@ -946,7 +946,10 @@ mod tests {
         assert!(horizontal.intersects(&vertical));
         assert!(!horizontal.intersects(&parallel));
         assert!(!horizontal.intersects(&disjoint));
-        assert_vec_eq(line.get_intersection_point(&crossing), Vec3d::new(1.0, 1.0, 0.0));
+        assert_vec_eq(
+            line.get_intersection_point(&crossing),
+            Vec3d::new(1.0, 1.0, 0.0),
+        );
         assert_vec_eq(
             horizontal.get_intersection_point(&parallel),
             Vec3d::new(1.0, 0.0, 0.0),
@@ -1041,10 +1044,8 @@ mod tests {
             Vec3d::new(-1.0, 0.0, 0.0),
         );
         let local_point = translated.convert_from_global(Vec3d::new(12.0, -2.0, 0.0));
-        let point_in_global = CoordinatedPoint::new(
-            global_coordinate_system(),
-            Vec3d::new(12.0, -2.0, 0.0),
-        );
+        let point_in_global =
+            CoordinatedPoint::new(global_coordinate_system(), Vec3d::new(12.0, -2.0, 0.0));
         let mut standard = CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
@@ -1097,9 +1098,14 @@ mod tests {
         let duplicate = global.duplicate();
         let alignable = global_coordinate_system();
 
-        assert_vec_eq(translated.to_global(point.clone()), Vec3d::new(12.0, -2.0, 0.0));
         assert_vec_eq(
-            translated.from_global(Vec3d::new(12.0, -2.0, 0.0)).get_local_point(),
+            translated.to_global(point.clone()),
+            Vec3d::new(12.0, -2.0, 0.0),
+        );
+        assert_vec_eq(
+            translated
+                .from_global(Vec3d::new(12.0, -2.0, 0.0))
+                .get_local_point(),
             Vec3d::new(2.0, 3.0, 0.0),
         );
         assert_vec_eq(
@@ -1117,7 +1123,10 @@ mod tests {
         global.rotate(RegionedAngle::new(90.0, -180.0, 180.0));
 
         assert_vec_eq(
-            global.to_global(CoordinatedPoint::new(global.clone(), Vec3d::new(1.0, 0.0, 0.0))),
+            global.to_global(CoordinatedPoint::new(
+                global.clone(),
+                Vec3d::new(1.0, 0.0, 0.0),
+            )),
             Vec3d::new(0.0, -1.0, 0.0),
         );
         assert_vec_eq(
@@ -1138,23 +1147,26 @@ mod tests {
         let translated = translated_coordinate_system();
         let rotated = rotated_coordinate_system();
         let point = CoordinatedPoint::new(translated.clone(), Vec3d::new(2.0, 3.0, 0.0));
-        let same_global = CoordinatedPoint::new(
-            global_coordinate_system(),
-            Vec3d::new(12.0, -2.0, 0.0),
-        );
+        let same_global =
+            CoordinatedPoint::new(global_coordinate_system(), Vec3d::new(12.0, -2.0, 0.0));
         let plus_result = point.plus(Vec3d::new(1.0, -2.0, 0.0));
-        let rotated_point = CoordinatedPoint::new(
-            global_coordinate_system(),
-            Vec3d::new(2.0, 0.0, 0.0),
-        )
-        .rotate(
-            CoordinatedPoint::new(global_coordinate_system(), Vec3d::new(0.0, 0.0, 0.0)),
-            RegionedAngle::new(90.0, -180.0, 180.0),
-        );
+        let rotated_point =
+            CoordinatedPoint::new(global_coordinate_system(), Vec3d::new(2.0, 0.0, 0.0)).rotate(
+                CoordinatedPoint::new(global_coordinate_system(), Vec3d::new(0.0, 0.0, 0.0)),
+                RegionedAngle::new(90.0, -180.0, 180.0),
+            );
 
         assert!(point == same_global);
-        assert_vec_eq(point.convert_to(global_coordinate_system()).get_local_point(), Vec3d::new(12.0, -2.0, 0.0));
-        assert_vec_eq(point.convert_to(rotated).get_local_point(), Vec3d::new(-4.0, -11.0, 0.0));
+        assert_vec_eq(
+            point
+                .convert_to(global_coordinate_system())
+                .get_local_point(),
+            Vec3d::new(12.0, -2.0, 0.0),
+        );
+        assert_vec_eq(
+            point.convert_to(rotated).get_local_point(),
+            Vec3d::new(-4.0, -11.0, 0.0),
+        );
         assert_vec_eq(plus_result.get_local_point(), Vec3d::new(3.0, 1.0, 0.0));
         assert_global_point_eq(rotated_point, Vec3d::new(0.0, 2.0, 0.0));
         assert_float_eq(
@@ -1192,8 +1204,14 @@ mod tests {
         );
 
         assert_float_eq(line.length(), 5.0);
-        assert_vec_eq(converted.get_start().get_local_point(), Vec3d::new(12.0, -2.0, 0.0));
-        assert_vec_eq(converted.get_end().get_local_point(), Vec3d::new(15.0, 2.0, 0.0));
+        assert_vec_eq(
+            converted.get_start().get_local_point(),
+            Vec3d::new(12.0, -2.0, 0.0),
+        );
+        assert_vec_eq(
+            converted.get_end().get_local_point(),
+            Vec3d::new(15.0, 2.0, 0.0),
+        );
         assert_vec_eq(line.to_global_line().start, Vec3d::new(12.0, -2.0, 0.0));
         assert_vec_eq(line.to_global_line().end, Vec3d::new(15.0, 2.0, 0.0));
         assert!(diagonal.intersects(cross_system.clone()));
@@ -1214,8 +1232,10 @@ mod tests {
             CoordinatedPoint::new(global_coordinate_system(), Vec3d::new(4.0, 4.0, 0.0)),
         );
         let source = Rectangle::new(Vec3d::new(10.0, -5.0, 0.0), Vec3d::new(14.0, -1.0, 0.0));
-        let from_rectangle =
-            CoordinatedRectangle::new_from_rectangle(source.clone(), translated_coordinate_system());
+        let from_rectangle = CoordinatedRectangle::new_from_rectangle(
+            source.clone(),
+            translated_coordinate_system(),
+        );
         let converted = rectangle.convert_to(rotated_coordinate_system());
         let overlapping = CoordinatedRectangle::new_from_rectangle(
             Rectangle::new(Vec3d::new(2.0, 2.0, 0.0), Vec3d::new(6.0, 6.0, 0.0)),
@@ -1329,18 +1349,13 @@ mod tests {
             CoordinatedPoint::new(global.clone(), Vec3d::new(0.0, 0.0, 0.0)),
             CoordinatedPoint::new(global.clone(), Vec3d::new(0.0, 2.0, 0.0)),
         );
-        let angle = CoordinatedRegionedAngle::new(
-            global.clone(),
-            RegionedAngle::new(30.0, -180.0, 180.0),
-        );
+        let angle =
+            CoordinatedRegionedAngle::new(global.clone(), RegionedAngle::new(30.0, -180.0, 180.0));
         let converted_angle = angle.convert_to(rotated.clone());
         let polar = PolarCoordinates::new(2.0, converted_angle.clone());
         let converted_polar = PolarCoordinates::new(
             2.0,
-            CoordinatedRegionedAngle::new(
-                global.clone(),
-                RegionedAngle::new(45.0, -180.0, 180.0),
-            ),
+            CoordinatedRegionedAngle::new(global.clone(), RegionedAngle::new(45.0, -180.0, 180.0)),
         )
         .convert_to(rotated.clone());
         let cartesian = polar.to_cartesian();
@@ -1367,7 +1382,10 @@ mod tests {
                 .angle_degrees,
             0.0,
         );
-        assert_vec_eq(cartesian.get_local_point(), Vec3d::new(1.0, -1.7320508075688772, 0.0));
+        assert_vec_eq(
+            cartesian.get_local_point(),
+            Vec3d::new(1.0, -1.7320508075688772, 0.0),
+        );
         assert_global_point_eq(cartesian, Vec3d::new(1.7320508075688772, 1.0, 0.0));
         assert_float_eq(converted_polar.get_angle().get_angle_degrees(), -45.0);
         assert_vec_eq(
