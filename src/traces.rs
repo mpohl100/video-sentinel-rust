@@ -372,3 +372,321 @@ fn deduce_longest_radius(mosaics: &[WrappedMosaic], center_of_mass: CoordinatedP
     }
     longest_radius
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mosaics::WrappedMosaic;
+    use crate::slices::{AnnotatedSlice, Slice, SliceLine, SliceMatrix, WrappedRgbImage};
+    use image::{ImageBuffer, Rgb};
+
+    const EPSILON: f64 = 1e-8;
+
+    fn assert_float_eq(actual: f64, expected: f64) {
+        assert!(
+            (actual - expected).abs() <= EPSILON,
+            "expected {expected}, got {actual}"
+        );
+    }
+
+    fn global_coordinate_system() -> WrappedCoordinateSystem {
+        WrappedCoordinateSystem::new(
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(1.0, 0.0, 0.0),
+            Vec3d::new(0.0, 1.0, 0.0),
+        )
+    }
+
+    fn point(x: f64, y: f64) -> CoordinatedPoint {
+        CoordinatedPoint::new(global_coordinate_system(), Vec3d::new(x, y, 0.0))
+    }
+
+    fn regioned_angle(degrees: f64) -> CoordinatedRegionedAngle {
+        CoordinatedRegionedAngle::new(
+            global_coordinate_system(),
+            RegionedAngle::new(degrees, 0.0, 360.0),
+        )
+    }
+
+    fn polar(radius: f64, degrees: f64) -> PolarCoordinates {
+        PolarCoordinates::new(radius, regioned_angle(degrees))
+    }
+
+    fn polar_slice(start_radius: f64, end_radius: f64) -> PolarSlice {
+        PolarSlice::new(polar(start_radius, 0.0), polar(end_radius, 0.0))
+    }
+
+    fn ratio_line(intervals: &[(f64, f64)]) -> RatioLine {
+        RatioLine {
+            slices: intervals
+                .iter()
+                .map(|(start, end)| polar_slice(*start, *end))
+                .collect(),
+        }
+    }
+
+    fn solid_image() -> WrappedRgbImage {
+        WrappedRgbImage::new(ImageBuffer::from_pixel(64, 64, Rgb([255, 255, 255])))
+    }
+
+    fn annotated_slice(x1: f64, y: usize, x2: f64) -> AnnotatedSlice {
+        AnnotatedSlice::new(Slice::new(point(x1, y as f64), point(x2, y as f64)), y)
+    }
+
+    fn mosaic_from_lines(lines: &[(usize, &[(f64, f64)])]) -> WrappedMosaic {
+        let mut matrix = SliceMatrix::new(solid_image());
+        for (line_number, ranges) in lines {
+            let slices = ranges
+                .iter()
+                .map(|(start, end)| annotated_slice(*start, *line_number, *end))
+                .collect();
+            matrix.add(SliceLine::new(*line_number, slices));
+        }
+        WrappedMosaic::new(matrix)
+    }
+
+    fn square_mosaic() -> WrappedMosaic {
+        mosaic_from_lines(&[
+            (0, &[(0.0, 4.0)]),
+            (1, &[(0.0, 4.0)]),
+            (2, &[(0.0, 4.0)]),
+            (3, &[(0.0, 4.0)]),
+            (4, &[(0.0, 4.0)]),
+        ])
+    }
+
+    fn translated_square_mosaic() -> WrappedMosaic {
+        mosaic_from_lines(&[
+            (10, &[(20.0, 24.0)]),
+            (11, &[(20.0, 24.0)]),
+            (12, &[(20.0, 24.0)]),
+            (13, &[(20.0, 24.0)]),
+            (14, &[(20.0, 24.0)]),
+        ])
+    }
+
+    fn weighted_center_mosaics() -> Vec<WrappedMosaic> {
+        vec![
+            mosaic_from_lines(&[(0, &[(0.0, 0.0)])]),
+            mosaic_from_lines(&[(2, &[(4.0, 6.0)])]),
+        ]
+    }
+
+    #[test]
+    fn polar_slice_methods_return_constructor_values() {
+        let slice = PolarSlice::new(polar(0.25, 45.0), polar(0.75, 135.0));
+
+        assert_float_eq(slice.get_start().get_radius(), 0.25);
+        assert_float_eq(slice.get_end().get_radius(), 0.75);
+        assert_float_eq(slice.get_start().get_angle().get_angle_degrees(), 45.0);
+        assert_float_eq(slice.get_end().get_angle().get_angle_degrees(), 135.0);
+    }
+
+    #[test]
+    fn ratio_related_types_can_be_constructed_with_expected_values() {
+        let ratio = Ratio { from: 0.1, to: 0.9 };
+        let tagged_ratio = TaggedRatio {
+            ratio: ratio.clone(),
+            left_tag: 0,
+            right_tag: 1,
+        };
+        let line = ratio_line(&[(0.1, 0.4), (0.6, 0.8)]);
+
+        assert_float_eq(ratio.from, 0.1);
+        assert_float_eq(ratio.to, 0.9);
+        assert_float_eq(tagged_ratio.ratio.from, 0.1);
+        assert_eq!(tagged_ratio.left_tag, 0);
+        assert_eq!(tagged_ratio.right_tag, 1);
+        assert_eq!(line.slices.len(), 2);
+    }
+
+    #[test]
+    fn trace_params_methods_return_constructor_values() {
+        let params = TraceParams::new(36, 0.2);
+
+        assert_eq!(params.num_skeleton(), 36);
+        assert_float_eq(params.close_slice_threshold(), 0.2);
+    }
+
+    #[test]
+    fn get_overlaps_splits_intervals_and_marks_membership() {
+        let line1 = ratio_line(&[(0.2, 0.4)]);
+        let line2 = ratio_line(&[(0.3, 0.5)]);
+
+        let overlaps = get_overlaps(&line1, &line2);
+
+        assert_eq!(overlaps.len(), 5);
+        assert_float_eq(overlaps[0].ratio.from, 0.0);
+        assert_float_eq(overlaps[0].ratio.to, 0.2);
+        assert_eq!(overlaps[0].left_tag, 1);
+        assert_eq!(overlaps[0].right_tag, 1);
+        assert_float_eq(overlaps[2].ratio.from, 0.3);
+        assert_float_eq(overlaps[2].ratio.to, 0.4);
+        assert_eq!(overlaps[2].left_tag, 0);
+        assert_eq!(overlaps[2].right_tag, 0);
+        assert_float_eq(overlaps[4].ratio.from, 0.5);
+        assert_float_eq(overlaps[4].ratio.to, 1.0);
+    }
+
+    #[test]
+    fn compare_lines_handles_empty_identical_and_partial_cases() {
+        let empty = RatioLine { slices: Vec::new() };
+        let identical_left = ratio_line(&[(0.2, 0.4)]);
+        let identical_right = ratio_line(&[(0.2, 0.4)]);
+        let partial = ratio_line(&[(0.3, 0.5)]);
+
+        assert_float_eq(compare_lines(&empty, &empty), 1.0);
+        assert_float_eq(compare_lines(&empty, &identical_left), 0.0);
+        assert_float_eq(compare_lines(&identical_left, &identical_right), 1.0);
+        assert_float_eq(compare_lines(&identical_left, &partial), 0.8);
+    }
+
+    #[test]
+    fn ratio_line_similarity_matches_cpp_hundred_percent_case() {
+        let ratio_line_1 = ratio_line(&[(0.05, 0.45), (0.55, 0.95)]);
+        let ratio_line_2 = ratio_line(&[(0.05, 0.45), (0.55, 0.95)]);
+
+        assert_float_eq(compare_lines(&ratio_line_1, &ratio_line_2), 1.0);
+    }
+
+    #[test]
+    fn ratio_line_similarity_matches_cpp_ninety_percent_case() {
+        let ratio_line_1 = ratio_line(&[(0.05, 0.45), (0.6, 1.0)]);
+        let ratio_line_2 = ratio_line(&[(0.05, 0.45), (0.55, 0.95)]);
+
+        assert_float_eq(compare_lines(&ratio_line_1, &ratio_line_2), 0.9);
+    }
+
+    #[test]
+    fn ratio_line_similarity_matches_cpp_eighty_percent_case() {
+        let ratio_line_1 = ratio_line(&[(0.0, 0.4), (0.6, 1.0)]);
+        let ratio_line_2 = ratio_line(&[(0.05, 0.45), (0.55, 0.95)]);
+
+        assert_float_eq(compare_lines(&ratio_line_1, &ratio_line_2), 0.8);
+    }
+
+    #[test]
+    fn compare_with_function_averages_line_similarities() {
+        let first = vec![ratio_line(&[(0.2, 0.4)]), ratio_line(&[(0.1, 0.3)])];
+        let second = vec![ratio_line(&[(0.2, 0.4)]), ratio_line(&[(0.2, 0.4)])];
+
+        assert_float_eq(compare_with(&first, &second), 0.9);
+    }
+
+    #[test]
+    fn trace_compare_with_rotates_ratio_lines_to_find_best_alignment() {
+        let trace1 = Trace {
+            ratio_lines: vec![
+                ratio_line(&[(0.1, 0.2)]),
+                ratio_line(&[(0.3, 0.4)]),
+                ratio_line(&[(0.5, 0.6)]),
+            ],
+        };
+        let trace2 = Trace {
+            ratio_lines: vec![
+                ratio_line(&[(0.3, 0.4)]),
+                ratio_line(&[(0.5, 0.6)]),
+                ratio_line(&[(0.1, 0.2)]),
+            ],
+        };
+
+        assert_float_eq(trace1.compare_with(0.99, &trace2), 1.0);
+    }
+
+    #[test]
+    fn combine_close_slices_merges_only_nearby_slices() {
+        let slices = vec![
+            polar_slice(0.1, 0.2),
+            polar_slice(0.24, 0.3),
+            polar_slice(0.6, 0.7),
+        ];
+
+        let merged = combine_close_slices(slices.clone(), 0.05);
+        let separate = combine_close_slices(slices, 0.01);
+
+        assert_eq!(merged.len(), 2);
+        assert_float_eq(merged[0].get_start().get_radius(), 0.1);
+        assert_float_eq(merged[0].get_end().get_radius(), 0.3);
+        assert_eq!(separate.len(), 3);
+    }
+
+    #[test]
+    fn calculate_center_of_mass_weights_mosaics_by_area() {
+        let mosaics = weighted_center_mosaics();
+
+        let center = calculate_center_of_mass(&mosaics);
+
+        assert_float_eq(center.get_x(), 3.75);
+        assert_float_eq(center.get_y(), 1.5);
+        assert_float_eq(center.get_z(), 0.0);
+    }
+
+    #[test]
+    fn deduce_longest_radius_returns_farthest_distance_from_center() {
+        let mosaics = weighted_center_mosaics();
+        let center = calculate_center_of_mass(&mosaics);
+
+        let radius = deduce_longest_radius(&mosaics, center);
+
+        assert_float_eq(radius, 4.038873605350878);
+    }
+
+    #[test]
+    fn deduce_slices_from_mosaic_normalizes_any_slices_it_produces() {
+        let mosaic = square_mosaic();
+        let params = TraceParams::new(12, 0.2);
+        let coordinate_system = WrappedCoordinateSystem::new(
+            mosaic.get_center_of_mass().get_local_point(),
+            Vec3d::new(1.0, 0.0, 0.0),
+            Vec3d::new(0.0, 1.0, 0.0),
+        );
+
+        let slices = deduce_slices_from_mosaic(
+            vec![mosaic.clone()],
+            CoordinatedRegionedAngle::new(
+                coordinate_system,
+                RegionedAngle::new(45.0, 0.0, 360.0),
+            ),
+            mosaic.get_bounding_circle().get_radius(),
+            &params,
+        );
+
+        for slice in slices {
+            assert!(slice.get_start().get_radius() >= 0.0);
+            assert!(slice.get_end().get_radius() >= slice.get_start().get_radius());
+            assert!(slice.get_end().get_radius() <= 1.0);
+        }
+    }
+
+    #[test]
+    fn trace_new_from_mosaic_builds_requested_number_of_ratio_lines() {
+        let trace = Trace::new_from_mosaic(square_mosaic(), TraceParams::new(18, 0.2));
+
+        assert_eq!(trace.ratio_lines.len(), 18);
+        assert!(trace.ratio_lines.iter().any(|line| !line.slices.is_empty()));
+        assert_float_eq(trace.compare_with(0.99, &trace.clone()), 1.0);
+    }
+
+    #[test]
+    fn trace_compare_with_returns_zero_when_target_similarity_is_unreachable() {
+        let trace = Trace::new_from_mosaic(square_mosaic(), TraceParams::new(18, 0.2));
+
+        assert_float_eq(trace.compare_with(1.01, &trace.clone()), 0.0);
+    }
+
+    #[test]
+    fn trace_new_from_mosaics_combines_multiple_mosaics_and_self_matches() {
+        let combined = Trace::new_from_mosaics(
+            vec![square_mosaic(), translated_square_mosaic()],
+            TraceParams::new(18, 0.2),
+        );
+        let same_family = Trace::new_from_mosaics(
+            vec![translated_square_mosaic(), square_mosaic()],
+            TraceParams::new(18, 0.2),
+        );
+
+        assert_eq!(combined.ratio_lines.len(), 18);
+        assert_float_eq(combined.compare_with(0.99, &same_family), 1.0);
+        assert_float_eq(combined.compare_with(1.01, &same_family), 0.0);
+    }
+}
