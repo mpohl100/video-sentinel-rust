@@ -160,6 +160,13 @@ fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine
 }
 
 fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
+    if line1.slices.is_empty() && line2.slices.is_empty() {
+        return 1.0;
+    }
+    if line1.slices.is_empty() || line2.slices.is_empty() {
+        return 0.0;
+    }
+
     let overlaps = get_overlaps(line1, line2);
     // convert the following code to rust
     let mut filtered_overlaps: Vec<TaggedRatio> = overlaps
@@ -192,9 +199,6 @@ struct TaggedRatio {
 }
 
 fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
-    if line1.slices.is_empty() || line2.slices.is_empty() {
-        panic!("Both lines must have at least one slice to compare.");
-    }
     // convert the following code to rust
     let mut overlaps: Vec<TaggedRatio> = Vec::new();
     let mut interesting_points: Vec<f64> = Vec::new();
