@@ -56,15 +56,24 @@ mod tests {
         let mut matrix = SliceMatrix::new(image);
         matrix.add(SliceLine::new(
             2,
-            vec![AnnotatedSlice::new(Slice::new(point(2.0, 2.0), point(4.0, 2.0)), 2)],
+            vec![AnnotatedSlice::new(
+                Slice::new(point(2.0, 2.0), point(4.0, 2.0)),
+                2,
+            )],
         ));
         matrix.add(SliceLine::new(
             3,
-            vec![AnnotatedSlice::new(Slice::new(point(2.0, 3.0), point(4.0, 3.0)), 3)],
+            vec![AnnotatedSlice::new(
+                Slice::new(point(2.0, 3.0), point(4.0, 3.0)),
+                3,
+            )],
         ));
         matrix.add(SliceLine::new(
             4,
-            vec![AnnotatedSlice::new(Slice::new(point(2.0, 4.0), point(4.0, 4.0)), 4)],
+            vec![AnnotatedSlice::new(
+                Slice::new(point(2.0, 4.0), point(4.0, 4.0)),
+                4,
+            )],
         ));
         WrappedMosaic::new(matrix)
     }

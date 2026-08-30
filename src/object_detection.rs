@@ -267,8 +267,8 @@ mod tests {
     use super::*;
     use crate::bucketed_mosaics::BucketedMosaics;
     use crate::eye::calculate_rectangles_of_bucketed_mosaics;
-    use crate::mosaics::{deduce_mosaics, WrappedMosaic};
-    use crate::slices::{calculate_slices, find_connected_slices, BasicParams, WrappedRgbImage};
+    use crate::mosaics::{WrappedMosaic, deduce_mosaics};
+    use crate::slices::{BasicParams, WrappedRgbImage, calculate_slices, find_connected_slices};
     use image::{ImageBuffer, Rgb};
     use imageproc::drawing::{draw_filled_circle_mut, draw_polygon_mut};
     use imageproc::point::Point;
@@ -363,7 +363,11 @@ mod tests {
         );
     }
 
-    fn create_test_image_with_shapes(shapes_data: &ShapesData, width: u32, height: u32) -> WrappedRgbImage {
+    fn create_test_image_with_shapes(
+        shapes_data: &ShapesData,
+        width: u32,
+        height: u32,
+    ) -> WrappedRgbImage {
         let mut image = ImageBuffer::from_pixel(width, height, Rgb([0, 0, 0]));
         for rectangle in &shapes_data.rectangles {
             fill_rotated_rectangle(&mut image, rectangle);
@@ -463,10 +467,7 @@ mod tests {
         deduce_mosaics(connected_slices)
     }
 
-    fn deduce_mosaic_at_position(
-        image: WrappedRgbImage,
-        position: Vec3d,
-    ) -> Option<WrappedMosaic> {
+    fn deduce_mosaic_at_position(image: WrappedRgbImage, position: Vec3d) -> Option<WrappedMosaic> {
         deduce_all_mosaics(image).into_iter().find(|mosaic| {
             mosaic.contains_point(crate::math::CoordinatedPoint::new(
                 crate::math::WrappedCoordinateSystem::new(
@@ -485,18 +486,13 @@ mod tests {
         bucket_delta: f64,
     ) -> BucketedMosaics {
         let surrounding = surrounding_rectangle(&image);
-        let surrounding_math = MathRectangle::new(
-            surrounding.get_top_left(),
-            surrounding.get_bottom_right(),
-        );
+        let surrounding_math =
+            MathRectangle::new(surrounding.get_top_left(), surrounding.get_bottom_right());
         let regions = calculate_rectangles_of_bucketed_mosaics(tile_params.clone());
         let mosaics = deduce_all_mosaics(image);
         let mut bucketed = BucketedMosaics::new(regions, bucket_delta);
         for mosaic in mosaics {
-            bucketed.add_mosaic(WrappedRelativeMosaic::new(
-                mosaic,
-                surrounding_math.clone(),
-            ));
+            bucketed.add_mosaic(WrappedRelativeMosaic::new(mosaic, surrounding_math.clone()));
         }
         bucketed
     }
@@ -537,11 +533,7 @@ mod tests {
             50,
         );
 
-        single_reference_object_from_image(
-            reference_image,
-            Vec3d::new(20.0, 20.0, 0.0),
-            "square",
-        )
+        single_reference_object_from_image(reference_image, Vec3d::new(20.0, 20.0, 0.0), "square")
     }
 
     fn trace_cpp_circle_reference_object() -> ReferenceObject {
@@ -558,11 +550,7 @@ mod tests {
             50,
         );
 
-        single_reference_object_from_image(
-            reference_image,
-            Vec3d::new(25.0, 25.0, 0.0),
-            "circle",
-        )
+        single_reference_object_from_image(reference_image, Vec3d::new(25.0, 25.0, 0.0), "circle")
     }
 
     fn trace_cpp_rectangle_reference_object() -> ReferenceObject {
@@ -707,7 +695,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "At least 2 mosaics are required to calculate the relative rectangle")]
+    #[should_panic(
+        expected = "At least 2 mosaics are required to calculate the relative rectangle"
+    )]
     fn relative_rectangle_to_smallest_panics_with_single_mosaic() {
         let reference = single_reference_object_from_image(
             create_test_image_with_shapes(
@@ -849,7 +839,8 @@ mod tests {
         let reference = ReferenceObject::new(
             "pair".to_string(),
             vec![
-                deduce_mosaic_at_position(reference_image.clone(), Vec3d::new(20.0, 20.0, 0.0)).unwrap(),
+                deduce_mosaic_at_position(reference_image.clone(), Vec3d::new(20.0, 20.0, 0.0))
+                    .unwrap(),
                 deduce_mosaic_at_position(reference_image, Vec3d::new(60.0, 20.0, 0.0)).unwrap(),
             ],
         );

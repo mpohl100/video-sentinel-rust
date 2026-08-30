@@ -140,7 +140,9 @@ mod tests {
     use super::*;
     use crate::math::Rectangle as MathRectangle;
     use crate::mosaics::WrappedMosaic;
-    use crate::slices::{AnnotatedSlice, RelativeRectangle, Slice, SliceLine, SliceMatrix, WrappedRgbImage};
+    use crate::slices::{
+        AnnotatedSlice, RelativeRectangle, Slice, SliceLine, SliceMatrix, WrappedRgbImage,
+    };
     use image::{ImageBuffer, Rgb};
     use rs_math3d::Vec3d;
 
@@ -157,7 +159,11 @@ mod tests {
         WrappedRelativeRectangle::new_from_rectangles(
             Rectangle::new(
                 Vec3d::new(top_left.x * 100.0, top_left.y * 100.0, 0.0),
-                Vec3d::new(bottom_right.x * 100.0 - 1.0, bottom_right.y * 100.0 - 1.0, 0.0),
+                Vec3d::new(
+                    bottom_right.x * 100.0 - 1.0,
+                    bottom_right.y * 100.0 - 1.0,
+                    0.0,
+                ),
             ),
             Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(99.0, 99.0, 0.0)),
         )
@@ -196,7 +202,9 @@ mod tests {
         for (line_number, ranges) in lines {
             let slices = ranges
                 .iter()
-                .map(|(start, end)| annotated_slice(*start, *line_number as f64, *end, *line_number))
+                .map(|(start, end)| {
+                    annotated_slice(*start, *line_number as f64, *end, *line_number)
+                })
                 .collect();
             matrix.add(SliceLine::new(*line_number, slices));
         }
@@ -215,7 +223,11 @@ mod tests {
         (rectangle.get_top_left(), rectangle.get_bottom_right())
     }
 
-    fn assert_signature(mosaic: &WrappedRelativeMosaic, expected_top_left: Vec3d, expected_bottom_right: Vec3d) {
+    fn assert_signature(
+        mosaic: &WrappedRelativeMosaic,
+        expected_top_left: Vec3d,
+        expected_bottom_right: Vec3d,
+    ) {
         let (top_left, bottom_right) = bounding_box_signature(mosaic);
         assert_float_eq(top_left.x, expected_top_left.x);
         assert_float_eq(top_left.y, expected_top_left.y);
@@ -239,7 +251,8 @@ mod tests {
         let section = BucketedMosaicsPerSection::new(region, 0.5);
         let single_point = relative_mosaic(&[(0, &[(0.0, 0.0)])]);
         let vertical_pair = relative_mosaic(&[(0, &[(0.0, 0.0)]), (1, &[(0.0, 0.0)])]);
-        let three_rows = relative_mosaic(&[(0, &[(0.0, 0.0)]), (1, &[(0.0, 0.0)]), (2, &[(0.0, 0.0)])]);
+        let three_rows =
+            relative_mosaic(&[(0, &[(0.0, 0.0)]), (1, &[(0.0, 0.0)]), (2, &[(0.0, 0.0)])]);
 
         assert_eq!(section.get_bucket_key(&single_point), 0);
         assert_eq!(section.get_bucket_key(&vertical_pair), 5);
@@ -273,7 +286,8 @@ mod tests {
         let region = global_region(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(1.0, 1.0, 0.0));
         let mut section = BucketedMosaicsPerSection::new(region, 0.5);
         let bucket_zero = relative_mosaic(&[(0, &[(0.0, 0.0)])]);
-        let bucket_one = relative_mosaic(&[(0, &[(0.0, 0.0)]), (1, &[(0.0, 0.0)]), (2, &[(0.0, 0.0)])]);
+        let bucket_one =
+            relative_mosaic(&[(0, &[(0.0, 0.0)]), (1, &[(0.0, 0.0)]), (2, &[(0.0, 0.0)])]);
         let bucket_five = relative_mosaic(&[(0, &[(0.0, 0.0)]), (1, &[(0.0, 0.0)])]);
 
         section.add_mosaic(bucket_zero.clone());
@@ -430,20 +444,19 @@ mod tests {
             ],
             0.5,
         );
-        let query_box = Rectangle::new(
-            Vec3d::new(0.0, 0.0, 0.0),
-            Vec3d::new(0.15, 0.15, 0.0),
-        );
+        let query_box = Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.15, 0.15, 0.0));
 
         let overlapping_sections = bucketed.get_overlapping_sections(query_box);
 
         assert_eq!(overlapping_sections.len(), 2);
-        assert!(overlapping_sections[0]
-            .region
-            .overlaps(&Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.15, 0.15, 0.0))));
-        assert!(overlapping_sections[1]
-            .region
-            .overlaps(&Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.15, 0.15, 0.0))));
+        assert!(overlapping_sections[0].region.overlaps(&Rectangle::new(
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(0.15, 0.15, 0.0)
+        )));
+        assert!(overlapping_sections[1].region.overlaps(&Rectangle::new(
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(0.15, 0.15, 0.0)
+        )));
     }
 
     #[test]

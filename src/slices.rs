@@ -163,10 +163,11 @@ impl SliceLine {
             let current_start = slice.slice.get_start().get_x();
             if previous_end >= current_start {
                 let new_end = previous_end.max(slice.slice.get_end().get_x());
-                previous.slice.end = previous
-                    .slice
-                    .end
-                    .plus(Vec3d::new(new_end - previous_end, 0.0, 0.0));
+                previous.slice.end =
+                    previous
+                        .slice
+                        .end
+                        .plus(Vec3d::new(new_end - previous_end, 0.0, 0.0));
             } else {
                 merged.push(slice.clone());
             }
@@ -1246,12 +1247,36 @@ mod tests {
         let rotated = translated_slice.convert_to(rotated_coordinate_system());
 
         assert!(translated_slice == global_slice);
-        assert_vec_eq(translated_slice.get_start().get_local_point(), Vec3d::new(2.0, 3.0, 0.0));
-        assert_vec_eq(translated_slice.get_end().get_local_point(), Vec3d::new(5.0, 3.0, 0.0));
-        assert_vec_eq(translated_slice.convert_to_global().get_start().get_local_point(), Vec3d::new(12.0, -2.0, 0.0));
-        assert_vec_eq(translated_slice.convert_to_global().get_end().get_local_point(), Vec3d::new(15.0, -2.0, 0.0));
-        assert_vec_eq(rotated.get_start().get_local_point(), Vec3d::new(-4.0, -11.0, 0.0));
-        assert_vec_eq(rotated.get_end().get_local_point(), Vec3d::new(-4.0, -14.0, 0.0));
+        assert_vec_eq(
+            translated_slice.get_start().get_local_point(),
+            Vec3d::new(2.0, 3.0, 0.0),
+        );
+        assert_vec_eq(
+            translated_slice.get_end().get_local_point(),
+            Vec3d::new(5.0, 3.0, 0.0),
+        );
+        assert_vec_eq(
+            translated_slice
+                .convert_to_global()
+                .get_start()
+                .get_local_point(),
+            Vec3d::new(12.0, -2.0, 0.0),
+        );
+        assert_vec_eq(
+            translated_slice
+                .convert_to_global()
+                .get_end()
+                .get_local_point(),
+            Vec3d::new(15.0, -2.0, 0.0),
+        );
+        assert_vec_eq(
+            rotated.get_start().get_local_point(),
+            Vec3d::new(-4.0, -11.0, 0.0),
+        );
+        assert_vec_eq(
+            rotated.get_end().get_local_point(),
+            Vec3d::new(-4.0, -14.0, 0.0),
+        );
     }
 
     #[test]
@@ -1267,8 +1292,14 @@ mod tests {
         assert_float_eq(current.get_mass(), 11.0);
         assert_vec_eq(current.get_midpoint(), Vec3d::new(5.0, 1.0, 0.0));
         assert!(current.get_slice() == slice(0.0, 1.0, 10.0));
-        assert_vec_eq(current.get_start().get_local_point(), Vec3d::new(0.0, 1.0, 0.0));
-        assert_vec_eq(current.get_end().get_local_point(), Vec3d::new(10.0, 1.0, 0.0));
+        assert_vec_eq(
+            current.get_start().get_local_point(),
+            Vec3d::new(0.0, 1.0, 0.0),
+        );
+        assert_vec_eq(
+            current.get_end().get_local_point(),
+            Vec3d::new(10.0, 1.0, 0.0),
+        );
     }
 
     #[test]
@@ -1278,7 +1309,10 @@ mod tests {
         line.add(annotated_slice(0.0, 3.0, 2.0, 3));
         line.add_slices(&SliceLine::new(
             3,
-            vec![annotated_slice(7.0, 3.0, 10.0, 3), annotated_slice(12.0, 3.0, 14.0, 3)],
+            vec![
+                annotated_slice(7.0, 3.0, 10.0, 3),
+                annotated_slice(12.0, 3.0, 14.0, 3),
+            ],
         ));
 
         assert_eq!(line.get_line_number(), 3);
@@ -1330,22 +1364,50 @@ mod tests {
         assert!(matrix.get_line_above(1).is_none());
         assert_eq!(matrix.get_line_above(2).unwrap().get_line_number(), 1);
         assert_eq!(matrix.get_line(4).unwrap().get_slices().len(), 1);
-        assert_eq!(matrix.find_touching_slices(matrix.get_line(1).unwrap(), -1).unwrap().get_slices().len(), 1);
-        assert!(matrix.find_touching_slices(matrix.get_line(2).unwrap(), -1).is_none());
+        assert_eq!(
+            matrix
+                .find_touching_slices(matrix.get_line(1).unwrap(), -1)
+                .unwrap()
+                .get_slices()
+                .len(),
+            1
+        );
+        assert!(
+            matrix
+                .find_touching_slices(matrix.get_line(2).unwrap(), -1)
+                .is_none()
+        );
         assert!(matrix.contains_point(point(2.0, 1.0)));
         assert!(!matrix.contains_point(point(5.0, 1.0)));
         assert_eq!(matrix.get_slice_lines().len(), 3);
 
-        let longest = matrix.deduce_longest_distance_point(point(0.0, 0.0)).unwrap();
+        let longest = matrix
+            .deduce_longest_distance_point(point(0.0, 0.0))
+            .unwrap();
         let bounding = matrix.get_bounding_box();
         let cached = matrix.calculate_cached_data();
 
         assert_vec_eq(longest.get_local_point(), Vec3d::new(12.0, 4.0, 0.0));
         assert_vec_eq(bounding.get_top_left(), Vec3d::new(1.0, 1.0, 0.0));
         assert_vec_eq(bounding.get_bottom_right(), Vec3d::new(12.0, 4.0, 0.0));
-        assert_vec_eq(cached.get_bounding_box().to_global_rectangle().get_top_left(), Vec3d::new(1.0, 1.0, 0.0));
-        assert_vec_eq(cached.get_bounding_box().to_global_rectangle().get_bottom_right(), Vec3d::new(12.0, 4.0, 0.0));
-        assert_vec_eq(cached.get_center_of_mass().get_local_point(), Vec3d::new(5.333333333333333, 2.3333333333333335, 0.0));
+        assert_vec_eq(
+            cached
+                .get_bounding_box()
+                .to_global_rectangle()
+                .get_top_left(),
+            Vec3d::new(1.0, 1.0, 0.0),
+        );
+        assert_vec_eq(
+            cached
+                .get_bounding_box()
+                .to_global_rectangle()
+                .get_bottom_right(),
+            Vec3d::new(12.0, 4.0, 0.0),
+        );
+        assert_vec_eq(
+            cached.get_center_of_mass().get_local_point(),
+            Vec3d::new(5.333333333333333, 2.3333333333333335, 0.0),
+        );
         assert_float_eq(cached.get_bounding_circle().get_radius(), 5.90668171555645);
         assert_float_eq(cached.get_area(), 9.0);
         assert_vec_eq(cached.get_average_color_vec(), Vec3d::new(10.0, 20.0, 30.0));
@@ -1383,9 +1445,18 @@ mod tests {
         );
         let basic = BasicParams::new(true, 17);
 
-        assert_vec_eq(cached.get_bounding_box().to_global_rectangle().get_top_left(), Vec3d::new(1.0, 2.0, 0.0));
+        assert_vec_eq(
+            cached
+                .get_bounding_box()
+                .to_global_rectangle()
+                .get_top_left(),
+            Vec3d::new(1.0, 2.0, 0.0),
+        );
         assert_float_eq(cached.get_bounding_circle().get_radius(), 3.25);
-        assert_vec_eq(cached.get_center_of_mass().get_local_point(), Vec3d::new(2.5, 4.0, 0.0));
+        assert_vec_eq(
+            cached.get_center_of_mass().get_local_point(),
+            Vec3d::new(2.5, 4.0, 0.0),
+        );
         assert_float_eq(cached.get_area(), 12.0);
         assert_vec_eq(cached.get_average_color_vec(), Vec3d::new(11.0, 22.0, 33.0));
         assert!(basic.do_grayscale());
@@ -1394,7 +1465,8 @@ mod tests {
 
     #[test]
     fn rectangle_and_relative_rectangle_methods_cover_current_inclusive_geometry() {
-        let math_rectangle = OtherRectangle::new(Vec3d::new(2.0, 3.0, 0.0), Vec3d::new(6.0, 8.0, 0.0));
+        let math_rectangle =
+            OtherRectangle::new(Vec3d::new(2.0, 3.0, 0.0), Vec3d::new(6.0, 8.0, 0.0));
         let rectangle = Rectangle::new(Vec3d::new(1.0, 2.0, 0.0), Vec3d::new(4.0, 5.0, 0.0));
         let from_math = Rectangle::new_from_math_rectangle(math_rectangle);
         let from_dims = Rectangle::new_from_dims(Vec3d::new(10.0, 20.0, 0.0), 3.0, 4.0);
@@ -1411,8 +1483,14 @@ mod tests {
         assert_vec_eq(rectangle.get_top_left(), Vec3d::new(1.0, 2.0, 0.0));
         assert_vec_eq(rectangle.get_bottom_right(), Vec3d::new(4.0, 5.0, 0.0));
         assert_float_eq(rectangle.get_area(), 16.0);
-        assert!(rectangle.overlaps(&Rectangle::new(Vec3d::new(4.0, 5.0, 0.0), Vec3d::new(8.0, 8.0, 0.0))));
-        assert!(!rectangle.overlaps(&Rectangle::new(Vec3d::new(5.0, 6.0, 0.0), Vec3d::new(8.0, 8.0, 0.0))));
+        assert!(rectangle.overlaps(&Rectangle::new(
+            Vec3d::new(4.0, 5.0, 0.0),
+            Vec3d::new(8.0, 8.0, 0.0)
+        )));
+        assert!(!rectangle.overlaps(&Rectangle::new(
+            Vec3d::new(5.0, 6.0, 0.0),
+            Vec3d::new(8.0, 8.0, 0.0)
+        )));
         assert_float_eq(rectangle.get_width(), 4.0);
         assert_float_eq(rectangle.get_height(), 4.0);
         assert_vec_eq(from_math.get_top_left(), Vec3d::new(2.0, 3.0, 0.0));
@@ -1452,9 +1530,18 @@ mod tests {
         assert_vec_eq(multiplied.get_top_left(), Vec3d::new(0.25, 0.5, 0.0));
         assert_vec_eq(multiplied.get_bottom_right(), Vec3d::new(0.75, 0.75, 0.0));
         assert_vec_eq(unit_rectangle.get_top_left(), Vec3d::new(0.25, 0.5, 0.0));
-        assert!(wrapped.overlaps(&Rectangle::new(Vec3d::new(0.5, 0.6, 0.0), Vec3d::new(0.8, 0.9, 0.0))));
-        assert_vec_eq(from_rectangles.to_rectangle().get_top_left(), Vec3d::new(0.2, 0.2, 0.0));
-        assert_vec_eq(colored.get_rectangle().get_top_left(), Vec3d::new(1.0, 1.0, 0.0));
+        assert!(wrapped.overlaps(&Rectangle::new(
+            Vec3d::new(0.5, 0.6, 0.0),
+            Vec3d::new(0.8, 0.9, 0.0)
+        )));
+        assert_vec_eq(
+            from_rectangles.to_rectangle().get_top_left(),
+            Vec3d::new(0.2, 0.2, 0.0),
+        );
+        assert_vec_eq(
+            colored.get_rectangle().get_top_left(),
+            Vec3d::new(1.0, 1.0, 0.0),
+        );
         assert!(colored.get_color() == Color::Green);
         assert!(colored.get_mosaics().is_empty());
     }
@@ -1512,23 +1599,44 @@ mod tests {
         let ascii = "#######\n#######\n#######\n#######\n#######\n#######\n#######";
         let image = WrappedRgbImage::new_from_ascii_art(ascii);
         let rectangle = Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(7.0, 7.0, 0.0));
-        let grayscale = calculate_slices(image.clone(), rectangle.clone(), BasicParams::new(true, 0));
+        let grayscale =
+            calculate_slices(image.clone(), rectangle.clone(), BasicParams::new(true, 0));
         let color = calculate_slices(image, rectangle, BasicParams::new(false, 0));
 
         assert_eq!(grayscale.get_slice_lines().len(), 3);
         assert_eq!(grayscale.get_slice_lines()[0].get_line_number(), 2);
         assert_eq!(grayscale.get_slice_lines()[0].get_slices().len(), 1);
-        assert_float_eq(grayscale.get_slice_lines()[0].get_slices()[0].get_start().get_x(), 2.0);
-        assert_float_eq(grayscale.get_slice_lines()[0].get_slices()[0].get_end().get_x(), 4.0);
+        assert_float_eq(
+            grayscale.get_slice_lines()[0].get_slices()[0]
+                .get_start()
+                .get_x(),
+            2.0,
+        );
+        assert_float_eq(
+            grayscale.get_slice_lines()[0].get_slices()[0]
+                .get_end()
+                .get_x(),
+            4.0,
+        );
         assert_eq!(color.get_slice_lines().len(), 3);
-        assert_float_eq(color.get_slice_lines()[2].get_slices()[0].get_start().get_x(), 2.0);
-        assert_float_eq(color.get_slice_lines()[2].get_slices()[0].get_end().get_x(), 4.0);
+        assert_float_eq(
+            color.get_slice_lines()[2].get_slices()[0]
+                .get_start()
+                .get_x(),
+            2.0,
+        );
+        assert_float_eq(
+            color.get_slice_lines()[2].get_slices()[0].get_end().get_x(),
+            4.0,
+        );
     }
 
     #[test]
     #[should_panic(expected = "Rectangle is out of bounds of the image")]
     fn calculate_slices_panics_when_rectangle_is_out_of_bounds() {
-        let image = WrappedRgbImage::new_from_ascii_art("#######\n#######\n#######\n#######\n#######\n#######\n#######");
+        let image = WrappedRgbImage::new_from_ascii_art(
+            "#######\n#######\n#######\n#######\n#######\n#######\n#######",
+        );
         calculate_slices(
             image,
             Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(8.0, 7.0, 0.0)),
@@ -1538,14 +1646,20 @@ mod tests {
 
     #[test]
     fn go_direction_and_find_next_connected_slice_matrix_extract_components() {
-        let mut remaining = slice_matrix(vec![slice_line(1, &[(0.0, 10.0)]), slice_line(2, &[(0.0, 10.0)])]);
+        let mut remaining = slice_matrix(vec![
+            slice_line(1, &[(0.0, 10.0)]),
+            slice_line(2, &[(0.0, 10.0)]),
+        ]);
         let mut connected = SliceMatrix::new(solid_image(64, 64, [1, 1, 1]));
 
         assert!(go_direction(&mut remaining, &mut connected, -1));
         assert_eq!(connected.get_slice_lines().len(), 2);
         assert!(remaining.get_slice_lines().is_empty());
 
-        let mut remaining = slice_matrix(vec![slice_line(1, &[(0.0, 10.0)]), slice_line(2, &[(0.0, 10.0)])]);
+        let mut remaining = slice_matrix(vec![
+            slice_line(1, &[(0.0, 10.0)]),
+            slice_line(2, &[(0.0, 10.0)]),
+        ]);
         let component = find_next_connected_slice_matrix(&mut remaining).unwrap();
 
         assert_eq!(component.get_slice_lines().len(), 2);
@@ -1554,7 +1668,10 @@ mod tests {
 
     #[test]
     fn connected_components_detect_one_simple_shape_across_two_rows() {
-        let mut slices = slice_matrix(vec![slice_line(1, &[(0.0, 10.0)]), slice_line(2, &[(0.0, 10.0)])]);
+        let mut slices = slice_matrix(vec![
+            slice_line(1, &[(0.0, 10.0)]),
+            slice_line(2, &[(0.0, 10.0)]),
+        ]);
         let shapes = find_connected_slices(&mut slices);
         assert_eq!(shapes.len(), 1);
     }
@@ -1578,14 +1695,20 @@ mod tests {
 
     #[test]
     fn connected_components_keep_diagonal_gap_when_shape_moves_down_right() {
-        let mut slices = slice_matrix(vec![slice_line(1, &[(0.0, 10.0)]), slice_line(2, &[(11.0, 20.0)])]);
+        let mut slices = slice_matrix(vec![
+            slice_line(1, &[(0.0, 10.0)]),
+            slice_line(2, &[(11.0, 20.0)]),
+        ]);
         let shapes = find_connected_slices(&mut slices);
         assert_eq!(shapes.len(), 2);
     }
 
     #[test]
     fn connected_components_keep_diagonal_gap_when_shape_moves_down_left() {
-        let mut slices = slice_matrix(vec![slice_line(1, &[(11.0, 20.0)]), slice_line(2, &[(0.0, 10.0)])]);
+        let mut slices = slice_matrix(vec![
+            slice_line(1, &[(11.0, 20.0)]),
+            slice_line(2, &[(0.0, 10.0)]),
+        ]);
         let shapes = find_connected_slices(&mut slices);
         assert_eq!(shapes.len(), 2);
     }
@@ -1630,23 +1753,93 @@ mod tests {
         assert_eq!(slices.get_slice_lines().len(), 5);
         assert_eq!(slices.get_slice_lines()[0].get_line_number(), 0);
         assert_eq!(slices.get_slice_lines()[0].get_slices().len(), 2);
-        assert_float_eq(slices.get_slice_lines()[0].get_slices()[0].get_start().get_x(), -1.0);
-        assert_float_eq(slices.get_slice_lines()[0].get_slices()[0].get_end().get_x(), 11.0);
-        assert_float_eq(slices.get_slice_lines()[0].get_slices()[1].get_start().get_x(), 20.0);
-        assert_float_eq(slices.get_slice_lines()[0].get_slices()[1].get_end().get_x(), 31.0);
+        assert_float_eq(
+            slices.get_slice_lines()[0].get_slices()[0]
+                .get_start()
+                .get_x(),
+            -1.0,
+        );
+        assert_float_eq(
+            slices.get_slice_lines()[0].get_slices()[0]
+                .get_end()
+                .get_x(),
+            11.0,
+        );
+        assert_float_eq(
+            slices.get_slice_lines()[0].get_slices()[1]
+                .get_start()
+                .get_x(),
+            20.0,
+        );
+        assert_float_eq(
+            slices.get_slice_lines()[0].get_slices()[1]
+                .get_end()
+                .get_x(),
+            31.0,
+        );
         assert_eq!(slices.get_slice_lines()[1].get_slices().len(), 1);
         assert_eq!(slices.get_slice_lines()[2].get_slices().len(), 1);
         assert_eq!(slices.get_slice_lines()[3].get_slices().len(), 1);
         assert_eq!(slices.get_slice_lines()[4].get_slices().len(), 2);
-        assert_float_eq(slices.get_slice_lines()[1].get_slices()[0].get_start().get_x(), -1.0);
-        assert_float_eq(slices.get_slice_lines()[1].get_slices()[0].get_end().get_x(), 31.0);
-        assert_float_eq(slices.get_slice_lines()[2].get_slices()[0].get_start().get_x(), -1.0);
-        assert_float_eq(slices.get_slice_lines()[2].get_slices()[0].get_end().get_x(), 31.0);
-        assert_float_eq(slices.get_slice_lines()[3].get_slices()[0].get_start().get_x(), -1.0);
-        assert_float_eq(slices.get_slice_lines()[3].get_slices()[0].get_end().get_x(), 31.0);
-        assert_float_eq(slices.get_slice_lines()[4].get_slices()[0].get_start().get_x(), -1.0);
-        assert_float_eq(slices.get_slice_lines()[4].get_slices()[0].get_end().get_x(), 11.0);
-        assert_float_eq(slices.get_slice_lines()[4].get_slices()[1].get_start().get_x(), 20.0);
-        assert_float_eq(slices.get_slice_lines()[4].get_slices()[1].get_end().get_x(), 31.0);
+        assert_float_eq(
+            slices.get_slice_lines()[1].get_slices()[0]
+                .get_start()
+                .get_x(),
+            -1.0,
+        );
+        assert_float_eq(
+            slices.get_slice_lines()[1].get_slices()[0]
+                .get_end()
+                .get_x(),
+            31.0,
+        );
+        assert_float_eq(
+            slices.get_slice_lines()[2].get_slices()[0]
+                .get_start()
+                .get_x(),
+            -1.0,
+        );
+        assert_float_eq(
+            slices.get_slice_lines()[2].get_slices()[0]
+                .get_end()
+                .get_x(),
+            31.0,
+        );
+        assert_float_eq(
+            slices.get_slice_lines()[3].get_slices()[0]
+                .get_start()
+                .get_x(),
+            -1.0,
+        );
+        assert_float_eq(
+            slices.get_slice_lines()[3].get_slices()[0]
+                .get_end()
+                .get_x(),
+            31.0,
+        );
+        assert_float_eq(
+            slices.get_slice_lines()[4].get_slices()[0]
+                .get_start()
+                .get_x(),
+            -1.0,
+        );
+        assert_float_eq(
+            slices.get_slice_lines()[4].get_slices()[0]
+                .get_end()
+                .get_x(),
+            11.0,
+        );
+        assert_float_eq(
+            slices.get_slice_lines()[4].get_slices()[1]
+                .get_start()
+                .get_x(),
+            20.0,
+        );
+        assert_float_eq(
+            slices.get_slice_lines()[4].get_slices()[1]
+                .get_end()
+                .get_x(),
+            31.0,
+        );
     }
 }
