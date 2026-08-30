@@ -270,6 +270,8 @@ mod tests {
     use crate::mosaics::{deduce_mosaics, WrappedMosaic};
     use crate::slices::{calculate_slices, find_connected_slices, BasicParams, WrappedRgbImage};
     use image::{ImageBuffer, Rgb};
+    use imageproc::drawing::{draw_filled_circle_mut, draw_polygon_mut};
+    use imageproc::point::Point;
 
     const EPSILON: f64 = 1e-8;
 
@@ -316,10 +318,7 @@ mod tests {
         }
     }
 
-    fn fill_rotated_rectangle(
-        image: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
-        rectangle: &ColoredTestRectangle,
-    ) {
+    fn rotated_rectangle_vertices(rectangle: &ColoredTestRectangle) -> [Point<i32>; 4] {
         let center_x = (rectangle.top_left.x + rectangle.bottom_right.x) / 2.0;
         let center_y = (rectangle.top_left.y + rectangle.bottom_right.y) / 2.0;
         let half_width = (rectangle.bottom_right.x - rectangle.top_left.x) / 2.0;
@@ -327,33 +326,41 @@ mod tests {
         let angle = rectangle.rotation_angle_degrees.to_radians();
         let cos_angle = angle.cos();
         let sin_angle = angle.sin();
-        let color = rgb_from_name(rectangle.color);
+        let corners = [
+            (-half_width, -half_height),
+            (half_width, -half_height),
+            (half_width, half_height),
+            (-half_width, half_height),
+        ];
 
-        for y in 0..image.height() {
-            for x in 0..image.width() {
-                let dx = x as f64 - center_x;
-                let dy = y as f64 - center_y;
-                let local_x = dx * cos_angle + dy * sin_angle;
-                let local_y = -dx * sin_angle + dy * cos_angle;
-                if local_x.abs() <= half_width && local_y.abs() <= half_height {
-                    image.put_pixel(x, y, color);
-                }
-            }
-        }
+        corners.map(|(local_x, local_y)| {
+            let rotated_x = center_x + local_x * cos_angle - local_y * sin_angle;
+            let rotated_y = center_y + local_x * sin_angle + local_y * cos_angle;
+            Point::new(rotated_x.round() as i32, rotated_y.round() as i32)
+        })
+    }
+
+    fn fill_rotated_rectangle(
+        image: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
+        rectangle: &ColoredTestRectangle,
+    ) {
+        draw_polygon_mut(
+            image,
+            &rotated_rectangle_vertices(rectangle),
+            rgb_from_name(rectangle.color),
+        );
     }
 
     fn fill_circle(image: &mut ImageBuffer<Rgb<u8>, Vec<u8>>, circle: &ColoredTestCircle) {
-        let color = rgb_from_name(circle.color);
-        let radius_squared = circle.radius * circle.radius;
-        for y in 0..image.height() {
-            for x in 0..image.width() {
-                let dx = x as f64 - circle.center.x;
-                let dy = y as f64 - circle.center.y;
-                if dx * dx + dy * dy <= radius_squared {
-                    image.put_pixel(x, y, color);
-                }
-            }
-        }
+        draw_filled_circle_mut(
+            image,
+            (
+                circle.center.x.round() as i32,
+                circle.center.y.round() as i32,
+            ),
+            circle.radius.round() as i32,
+            rgb_from_name(circle.color),
+        );
     }
 
     fn create_test_image_with_shapes(shapes_data: &ShapesData, width: u32, height: u32) -> WrappedRgbImage {
@@ -512,6 +519,71 @@ mod tests {
             0.5,
             TraceParams::new(36, 0.2),
             target_similarity,
+        )
+    }
+
+    fn trace_cpp_square_reference_object() -> ReferenceObject {
+        let reference_image = create_test_image_with_shapes(
+            &ShapesData {
+                rectangles: vec![ColoredTestRectangle {
+                    top_left: Vec3d::new(15.0, 15.0, 0.0),
+                    bottom_right: Vec3d::new(35.0, 35.0, 0.0),
+                    color: "red",
+                    rotation_angle_degrees: 0.0,
+                }],
+                circles: Vec::new(),
+            },
+            50,
+            50,
+        );
+
+        single_reference_object_from_image(
+            reference_image,
+            Vec3d::new(20.0, 20.0, 0.0),
+            "square",
+        )
+    }
+
+    fn trace_cpp_circle_reference_object() -> ReferenceObject {
+        let reference_image = create_test_image_with_shapes(
+            &ShapesData {
+                rectangles: Vec::new(),
+                circles: vec![ColoredTestCircle {
+                    center: Vec3d::new(25.0, 25.0, 0.0),
+                    radius: 25.0,
+                    color: "red",
+                }],
+            },
+            50,
+            50,
+        );
+
+        single_reference_object_from_image(
+            reference_image,
+            Vec3d::new(25.0, 25.0, 0.0),
+            "circle",
+        )
+    }
+
+    fn trace_cpp_rectangle_reference_object() -> ReferenceObject {
+        let reference_image = create_test_image_with_shapes(
+            &ShapesData {
+                rectangles: vec![ColoredTestRectangle {
+                    top_left: Vec3d::new(15.0, 15.0, 0.0),
+                    bottom_right: Vec3d::new(25.0, 35.0, 0.0),
+                    color: "red",
+                    rotation_angle_degrees: 0.0,
+                }],
+                circles: Vec::new(),
+            },
+            50,
+            50,
+        );
+
+        single_reference_object_from_image(
+            reference_image,
+            Vec3d::new(20.0, 20.0, 0.0),
+            "rectangle",
         )
     }
 
@@ -689,16 +761,12 @@ mod tests {
     #[test]
     fn detect_objects_finds_square_results_from_trace_cpp_scene() {
         let scene = create_test_image_with_shapes(&generate_shape_data(), 300, 300);
-        let reference = single_reference_object_from_image(
-            scene.clone(),
-            Vec3d::new(15.0, 15.0, 0.0),
-            "square",
-        );
+        let reference = trace_cpp_square_reference_object();
         let bucketed = build_bucketed_mosaics(scene.clone(), TileParams::new(0.2, 0.2), 0.5);
         let results = detect_objects(
             reference,
             &bucketed,
-            standard_detection_params(0.77),
+            standard_detection_params(0.9),
             surrounding_rectangle(&scene),
         );
 
@@ -713,16 +781,12 @@ mod tests {
     #[test]
     fn detect_objects_finds_circle_results_from_trace_cpp_scene() {
         let scene = create_test_image_with_shapes(&generate_shape_data(), 300, 300);
-        let reference = single_reference_object_from_image(
-            scene.clone(),
-            Vec3d::new(20.0, 55.0, 0.0),
-            "circle",
-        );
+        let reference = trace_cpp_circle_reference_object();
         let bucketed = build_bucketed_mosaics(scene.clone(), TileParams::new(0.2, 0.2), 0.5);
         let results = detect_objects(
             reference,
             &bucketed,
-            standard_detection_params(0.75),
+            standard_detection_params(0.9),
             surrounding_rectangle(&scene),
         );
 
@@ -737,16 +801,12 @@ mod tests {
     #[test]
     fn detect_objects_finds_rectangle_results_from_trace_cpp_scene() {
         let scene = create_test_image_with_shapes(&generate_shape_data(), 300, 300);
-        let reference = single_reference_object_from_image(
-            scene.clone(),
-            Vec3d::new(10.0, 95.0, 0.0),
-            "rectangle",
-        );
+        let reference = trace_cpp_rectangle_reference_object();
         let bucketed = build_bucketed_mosaics(scene.clone(), TileParams::new(0.2, 0.2), 0.5);
         let results = detect_objects(
             reference,
             &bucketed,
-            standard_detection_params(0.82),
+            standard_detection_params(0.9),
             surrounding_rectangle(&scene),
         );
 
