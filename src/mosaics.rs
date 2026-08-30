@@ -401,6 +401,10 @@ impl WrappedRelativeMosaic {
         let relative_mosaic = self.relative_mosaic.lock().unwrap();
         relative_mosaic.get_mosaic()
     }
+
+    pub fn shares_identity_with(&self, other: &WrappedRelativeMosaic) -> bool {
+        Arc::ptr_eq(&self.relative_mosaic, &other.relative_mosaic)
+    }
 }
 
 pub fn deduce_mosaics(slice_matrices: Vec<SliceMatrix>) -> Vec<WrappedMosaic> {
