@@ -574,13 +574,13 @@ impl Service {
             match session {
                 Session::Object(_object_session) => {
                     let image = WrappedRgbImage::new_from_ascii_art(ascii_art.as_str());
+                    let image_guard = image.image.lock().unwrap();
+                    let width = image_guard.width() as f64;
+                    let height = image_guard.height() as f64;
+                    drop(image_guard);
                     let surrounding_rectangle = Rectangle::new(
                         Vec3d::new(0.0, 0.0, 0.0),
-                        Vec3d::new(
-                            image.image.lock().unwrap().width() as f64,
-                            image.image.lock().unwrap().height() as f64,
-                            0.0,
-                        ),
+                        Vec3d::new(width, height, 0.0),
                     );
                     self.add_object_to_be_detected_as_image(
                         session_id,
@@ -954,4 +954,383 @@ fn calculate_object(
             ),
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{ImageBuffer, Rgb};
+
+    const EPSILON: f64 = 1e-8;
+
+    fn assert_float_eq(actual: f64, expected: f64) {
+        assert!(
+            (actual - expected).abs() <= EPSILON,
+            "expected {expected}, got {actual}"
+        );
+    }
+
+    fn basic_params_input() -> BasicParamsInput {
+        BasicParamsInput {
+            do_grayscale: false,
+            gradient_threshold: 15,
+        }
+    }
+
+    fn tile_params_input() -> TileParamsInput {
+        TileParamsInput {
+            tile_x: 0.5,
+            tile_y: 0.5,
+        }
+    }
+
+    fn trace_params_input() -> TraceParamsInput {
+        TraceParamsInput {
+            num_skeleton: 12,
+            close_slice_threshold: 0.2,
+        }
+    }
+
+    fn eye_params_input() -> EyeParamsInput {
+        EyeParamsInput {
+            tile_params: tile_params_input(),
+            bucket_delta: 0.25,
+            trace_params: trace_params_input(),
+            target_similarity: 0.9,
+        }
+    }
+
+    fn object_detection_params_input() -> ObjectDetectionParamsInput {
+        ObjectDetectionParamsInput {
+            tile_params: tile_params_input(),
+            bucket_delta: 0.25,
+            trace_params: trace_params_input(),
+            target_similarity: 0.9,
+        }
+    }
+
+    fn solid_image(color: [u8; 3]) -> WrappedRgbImage {
+        WrappedRgbImage::new(ImageBuffer::from_pixel(4, 4, Rgb(color)))
+    }
+
+    fn larger_solid_image(color: [u8; 3]) -> WrappedRgbImage {
+        WrappedRgbImage::new(ImageBuffer::from_pixel(16, 16, Rgb(color)))
+    }
+
+    fn object_ascii_art() -> String {
+        ["##", "##"].join("\n")
+    }
+
+    fn tiny_surrounding_rectangle() -> Rectangle {
+        Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(4.0, 4.0, 0.0))
+    }
+
+    #[test]
+    fn service_creates_sessions_and_exposes_typed_getters() {
+        let mut service = Service::new();
+
+        assert!(matches!(
+            service.create_ordinary_session("ordinary".to_string(), basic_params_input(), Results::Absolute),
+            CreateOrdinarySessionResult::Success
+        ));
+        assert!(matches!(
+            service.create_eye_session("eye".to_string(), basic_params_input(), eye_params_input(), Results::Relative),
+            CreateEyeSessionResult::Success
+        ));
+        assert!(matches!(
+            service.create_object_session(
+                "object".to_string(),
+                basic_params_input(),
+                object_detection_params_input(),
+                Results::Absolute,
+            ),
+            CreateObjectSessionResult::Success
+        ));
+
+        assert!(service.get_ordinary_session(&"ordinary".to_string()).is_some());
+        assert!(service.get_eye_session(&"eye".to_string()).is_some());
+        assert!(service.get_object_session(&"object".to_string()).is_some());
+        assert!(matches!(
+            service.create_ordinary_session("ordinary".to_string(), basic_params_input(), Results::Absolute),
+            CreateOrdinarySessionResult::SessionAlreadyExists
+        ));
+        assert!(matches!(
+            service.create_eye_session("eye".to_string(), basic_params_input(), eye_params_input(), Results::Relative),
+            CreateEyeSessionResult::SessionAlreadyExists
+        ));
+        assert!(matches!(
+            service.create_object_session(
+                "object".to_string(),
+                basic_params_input(),
+                object_detection_params_input(),
+                Results::Absolute,
+            ),
+            CreateObjectSessionResult::SessionAlreadyExists
+        ));
+    }
+
+    #[test]
+    fn service_updates_supported_sessions_and_rejects_wrong_types() {
+        let mut service = Service::new();
+        service.create_ordinary_session("ordinary".to_string(), basic_params_input(), Results::Absolute);
+        service.create_eye_session("eye".to_string(), basic_params_input(), eye_params_input(), Results::Relative);
+        service.create_object_session(
+            "object".to_string(),
+            basic_params_input(),
+            object_detection_params_input(),
+            Results::Absolute,
+        );
+
+        assert!(matches!(
+            service.update_basic_params(
+                "ordinary".to_string(),
+                BasicParamsInput {
+                    do_grayscale: true,
+                    gradient_threshold: 7,
+                },
+            ),
+            UpdateBasicParamsResult::Success
+        ));
+        assert!(service.get_basic_params(&"ordinary".to_string()).unwrap().do_grayscale());
+        assert_eq!(service.get_basic_params(&"ordinary".to_string()).unwrap().gradient_threshold(), 7);
+
+        assert!(matches!(
+            service.update_tile_params(
+                "eye".to_string(),
+                TileParamsInput {
+                    tile_x: 0.25,
+                    tile_y: 0.75,
+                },
+            ),
+            TileParamsUpdateResult::Success
+        ));
+        assert_float_eq(service.get_tile_params(&"eye".to_string()).unwrap().relative_tile_x(), 0.25);
+        assert_float_eq(service.get_tile_params(&"eye".to_string()).unwrap().relative_tile_y(), 0.75);
+        assert!(matches!(
+            service.update_tile_params("ordinary".to_string(), tile_params_input()),
+            TileParamsUpdateResult::SessionTypeDoesNotSupportTileParams
+        ));
+
+        assert!(matches!(
+            service.update_trace_params(
+                "object".to_string(),
+                TraceParamsInput {
+                    num_skeleton: 24,
+                    close_slice_threshold: 0.4,
+                },
+            ),
+            TraceParamsUpdateResult::Success
+        ));
+        assert_eq!(service.get_trace_params(&"object".to_string()).unwrap().num_skeleton(), 24);
+        assert_float_eq(
+            service.get_trace_params(&"object".to_string()).unwrap().close_slice_threshold(),
+            0.4,
+        );
+        assert!(matches!(
+            service.update_trace_params("ordinary".to_string(), trace_params_input()),
+            TraceParamsUpdateResult::SessionTypeDoesNotSupportTraceParams
+        ));
+
+        assert!(matches!(service.update_bucket_delta("eye".to_string(), 0.6), BucketDeltaUpdateResult::Success));
+        assert_float_eq(service.get_bucket_delta(&"eye".to_string()).unwrap(), 0.6);
+        assert!(matches!(
+            service.update_bucket_delta("ordinary".to_string(), 0.6),
+            BucketDeltaUpdateResult::SessionTypeDoesNotSupportBucketDelta
+        ));
+
+        assert!(matches!(
+            service.update_target_similarity("object".to_string(), 0.82),
+            TargetSimilarityUpdateResult::Success
+        ));
+        assert_float_eq(service.get_target_similarity(&"object".to_string()).unwrap(), 0.82);
+        assert!(matches!(
+            service.update_target_similarity("ordinary".to_string(), 0.82),
+            TargetSimilarityUpdateResult::SessionTypeDoesNotSupportTargetSimilarity
+        ));
+
+        assert!(matches!(
+            service.update_eye_params(
+                "eye".to_string(),
+                EyeParamsInput {
+                    tile_params: TileParamsInput {
+                        tile_x: 0.2,
+                        tile_y: 0.4,
+                    },
+                    bucket_delta: 0.3,
+                    trace_params: TraceParamsInput {
+                        num_skeleton: 30,
+                        close_slice_threshold: 0.1,
+                    },
+                    target_similarity: 0.88,
+                },
+            ),
+            EyeParamsUpdateResult::Success
+        ));
+        assert_float_eq(service.get_bucket_delta(&"eye".to_string()).unwrap(), 0.3);
+        assert_eq!(service.get_trace_params(&"eye".to_string()).unwrap().num_skeleton(), 30);
+        assert_float_eq(service.get_target_similarity(&"eye".to_string()).unwrap(), 0.88);
+        assert!(matches!(
+            service.update_eye_params("ordinary".to_string(), eye_params_input()),
+            EyeParamsUpdateResult::SessionTypeDoesNotSupportEyeParams
+        ));
+
+        assert!(matches!(
+            service.update_object_detection_params(
+                "object".to_string(),
+                ObjectDetectionParamsInput {
+                    tile_params: TileParamsInput {
+                        tile_x: 0.4,
+                        tile_y: 0.4,
+                    },
+                    bucket_delta: 0.5,
+                    trace_params: TraceParamsInput {
+                        num_skeleton: 20,
+                        close_slice_threshold: 0.25,
+                    },
+                    target_similarity: 0.91,
+                },
+            ),
+            ObjectDetectionParamsUpdateResult::Success
+        ));
+        assert_float_eq(service.get_tile_params(&"object".to_string()).unwrap().relative_tile_x(), 0.4);
+        assert_float_eq(service.get_bucket_delta(&"object".to_string()).unwrap(), 0.5);
+        assert_eq!(service.get_trace_params(&"object".to_string()).unwrap().num_skeleton(), 20);
+        assert_float_eq(service.get_target_similarity(&"object".to_string()).unwrap(), 0.91);
+        assert!(matches!(
+            service.update_object_detection_params("eye".to_string(), object_detection_params_input()),
+            ObjectDetectionParamsUpdateResult::SessionTypeDoesNotSupportObjectDetectionParams
+        ));
+    }
+
+    #[test]
+    fn service_adds_and_deletes_reference_objects_and_sessions() {
+        let mut service = Service::new();
+        service.create_object_session(
+            "object".to_string(),
+            basic_params_input(),
+            object_detection_params_input(),
+            Results::Absolute,
+        );
+        service.create_ordinary_session("ordinary".to_string(), basic_params_input(), Results::Absolute);
+
+        assert!(matches!(
+            service.add_object_to_be_detected_as_image(
+                "object".to_string(),
+                "ref-0".to_string(),
+                solid_image([0, 0, 0]),
+                tiny_surrounding_rectangle(),
+            ),
+            AddObjectToBeDetectedResult::Success
+        ));
+
+        assert!(matches!(
+            service.add_object_to_be_detected_as_ascii_art(
+                "object".to_string(),
+                "ref-1".to_string(),
+                object_ascii_art(),
+            ),
+            AddObjectToBeDetectedResult::Success
+        ));
+        assert_eq!(
+            service
+                .get_object_session(&"object".to_string())
+                .unwrap()
+                .objects_to_be_detected
+                .len(),
+            2
+        );
+
+        assert!(matches!(
+            service.add_object_to_be_detected_as_ascii_art(
+                "ordinary".to_string(),
+                "ref-2".to_string(),
+                object_ascii_art(),
+            ),
+            AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected
+        ));
+        assert!(matches!(
+            service.delete_reference_object(&"ordinary".to_string(), "ref-1".to_string()),
+            DeleteReferenceObjectResult::SessionTypeDoesNotSupportDeletingReferenceObject
+        ));
+        assert!(matches!(
+            service.delete_reference_object(&"object".to_string(), "missing".to_string()),
+            DeleteReferenceObjectResult::ReferenceObjectNotFound
+        ));
+        assert!(matches!(
+            service.delete_reference_object(&"object".to_string(), "ref-0".to_string()),
+            DeleteReferenceObjectResult::Success
+        ));
+        assert!(matches!(
+            service.delete_reference_object(&"object".to_string(), "ref-1".to_string()),
+            DeleteReferenceObjectResult::Success
+        ));
+        assert_eq!(
+            service
+                .get_object_session(&"object".to_string())
+                .unwrap()
+                .objects_to_be_detected
+                .len(),
+            0
+        );
+        assert!(matches!(service.delete_session(&"object".to_string()), DeleteSessionResult::Success));
+        assert!(matches!(service.delete_session(&"object".to_string()), DeleteSessionResult::SessionNotFound));
+    }
+
+    #[test]
+    fn service_rectangles_and_enrichment_helpers_return_expected_shapes() {
+        let mut service = Service::new();
+        service.create_ordinary_session("ordinary".to_string(), basic_params_input(), Results::Absolute);
+        service.create_eye_session("eye".to_string(), basic_params_input(), eye_params_input(), Results::Relative);
+
+        assert!(matches!(
+            service.get_rectangles("missing".to_string(), solid_image([255, 255, 255]), None),
+            GetRectanglesResult::SessionNotFound
+        ));
+        assert!(matches!(
+            service.get_rectangles("eye".to_string(), solid_image([255, 255, 255]), None),
+            GetRectanglesResult::PreviousImageRequiredForEyeSession
+        ));
+
+        let mosaics = calculate_ordinary_mosaics(
+            BasicParams::new(false, 15),
+            larger_solid_image([255, 255, 255]),
+        );
+        assert!(!mosaics.is_empty());
+
+        let wrapped_relative_mosaic = WrappedRelativeMosaic::new(
+            mosaics[0].clone(),
+            crate::math::Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(16.0, 16.0, 0.0)),
+        );
+        let enriched_absolute = deduce_enriched_mosaic(
+            wrapped_relative_mosaic.clone(),
+            Color::Green,
+            Results::Absolute,
+        );
+        let enriched_relative = deduce_enriched_mosaic(
+            wrapped_relative_mosaic,
+            Color::Blue,
+            Results::Relative,
+        );
+
+        assert!(matches!(
+            service.get_rectangles(
+                "ordinary".to_string(),
+                larger_solid_image([255, 255, 255]),
+                None,
+            ),
+            GetRectanglesResult::Success(_)
+        ));
+        assert!(enriched_absolute.color == Color::Green);
+        assert!(enriched_relative.color == Color::Blue);
+        assert!(enriched_absolute.area > 0.0);
+        assert!(enriched_relative.area > 0.0);
+        assert!(!enriched_absolute.slice_matrix.is_empty());
+        assert_eq!(enriched_absolute.average_color.red, 255);
+        assert_eq!(enriched_absolute.average_color.green, 255);
+        assert_eq!(enriched_absolute.average_color.blue, 255);
+        assert!(enriched_relative.center_of_mass.x >= 0.0);
+        assert!(enriched_relative.center_of_mass.x <= 1.0);
+        assert!(enriched_relative.center_of_mass.y >= 0.0);
+        assert!(enriched_relative.center_of_mass.y <= 1.0);
+    }
 }
