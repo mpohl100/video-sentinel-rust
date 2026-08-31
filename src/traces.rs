@@ -148,6 +148,44 @@ impl Trace {
         }
         0.0
     }
+
+    pub fn dump_details(&self) -> String {
+        let mut output = String::new();
+        output.push_str(&format!(
+            "Trace {{ ratio_line_count: {} }}\n",
+            self.ratio_lines.len()
+        ));
+
+        for (line_index, ratio_line) in self.ratio_lines.iter().enumerate() {
+            output.push_str(&format!(
+                "  ratio_line[{line_index}] {{ slice_count: {} }}\n",
+                ratio_line.slices.len()
+            ));
+
+            for (slice_index, slice) in ratio_line.slices.iter().enumerate() {
+                let start = slice.get_start();
+                let end = slice.get_end();
+                let start_cartesian = start.to_cartesian();
+                let end_cartesian = end.to_cartesian();
+
+                output.push_str(&format!(
+                    "    slice[{slice_index}] {{ start_radius: {:.8}, start_angle_degrees: {:.8}, end_radius: {:.8}, end_angle_degrees: {:.8}, start_cartesian: ({:.8}, {:.8}, {:.8}), end_cartesian: ({:.8}, {:.8}, {:.8}) }}\n",
+                    start.get_radius(),
+                    start.get_angle().get_angle_degrees(),
+                    end.get_radius(),
+                    end.get_angle().get_angle_degrees(),
+                    start_cartesian.get_x(),
+                    start_cartesian.get_y(),
+                    start_cartesian.get_z(),
+                    end_cartesian.get_x(),
+                    end_cartesian.get_y(),
+                    end_cartesian.get_z(),
+                ));
+            }
+        }
+
+        output
+    }
 }
 
 fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine]) -> f64 {
@@ -506,6 +544,20 @@ mod tests {
 
         assert_eq!(params.num_skeleton(), 36);
         assert_float_eq(params.close_slice_threshold(), 0.2);
+    }
+
+    #[test]
+    fn dump_details_includes_ratio_line_and_slice_information() {
+        let trace = Trace {
+            ratio_lines: vec![ratio_line(&[(0.1, 0.4)]), ratio_line(&[(0.6, 0.8)])],
+        };
+
+        let dump = trace.dump_details();
+
+        assert!(dump.contains("Trace { ratio_line_count: 2 }"));
+        assert!(dump.contains("ratio_line[0] { slice_count: 1 }"));
+        assert!(dump.contains("slice[0] { start_radius: 0.10000000"));
+        assert!(dump.contains("end_radius: 0.40000000"));
     }
 
     #[test]
