@@ -759,10 +759,18 @@ mod tests {
     use image::{ImageBuffer, Rgb};
 
     const EPSILON: f64 = 1e-8;
+    const TRACE_PROBE_EPSILON: f64 = 1e-4;
 
     fn assert_float_eq(actual: f64, expected: f64) {
         assert!(
             (actual - expected).abs() <= EPSILON,
+            "expected {expected}, got {actual}"
+        );
+    }
+
+    fn assert_trace_float_eq(actual: f64, expected: f64) {
+        assert!(
+            (actual - expected).abs() <= TRACE_PROBE_EPSILON,
             "expected {expected}, got {actual}"
         );
     }
@@ -807,6 +815,10 @@ mod tests {
         WrappedRgbImage::new(ImageBuffer::from_pixel(64, 64, Rgb([255, 255, 255])))
     }
 
+    fn blank_image(width: u32, height: u32) -> WrappedRgbImage {
+        WrappedRgbImage::new(ImageBuffer::from_pixel(width, height, Rgb([0, 0, 0])))
+    }
+
     fn annotated_slice(x1: f64, y: usize, x2: f64) -> AnnotatedSlice {
         AnnotatedSlice::new(Slice::new(point(x1, y as f64), point(x2, y as f64)), y)
     }
@@ -821,6 +833,78 @@ mod tests {
             matrix.add(SliceLine::new(*line_number, slices));
         }
         WrappedMosaic::new(matrix)
+    }
+
+    fn add_horizontal_slice(
+        slice_matrix: &mut SliceMatrix,
+        line_number: usize,
+        start_x: f64,
+        end_x: f64,
+    ) {
+        let slice = Slice::new(point(start_x, line_number as f64), point(end_x, line_number as f64));
+        slice_matrix.add(SliceLine::new(
+            line_number,
+            vec![AnnotatedSlice::new(slice, line_number)],
+        ));
+    }
+
+    fn rectangle_slice_matrix(
+        width: u32,
+        height: u32,
+        top_left: Vec3d,
+        bottom_right: Vec3d,
+    ) -> SliceMatrix {
+        let mut slice_matrix = SliceMatrix::new(blank_image(width, height));
+        let start_x = top_left.x;
+        let end_x = bottom_right.x - 1.0;
+
+        for y in top_left.y as usize..bottom_right.y as usize {
+            add_horizontal_slice(&mut slice_matrix, y, start_x, end_x);
+        }
+
+        slice_matrix
+    }
+
+    fn circle_slice_matrix(width: u32, height: u32, center: Vec3d, radius: f64) -> SliceMatrix {
+        let mut slice_matrix = SliceMatrix::new(blank_image(width, height));
+        let start_y = (center.y - radius).floor().max(0.0) as usize;
+        let end_y = (center.y + radius).ceil().min(height as f64) as usize;
+        let max_x = width.saturating_sub(1) as f64;
+
+        for y in start_y..end_y {
+            let dy = y as f64 - center.y;
+            let x_offset = (radius * radius - dy * dy).max(0.0).sqrt();
+            let start_x = (center.x - x_offset).ceil().max(0.0);
+            let end_x = (center.x + x_offset).floor().min(max_x);
+            if start_x <= end_x {
+                add_horizontal_slice(&mut slice_matrix, y, start_x, end_x);
+            }
+        }
+
+        slice_matrix
+    }
+
+    fn trace_from_slice_matrices(slice_matrices: Vec<SliceMatrix>, params: TraceParams) -> Trace {
+        let mosaics = slice_matrices.into_iter().map(WrappedMosaic::new).collect();
+        Trace::new_from_mosaics(mosaics, params)
+    }
+
+    fn assert_trace_matches_expected_lines(trace: &Trace, expected: &[Option<(f64, f64)>]) {
+        assert_eq!(trace.ratio_lines.len(), expected.len());
+
+        for (index, expected_slice) in expected.iter().enumerate() {
+            let ratio_line = &trace.ratio_lines[index];
+            match expected_slice {
+                Some((start_radius, end_radius)) => {
+                    assert_eq!(ratio_line.slices.len(), 1, "line {index}");
+                    assert_trace_float_eq(ratio_line.slices[0].get_start().get_radius(), *start_radius);
+                    assert_trace_float_eq(ratio_line.slices[0].get_end().get_radius(), *end_radius);
+                }
+                None => {
+                    assert!(ratio_line.slices.is_empty(), "line {index}");
+                }
+            }
+        }
     }
 
     fn square_mosaic() -> WrappedMosaic {
@@ -1044,6 +1128,213 @@ mod tests {
             assert!(slice.get_end().get_radius() >= slice.get_start().get_radius());
             assert!(slice.get_end().get_radius().is_finite());
         }
+    }
+
+    #[test]
+    fn trace_from_slice_matrix_square_matches_probe_slice_counts_and_radii() {
+        let trace = trace_from_slice_matrices(
+            vec![rectangle_slice_matrix(
+                50,
+                50,
+                Vec3d::new(15.0, 15.0, 0.0),
+                Vec3d::new(35.0, 35.0, 0.0),
+            )],
+            TraceParams::new(36, 1e-4),
+        );
+
+        let expected = [
+            Some((0.0, 0.78153907)),
+            Some((0.0, 0.79359557)),
+            Some((0.0, 0.83169651)),
+            Some((0.0, 0.90244359)),
+            Some((0.0, 1.02022680)),
+            Some((0.0, 1.10000000)),
+            Some((0.0, 0.98839060)),
+            Some((0.0, 0.91090570)),
+            Some((0.0, 0.86917610)),
+            Some((0.0, 0.85597137)),
+            Some((0.0, 0.86917610)),
+            Some((0.0, 0.91090570)),
+            Some((0.0, 0.98839060)),
+            Some((0.0, 1.10000000)),
+            Some((0.0, 1.02022680)),
+            Some((0.0, 0.90244359)),
+            Some((0.0, 0.83169651)),
+            Some((0.0, 0.79359557)),
+            Some((0.0, 0.78153907)),
+            Some((0.0, 0.79359557)),
+            Some((0.0, 0.83169651)),
+            Some((0.0, 0.90244359)),
+            Some((0.0, 1.02022680)),
+            Some((0.0, 1.02022680)),
+            Some((0.0, 0.90244359)),
+            Some((0.0, 0.83169651)),
+            Some((0.0, 0.79359557)),
+            Some((0.0, 0.78153907)),
+            Some((0.0, 0.79359557)),
+            Some((0.0, 0.83169651)),
+            Some((0.0, 0.90244359)),
+            Some((0.0, 1.02022680)),
+            Some((0.0, 1.02022680)),
+            Some((0.0, 0.90244359)),
+            Some((0.0, 0.83169651)),
+            Some((0.0, 0.79359557)),
+        ];
+
+        assert_trace_matches_expected_lines(&trace, &expected);
+    }
+
+    #[test]
+    fn trace_from_slice_matrix_circle_matches_probe_slice_counts_and_radii() {
+        let trace = trace_from_slice_matrices(
+            vec![circle_slice_matrix(50, 50, Vec3d::new(25.0, 25.0, 0.0), 25.0)],
+            TraceParams::new(36, 1e-4),
+        );
+
+        let expected = [
+            Some((0.0, 0.99979595)),
+            Some((0.0, 1.01521942)),
+            Some((0.0, 1.05330933)),
+            Some((0.0, 1.04027749)),
+            Some((0.0, 1.04424592)),
+            Some((0.0, 1.04424592)),
+            Some((0.0, 1.06215485)),
+            Some((0.0, 1.06396063)),
+            Some((0.0, 1.05580748)),
+            Some((0.0, 1.03976739)),
+            Some((0.0, 1.05580748)),
+            Some((0.0, 1.06396063)),
+            Some((0.0, 1.06215485)),
+            Some((0.0, 1.04424592)),
+            Some((0.0, 1.04291414)),
+            Some((0.0, 1.04027749)),
+            Some((0.0, 1.05330933)),
+            Some((0.0, 1.01418348)),
+            Some((0.0, 1.03874719)),
+            Some((0.0, 1.01418348)),
+            Some((0.0, 1.02033825)),
+            Some((0.0, 1.01482179)),
+            Some((0.0, 1.04291414)),
+            Some((0.0, 1.04291414)),
+            Some((0.0, 1.01482179)),
+            Some((0.0, 1.02033825)),
+            Some((0.0, 1.01418348)),
+            Some((0.0, 1.03874719)),
+            Some((0.0, 1.01418348)),
+            Some((0.0, 1.02033825)),
+            Some((0.0, 1.01482179)),
+            Some((0.0, 1.04291414)),
+            Some((0.0, 1.04424592)),
+            Some((0.0, 1.01599982)),
+            Some((0.0, 1.02142392)),
+            Some((0.0, 1.01521942)),
+        ];
+
+        assert_trace_matches_expected_lines(&trace, &expected);
+    }
+
+    #[test]
+    fn trace_from_slice_matrix_rectangle_matches_probe_slice_counts_and_radii() {
+        let trace = trace_from_slice_matrices(
+            vec![rectangle_slice_matrix(
+                50,
+                50,
+                Vec3d::new(15.0, 15.0, 0.0),
+                Vec3d::new(25.0, 35.0, 0.0),
+            )],
+            TraceParams::new(36, 1e-4),
+        );
+
+        let expected = [
+            Some((0.0, 0.52321664)),
+            Some((0.0, 0.53128810)),
+            Some((0.0, 0.55679552)),
+            Some((0.0, 0.60415854)),
+            Some((0.0, 0.66598413)),
+            Some((0.0, 0.80719461)),
+            Some((0.0, 1.04354657)),
+            Some((0.0, 1.10000000)),
+            Some((0.0, 1.10000000)),
+            Some((0.0, 1.09399844)),
+            Some((0.0, 1.10000000)),
+            Some((0.0, 1.10000000)),
+            Some((0.0, 1.04354657)),
+            Some((0.0, 0.80719461)),
+            Some((0.0, 0.66598413)),
+            Some((0.0, 0.60415854)),
+            Some((0.0, 0.55679552)),
+            Some((0.0, 0.53128810)),
+            Some((0.0, 0.52321664)),
+            Some((0.0, 0.53128810)),
+            Some((0.0, 0.55679552)),
+            Some((0.0, 0.60415854)),
+            Some((0.0, 0.66598413)),
+            Some((0.0, 0.80719461)),
+            Some((0.0, 1.04354657)),
+            Some((0.0, 1.06297327)),
+            Some((0.0, 1.01427729)),
+            Some((0.0, 0.99886814)),
+            Some((0.0, 1.01427729)),
+            Some((0.0, 1.06297327)),
+            Some((0.0, 1.04354657)),
+            Some((0.0, 0.80719461)),
+            Some((0.0, 0.66598413)),
+            Some((0.0, 0.60415854)),
+            Some((0.0, 0.55679552)),
+            Some((0.0, 0.53128810)),
+        ];
+
+        assert_trace_matches_expected_lines(&trace, &expected);
+    }
+
+    #[test]
+    fn trace_from_slice_matrix_pair_matches_probe_slice_counts_and_radii() {
+        let trace = trace_from_slice_matrices(
+            vec![
+                rectangle_slice_matrix(
+                    80,
+                    50,
+                    Vec3d::new(10.0, 10.0, 0.0),
+                    Vec3d::new(30.0, 30.0, 0.0),
+                ),
+                rectangle_slice_matrix(
+                    80,
+                    50,
+                    Vec3d::new(50.0, 10.0, 0.0),
+                    Vec3d::new(70.0, 30.0, 0.0),
+                ),
+            ],
+            TraceParams::new(24, 1e-4),
+        );
+
+        let expected = [
+            Some((0.30653137, 0.98412702)),
+            Some((0.31734462, 1.01884326)),
+            Some((0.35493106, 0.74212857)),
+            Some((0.43350082, 0.52476414)),
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some((0.43350082, 0.52476414)),
+            Some((0.35493106, 0.74212857)),
+            Some((0.31734462, 1.01884326)),
+            Some((0.30653137, 0.98412702)),
+            Some((0.31734462, 1.01884326)),
+            Some((0.35493106, 0.67759565)),
+            Some((0.43350082, 0.47913248)),
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some((0.43350082, 0.47913248)),
+            Some((0.35493106, 0.67759565)),
+            Some((0.31734462, 1.01884326)),
+        ];
+
+        assert_trace_matches_expected_lines(&trace, &expected);
     }
 
     #[test]
