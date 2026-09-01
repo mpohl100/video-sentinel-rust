@@ -153,6 +153,10 @@ impl RegionedAngle {
             self.angle_degrees -= 360.0;
         }
     }
+
+    fn inverted(&self) -> Self {
+        Self::new(-self.angle_degrees, self.min_degrees, self.max_degrees)
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -700,7 +704,7 @@ impl CoordinatedRectangle {
 
     fn contains_point(&self, point: CoordinatedPoint) -> bool {
         let global_rectangle = self.to_global_rectangle();
-        let global_point = point.wrapped_coordinate_system.to_global(point);
+        let global_point = point.wrapped_coordinate_system.clone().to_global(point);
         global_rectangle.contains_point(global_point)
     }
 }
