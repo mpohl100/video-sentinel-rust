@@ -506,7 +506,7 @@ fn deduce_slices_from_mosaic(
                 "    target_angle_degrees={:.8}",
                 coordinated_regioned_angle.get_angle_degrees(),
             );
-            line_coordinate_system.rotate(coordinated_regioned_angle.get_regioned_angle());
+            line_coordinate_system.rotate(coordinated_regioned_angle.get_regioned_angle().inverted());
             let rotated_origin = line_coordinate_system.to_global(CoordinatedPoint::new(
                 line_coordinate_system.clone(),
                 Vec3d::new(0.0, 0.0, 0.0),
