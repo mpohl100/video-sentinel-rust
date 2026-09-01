@@ -321,9 +321,8 @@ fn deduce_slices_from_mosaic(
             );
             let rectangle = Rectangle::new(tl, br);
             let coordinated_rectangle =
-                CoordinatedRectangle::new_from_rectangle(rectangle, global_coordinate_system)
-                    .convert_to(coordinated_regioned_angle.get_coordinate_system());
-            let line_coordinate_system = coordinated_regioned_angle.get_coordinate_system();
+                CoordinatedRectangle::new_from_rectangle(rectangle, global_coordinate_system);
+            let line_coordinate_system = coordinated_regioned_angle.get_coordinate_system().duplicate();
             line_coordinate_system.rotate(coordinated_regioned_angle.get_regioned_angle());
             let x_line_start = CoordinatedPoint::new(
                 line_coordinate_system.clone(),
