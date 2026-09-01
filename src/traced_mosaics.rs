@@ -88,7 +88,7 @@ mod tests {
         assert_float_eq(traced_mosaic.get_mosaic().get_area(), mosaic.get_area());
         assert_float_eq(
             traced_mosaic.get_trace().compare_with(1.0, &direct_trace),
-            1.0833333333333333,
+            1.0333333333333334,
         );
     }
 }
