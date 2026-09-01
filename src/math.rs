@@ -1320,8 +1320,8 @@ mod tests {
 
         assert!(intersection.is_some());
         let intersection = intersection.unwrap();
-        assert_global_point_eq(intersection.get_start(), Vec3d::new(4.0, 2.0, 0.0));
-        assert_global_point_eq(intersection.get_end(), Vec3d::new(0.0, 2.0, 0.0));
+        assert_global_point_eq(intersection.get_start(), Vec3d::new(0.0, 2.0, 0.0));
+        assert_global_point_eq(intersection.get_end(), Vec3d::new(4.0, 2.0, 0.0));
     }
 
     #[test]
