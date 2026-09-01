@@ -291,34 +291,34 @@ fn print_reference_object_trace(
 fn main() {
     let _ = MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(1.0, 1.0, 0.0));
 
-    print_reference_object_trace(
-        "reference_object_methods_return_id_surrounding_box_and_relative_rectangle",
-        "Square(10, 10) with Square(20, 20)",
-        reference_object_methods_reference_object(),
-        TraceParams::new(36, 0.2),
-    );
+    // print_reference_object_trace(
+    //    "reference_object_methods_return_id_surrounding_box_and_relative_rectangle",
+    //    "Square(10, 10) with Square(20, 20)",
+    //    reference_object_methods_reference_object(),
+    //    TraceParams::new(36, 1e-4),
+    //);
     print_reference_object_trace(
         "detect_objects_finds_square_results_from_trace_cpp_scene",
         "Square(20, 20)",
         trace_cpp_square_reference_object(),
-        TraceParams::new(36, 0.2),
+        TraceParams::new(36, 1e-4),
     );
     print_reference_object_trace(
         "detect_objects_finds_circle_results_from_trace_cpp_scene",
         "Circle(radius=25)",
         trace_cpp_circle_reference_object(),
-        TraceParams::new(36, 0.2),
+        TraceParams::new(36, 1e-4),
     );
     print_reference_object_trace(
         "detect_objects_finds_rectangle_results_from_trace_cpp_scene",
         "Rectangle(10, 20)",
         trace_cpp_rectangle_reference_object(),
-        TraceParams::new(36, 0.2),
+        TraceParams::new(36, 1e-4),
     );
     print_reference_object_trace(
         "detect_objects_with_two_reference_mosaics_respects_relative_layout",
         "Square(20, 20) with Square(20, 20)",
         pair_reference_object(),
-        TraceParams::new(24, 0.2),
+        TraceParams::new(24, 1e-4),
     );
 }
