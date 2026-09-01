@@ -18,7 +18,11 @@ struct PolarSlice {
 
 impl PolarSlice {
     fn new(start: PolarCoordinates, end: PolarCoordinates) -> Self {
-        PolarSlice { start, end }
+        if start.get_radius() < end.get_radius() {
+            PolarSlice { start, end }
+        } else {
+            PolarSlice { start: end, end: start }
+        }
     }
 
     fn get_start(&self) -> &PolarCoordinates {
@@ -306,13 +310,13 @@ fn deduce_slices_from_mosaic(
         if contains_point {
             let global_point = point.convert_to(global_coordinate_system.clone());
             let tl = Vec3d::new(
-                global_point.get_x().floor(),
-                global_point.get_y().ceil(),
+                global_point.get_x(),
+                global_point.get_y(),
                 0.0,
             );
             let br = Vec3d::new(
-                global_point.get_x().ceil(),
-                global_point.get_y().floor(),
+                global_point.get_x() + 1.0,
+                global_point.get_y() + 1.0,
                 0.0,
             );
             let rectangle = Rectangle::new(tl, br);
@@ -323,10 +327,10 @@ fn deduce_slices_from_mosaic(
             line_coordinate_system.rotate(coordinated_regioned_angle.get_regioned_angle());
             let x_line_start = CoordinatedPoint::new(
                 line_coordinate_system.clone(),
-                Vec3d::new(-radius, 0.0, 0.0),
+                Vec3d::new(0.0, 0.0, 0.0),
             );
             let x_line_end =
-                CoordinatedPoint::new(line_coordinate_system.clone(), Vec3d::new(radius, 0.0, 0.0));
+                CoordinatedPoint::new(line_coordinate_system.clone(), Vec3d::new(1.5*radius, 0.0, 0.0));
             let x_axis_line = CoordinatedLine::new(x_line_start, x_line_end);
             let clipped_line = coordinated_rectangle.get_intersection_line(x_axis_line);
             if let Some(clipped_line) = clipped_line {
@@ -338,6 +342,10 @@ fn deduce_slices_from_mosaic(
                     clipped_line.get_end().get_x() / radius,
                     coordinated_regioned_angle.clone(),
                 );
+                // check that the absoulte of the y coordinates is below 1e-4
+                assert!(clipped_line.get_start().get_y().abs() < 1e-4);
+                assert!(clipped_line.get_end().get_y().abs() < 1e-4);
+                
                 let slice = PolarSlice::new(polar_start, polar_end);
                 slices.push(slice);
             }
