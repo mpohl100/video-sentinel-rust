@@ -477,16 +477,33 @@ impl SliceMatrix {
             Vec3d::new(0.0, 1.0, 0.0),
         );
         let global_point = point.convert_to(global_coordinate_system.clone());
+        let point_rectangle_tl = CoordinatedPoint::new(
+            global_coordinate_system.clone(),
+            Vec3d::new(
+                global_point.get_x().floor(),
+                global_point.get_y().floor(),
+                0.0,
+            ),
+        );
+        let point_rectangle_br = CoordinatedPoint::new(
+            global_coordinate_system.clone(),
+            Vec3d::new(
+                (global_point.get_x() + 1.0).floor(),
+                (global_point.get_y() + 1.0).floor(),
+                0.0,
+            ),
+        );
+        let point_rectangle = CoordinatedRectangle::new(point_rectangle_tl, point_rectangle_br);
         for line in &self.lines {
             for slice in &line.slices {
                 let slice_start = slice.get_slice().get_start();
                 let slice_end = slice.get_slice().get_end();
                 let global_start = slice_start.convert_to(global_coordinate_system.clone());
                 let global_end = slice_end.convert_to(global_coordinate_system.clone());
-                if global_point.get_y() == global_start.get_y()
-                    && global_point.get_x() >= global_start.get_x()
-                    && global_point.get_x() <= global_end.get_x()
-                {
+                let global_rectangle_tl = global_start.clone();
+                let global_rectangle_br = CoordinatedPoint::new(global_coordinate_system.clone(), Vec3d::new(global_end.get_x(), global_end.get_y() + 1.0, 0.0));
+                let global_rectangle = CoordinatedRectangle::new(global_rectangle_tl, global_rectangle_br);
+                if point_rectangle.intersects(&global_rectangle) {
                     return true;
                 }
             }

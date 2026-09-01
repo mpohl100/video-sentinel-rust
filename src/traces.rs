@@ -310,13 +310,13 @@ fn deduce_slices_from_mosaic(
         if contains_point {
             let global_point = point.convert_to(global_coordinate_system.clone());
             let tl = Vec3d::new(
-                global_point.get_x(),
-                global_point.get_y(),
+                global_point.get_x().floor(),
+                global_point.get_y().floor(),
                 0.0,
             );
             let br = Vec3d::new(
-                global_point.get_x() + 1.0,
-                global_point.get_y() + 1.0,
+                (global_point.get_x() + 1.0).floor(),
+                (global_point.get_y() + 1.0).floor(),
                 0.0,
             );
             let rectangle = Rectangle::new(tl, br);
