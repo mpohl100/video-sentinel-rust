@@ -154,7 +154,7 @@ impl RegionedAngle {
         }
     }
 
-    fn inverted(&self) -> Self {
+    pub fn inverted(&self) -> Self {
         Self::new(-self.angle_degrees, self.min_degrees, self.max_degrees)
     }
 }
