@@ -291,11 +291,34 @@ fn deduce_slices_from_mosaic(
     radius: f64,
     params: &TraceParams,
 ) -> Vec<PolarSlice> {
+    let input_coordinate_system = coordinated_regioned_angle.get_coordinate_system();
+    let input_origin = input_coordinate_system.to_global(CoordinatedPoint::new(
+        input_coordinate_system.clone(),
+        Vec3d::new(0.0, 0.0, 0.0),
+    ));
+    let input_x_axis_point = input_coordinate_system.to_global(CoordinatedPoint::new(
+        input_coordinate_system.clone(),
+        Vec3d::new(1.0, 0.0, 0.0),
+    ));
+    let input_y_axis_point = input_coordinate_system.to_global(CoordinatedPoint::new(
+        input_coordinate_system.clone(),
+        Vec3d::new(0.0, 1.0, 0.0),
+    ));
+    let input_x_axis = input_x_axis_point - input_origin;
+    let input_y_axis = input_y_axis_point - input_origin;
+
     println!("deduce_slices_from_mosaic: begin");
     println!("  input mosaics.len = {}", mosaics.len());
     for (mosaic_index, mosaic) in mosaics.iter().enumerate() {
         let bounding_box = mosaic.get_bounding_box().to_global_rectangle();
-        let center = mosaic.get_center_of_mass();
+        let center = mosaic
+            .get_center_of_mass()
+            .convert_to(input_coordinate_system.clone())
+            .convert_to(WrappedCoordinateSystem::new(
+                Vec3d::new(0.0, 0.0, 0.0),
+                Vec3d::new(1.0, 0.0, 0.0),
+                Vec3d::new(0.0, 1.0, 0.0),
+            ));
         println!(
             "  input mosaic[{mosaic_index}] area={:.8} bbox=(({:.8}, {:.8}), ({:.8}, {:.8})) center=({:.8}, {:.8}, {:.8})",
             mosaic.get_area(),
@@ -311,6 +334,19 @@ fn deduce_slices_from_mosaic(
     println!(
         "  input coordinated_regioned_angle.degrees = {:.8}",
         coordinated_regioned_angle.get_angle_degrees()
+    );
+    println!("  input coordinated_regioned_angle.coordinate_system:");
+    println!(
+        "    origin=({:.8}, {:.8}, {:.8})",
+        input_origin.x, input_origin.y, input_origin.z,
+    );
+    println!(
+        "    x_axis=({:.8}, {:.8}, {:.8})",
+        input_x_axis.x, input_x_axis.y, input_x_axis.z,
+    );
+    println!(
+        "    y_axis=({:.8}, {:.8}, {:.8})",
+        input_y_axis.x, input_y_axis.y, input_y_axis.z,
     );
     println!("  input radius = {:.8}", radius);
     println!("  input params.num_skeleton = {}", params.num_skeleton());
@@ -334,8 +370,32 @@ fn deduce_slices_from_mosaic(
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
         );
+        let global_origin = global_coordinate_system.to_global(CoordinatedPoint::new(
+            global_coordinate_system.clone(),
+            Vec3d::new(0.0, 0.0, 0.0),
+        ));
+        let global_x_axis_point = global_coordinate_system.to_global(CoordinatedPoint::new(
+            global_coordinate_system.clone(),
+            Vec3d::new(1.0, 0.0, 0.0),
+        ));
+        let global_y_axis_point = global_coordinate_system.to_global(CoordinatedPoint::new(
+            global_coordinate_system.clone(),
+            Vec3d::new(0.0, 1.0, 0.0),
+        ));
+        let global_x_axis = global_x_axis_point - global_origin;
+        let global_y_axis = global_y_axis_point - global_origin;
+        println!("  local global_coordinate_system:");
         println!(
-            "  local global_coordinate_system origin=(0.00000000, 0.00000000, 0.00000000) x_axis=(1.00000000, 0.00000000, 0.00000000) y_axis=(0.00000000, 1.00000000, 0.00000000)"
+            "    origin=({:.8}, {:.8}, {:.8})",
+            global_origin.x, global_origin.y, global_origin.z,
+        );
+        println!(
+            "    x_axis=({:.8}, {:.8}, {:.8})",
+            global_x_axis.x, global_x_axis.y, global_x_axis.z,
+        );
+        println!(
+            "    y_axis=({:.8}, {:.8}, {:.8})",
+            global_y_axis.x, global_y_axis.y, global_y_axis.z,
         );
         let current_polar_coordinates =
             PolarCoordinates::new(x, coordinated_regioned_angle.clone());
@@ -345,11 +405,12 @@ fn deduce_slices_from_mosaic(
             current_polar_coordinates.get_angle().get_angle_degrees(),
         );
         let point = current_polar_coordinates.to_cartesian();
+        let point_global = point.convert_to(global_coordinate_system.clone());
         println!(
             "  local point=({:.8}, {:.8}, {:.8})",
-            point.get_x(),
-            point.get_y(),
-            point.get_z(),
+            point_global.get_x(),
+            point_global.get_y(),
+            point_global.get_z(),
         );
         let contains_point = mosaics
             .iter()
@@ -364,7 +425,7 @@ fn deduce_slices_from_mosaic(
             });
         println!("  local contains_point = {}", contains_point);
         if contains_point {
-            let global_point = point.convert_to(global_coordinate_system.clone());
+            let global_point = point_global.clone();
             println!(
                 "  local global_point=({:.8}, {:.8}, {:.8})",
                 global_point.get_x(),
@@ -394,7 +455,7 @@ fn deduce_slices_from_mosaic(
                 br.z,
             );
             let coordinated_rectangle =
-                CoordinatedRectangle::new_from_rectangle(rectangle, global_coordinate_system);
+                CoordinatedRectangle::new_from_rectangle(rectangle, global_coordinate_system.clone());
             let coordinated_rectangle_global = coordinated_rectangle.to_global_rectangle();
             println!(
                 "  local coordinated_rectangle global_top_left=({:.8}, {:.8}, {:.8}) global_bottom_right=({:.8}, {:.8}, {:.8})",
@@ -410,11 +471,39 @@ fn deduce_slices_from_mosaic(
                 line_coordinate_system.clone(),
                 Vec3d::new(0.0, 0.0, 0.0),
             ));
+            let line_coordinate_system_x_axis_point = line_coordinate_system.to_global(CoordinatedPoint::new(
+                line_coordinate_system.clone(),
+                Vec3d::new(1.0, 0.0, 0.0),
+            ));
+            let line_coordinate_system_y_axis_point = line_coordinate_system.to_global(CoordinatedPoint::new(
+                line_coordinate_system.clone(),
+                Vec3d::new(0.0, 1.0, 0.0),
+            ));
+            let line_coordinate_system_x_axis =
+                line_coordinate_system_x_axis_point - line_coordinate_system_origin;
+            let line_coordinate_system_y_axis =
+                line_coordinate_system_y_axis_point - line_coordinate_system_origin;
+            println!("  local line_coordinate_system before_rotate:");
             println!(
-                "  local line_coordinate_system before_rotate origin=({:.8}, {:.8}, {:.8}) target_angle_degrees={:.8}",
+                "    origin=({:.8}, {:.8}, {:.8})",
                 line_coordinate_system_origin.x,
                 line_coordinate_system_origin.y,
                 line_coordinate_system_origin.z,
+            );
+            println!(
+                "    x_axis=({:.8}, {:.8}, {:.8})",
+                line_coordinate_system_x_axis.x,
+                line_coordinate_system_x_axis.y,
+                line_coordinate_system_x_axis.z,
+            );
+            println!(
+                "    y_axis=({:.8}, {:.8}, {:.8})",
+                line_coordinate_system_y_axis.x,
+                line_coordinate_system_y_axis.y,
+                line_coordinate_system_y_axis.z,
+            );
+            println!(
+                "    target_angle_degrees={:.8}",
                 coordinated_regioned_angle.get_angle_degrees(),
             );
             line_coordinate_system.rotate(coordinated_regioned_angle.get_regioned_angle());
@@ -430,52 +519,68 @@ fn deduce_slices_from_mosaic(
                 line_coordinate_system.clone(),
                 Vec3d::new(0.0, 1.0, 0.0),
             ));
+            let rotated_x_axis = rotated_x_axis_point - rotated_origin;
+            let rotated_y_axis = rotated_y_axis_point - rotated_origin;
+            println!("  local line_coordinate_system after_rotate:");
             println!(
-                "  local line_coordinate_system after_rotate origin=({:.8}, {:.8}, {:.8}) x_axis_point=({:.8}, {:.8}, {:.8}) y_axis_point=({:.8}, {:.8}, {:.8})",
+                "    origin=({:.8}, {:.8}, {:.8})",
                 rotated_origin.x,
                 rotated_origin.y,
                 rotated_origin.z,
-                rotated_x_axis_point.x,
-                rotated_x_axis_point.y,
-                rotated_x_axis_point.z,
-                rotated_y_axis_point.x,
-                rotated_y_axis_point.y,
-                rotated_y_axis_point.z,
+            );
+            println!(
+                "    x_axis=({:.8}, {:.8}, {:.8})",
+                rotated_x_axis.x,
+                rotated_x_axis.y,
+                rotated_x_axis.z,
+            );
+            println!(
+                "    y_axis=({:.8}, {:.8}, {:.8})",
+                rotated_y_axis.x,
+                rotated_y_axis.y,
+                rotated_y_axis.z,
             );
             let x_line_start = CoordinatedPoint::new(
                 line_coordinate_system.clone(),
                 Vec3d::new(0.0, 0.0, 0.0),
             );
+            let x_line_start_global = x_line_start.convert_to(global_coordinate_system.clone());
             println!(
                 "  local x_line_start=({:.8}, {:.8}, {:.8})",
-                x_line_start.get_x(),
-                x_line_start.get_y(),
-                x_line_start.get_z(),
+                x_line_start_global.get_x(),
+                x_line_start_global.get_y(),
+                x_line_start_global.get_z(),
             );
             let x_line_end =
                 CoordinatedPoint::new(line_coordinate_system.clone(), Vec3d::new(1.5*radius, 0.0, 0.0));
+            let x_line_end_global = x_line_end.convert_to(global_coordinate_system.clone());
             println!(
                 "  local x_line_end=({:.8}, {:.8}, {:.8})",
-                x_line_end.get_x(),
-                x_line_end.get_y(),
-                x_line_end.get_z(),
+                x_line_end_global.get_x(),
+                x_line_end_global.get_y(),
+                x_line_end_global.get_z(),
             );
             let x_axis_line = CoordinatedLine::new(x_line_start, x_line_end);
             println!("  local x_axis_line created");
             let clipped_line = coordinated_rectangle.get_intersection_line(x_axis_line);
             println!("  local clipped_line.is_some = {}", clipped_line.is_some());
             if let Some(clipped_line) = clipped_line {
+                let clipped_line_start_global =
+                    clipped_line.get_start().convert_to(global_coordinate_system.clone());
+                let clipped_line_end_global =
+                    clipped_line.get_end().convert_to(global_coordinate_system.clone());
+                println!("  local clipped_line:");
                 println!(
-                    "  local clipped_line.start=({:.8}, {:.8}, {:.8})",
-                    clipped_line.get_start().get_x(),
-                    clipped_line.get_start().get_y(),
-                    clipped_line.get_start().get_z(),
+                    "    start=({:.8}, {:.8}, {:.8})",
+                    clipped_line_start_global.get_x(),
+                    clipped_line_start_global.get_y(),
+                    clipped_line_start_global.get_z(),
                 );
                 println!(
-                    "  local clipped_line.end=({:.8}, {:.8}, {:.8})",
-                    clipped_line.get_end().get_x(),
-                    clipped_line.get_end().get_y(),
-                    clipped_line.get_end().get_z(),
+                    "    end=({:.8}, {:.8}, {:.8})",
+                    clipped_line_end_global.get_x(),
+                    clipped_line_end_global.get_y(),
+                    clipped_line_end_global.get_z(),
                 );
                 let polar_start = PolarCoordinates::new(
                     clipped_line.get_start().get_x() / radius,
@@ -508,10 +613,40 @@ fn deduce_slices_from_mosaic(
                 assert!(clipped_line.get_end().get_y().abs() < 1e-4);
                 
                 let slice = PolarSlice::new(polar_start, polar_end);
+                let created_slice_start_cartesian = slice.get_start().to_cartesian();
+                let created_slice_start_cartesian_global =
+                    created_slice_start_cartesian.convert_to(global_coordinate_system.clone());
+                let created_slice_end_cartesian = slice.get_end().to_cartesian();
+                let created_slice_end_cartesian_global =
+                    created_slice_end_cartesian.convert_to(global_coordinate_system.clone());
+                println!("  local created_polar_slice:");
                 println!(
-                    "  local slice start_radius={:.8} end_radius={:.8}",
+                    "    start_radius={:.8}",
                     slice.get_start().get_radius(),
+                );
+                println!(
+                    "    start_angle_degrees={:.8}",
+                    slice.get_start().get_angle().get_angle_degrees(),
+                );
+                println!(
+                    "    start_cartesian=({:.8}, {:.8}, {:.8})",
+                    created_slice_start_cartesian_global.get_x(),
+                    created_slice_start_cartesian_global.get_y(),
+                    created_slice_start_cartesian_global.get_z(),
+                );
+                println!(
+                    "    end_radius={:.8}",
                     slice.get_end().get_radius(),
+                );
+                println!(
+                    "    end_angle_degrees={:.8}",
+                    slice.get_end().get_angle().get_angle_degrees(),
+                );
+                println!(
+                    "    end_cartesian=({:.8}, {:.8}, {:.8})",
+                    created_slice_end_cartesian_global.get_x(),
+                    created_slice_end_cartesian_global.get_y(),
+                    created_slice_end_cartesian_global.get_z(),
                 );
                 slices.push(slice);
                 println!("  local slices.len after push = {}", slices.len());
