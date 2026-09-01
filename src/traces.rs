@@ -706,8 +706,8 @@ fn combine_close_slices(slices: Vec<Option<PolarSlice>>) -> Vec<PolarSlice> {
             (None, None) => {}
         }
     }
-    if current_slice.is_some() {
-        combined_slices.push(current_slice.unwrap());
+    if let Some(item) = current_slice {
+        combined_slices.push(item);
     }
 
     combined_slices
