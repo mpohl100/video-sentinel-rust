@@ -173,6 +173,15 @@ impl Rectangle {
         Self { lines }
     }
 
+    pub fn contains_point(&self, point: Vec3d) -> bool {
+        let top_left = self.get_top_left();
+        let bottom_right = self.get_bottom_right();
+        !(point.x < top_left.x
+            || point.x > bottom_right.x
+            || point.y < top_left.y
+            || point.y > bottom_right.y)
+    }
+
     pub fn new_from_lines(lines: Vec<Line>) -> Self {
         Self { lines }
     }
@@ -672,9 +681,27 @@ impl CoordinatedRectangle {
                 intersection_points[0].clone(),
                 intersection_points[1].clone(),
             ))
+        } else if intersection_points.len() == 1 {
+            // return the one line of [input_line.begin, intersection_point] or [input_line.end, intersection_point] depending on which one is inside the coordinated rectangle
+            let input_line_begin = line.start.clone();
+            let input_line_end = line.end.clone();
+            let intersection_point = intersection_points[0].clone();
+            if self.contains_point(input_line_begin.clone()) {
+                Some(CoordinatedLine::new(input_line_begin, intersection_point))
+            } else if self.contains_point(input_line_end.clone()) {
+                Some(CoordinatedLine::new(input_line_end, intersection_point))
+            } else {
+                None
+            }
         } else {
             None
         }
+    }
+
+    fn contains_point(&self, point: CoordinatedPoint) -> bool {
+        let global_rectangle = self.to_global_rectangle();
+        let global_point = point.wrapped_coordinate_system.to_global(point);
+        global_rectangle.contains_point(global_point)
     }
 }
 

@@ -359,10 +359,10 @@ fn deduce_slices_from_mosaic(
     // for every x in the range of -radius to radius with a step of 0.5, find the intersections with the mosaic and create slices
     let step = 0.5;
     println!("  local step = {:.8}", step);
-    let mut x = 0.0;
+    let mut x = -0.1*radius;
     let mut iteration = 0usize;
     println!("  local initial x = {:.8}", x);
-    while x <= radius {
+    while x <= 1.5*radius {
         println!("loop iteration {iteration}: begin");
         println!("  local x = {:.8}", x);
         let global_coordinate_system = WrappedCoordinateSystem::new(
@@ -433,14 +433,14 @@ fn deduce_slices_from_mosaic(
                 global_point.get_z(),
             );
             let tl = Vec3d::new(
-                (global_point.get_x() - 0.5).floor(),
-                (global_point.get_y() - 0.5).floor(),
+                (global_point.get_x()).floor(),
+                (global_point.get_y()).floor(),
                 0.0,
             );
             println!("  local tl=({:.8}, {:.8}, {:.8})", tl.x, tl.y, tl.z);
             let br = Vec3d::new(
-                (global_point.get_x() + 0.5).floor(),
-                (global_point.get_y() + 0.5).floor(),
+                (global_point.get_x() + 1.0).floor(),
+                (global_point.get_y() + 1.0).floor(),
                 0.0,
             );
             println!("  local br=({:.8}, {:.8}, {:.8})", br.x, br.y, br.z);
@@ -552,7 +552,7 @@ fn deduce_slices_from_mosaic(
                 x_line_start_global.get_z(),
             );
             let x_line_end =
-                CoordinatedPoint::new(line_coordinate_system.clone(), Vec3d::new(1.5*radius, 0.0, 0.0));
+                CoordinatedPoint::new(line_coordinate_system.clone(), Vec3d::new(1.1*radius, 0.0, 0.0));
             let x_line_end_global = x_line_end.convert_to(global_coordinate_system.clone());
             println!(
                 "  local x_line_end=({:.8}, {:.8}, {:.8})",
