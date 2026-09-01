@@ -503,7 +503,7 @@ impl SliceMatrix {
                 let global_rectangle_tl = global_start.clone();
                 let global_rectangle_br = CoordinatedPoint::new(global_coordinate_system.clone(), Vec3d::new(global_end.get_x(), global_end.get_y() + 1.0, 0.0));
                 let global_rectangle = CoordinatedRectangle::new(global_rectangle_tl, global_rectangle_br);
-                if point_rectangle.intersects(&global_rectangle) {
+                if point_rectangle.overlaps(&global_rectangle) {
                     return true;
                 }
             }

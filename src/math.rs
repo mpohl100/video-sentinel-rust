@@ -215,6 +215,18 @@ impl Rectangle {
         }
         false
     }
+
+    pub fn overlaps(&self, other: &Rectangle) -> bool {
+        let self_top_left = self.get_top_left();
+        let self_bottom_right = self.get_bottom_right();
+        let other_top_left = other.get_top_left();
+        let other_bottom_right = other.get_bottom_right();
+
+        !(self_bottom_right.x < other_top_left.x
+            || self_top_left.x > other_bottom_right.x
+            || self_bottom_right.y < other_top_left.y
+            || self_top_left.y > other_bottom_right.y)
+    }
 }
 
 pub fn expand_rectangle(rectangle: &Rectangle, expansion: f64) -> Rectangle {
@@ -618,6 +630,12 @@ impl CoordinatedRectangle {
             .map(|line| line.to_global_line())
             .collect();
         Rectangle::new_from_lines(global_lines)
+    }
+
+    pub fn overlaps(&self, other: &CoordinatedRectangle) -> bool {
+        let global_rectangle1 = self.to_global_rectangle();
+        let global_rectangle2 = other.to_global_rectangle();
+        global_rectangle1.overlaps(&global_rectangle2)
     }
 
     pub fn intersects(&self, other: &CoordinatedRectangle) -> bool {
