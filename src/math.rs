@@ -639,6 +639,15 @@ impl CoordinatedRectangle {
                 intersection_points.push(intersection_point);
             }
         }
+        // make sure the intersection points are unique
+        intersection_points.sort_by(|a, b| {
+            a.get_x()
+                .partial_cmp(&b.get_x())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        intersection_points.dedup_by(|a, b| {
+            (a.get_x() - b.get_x()).abs() < 1e-8 && (a.get_y() - b.get_y()).abs() < 1e-8
+        });
         assert!(intersection_points.len() <= 2);
         if intersection_points.len() == 2 {
             Some(CoordinatedLine::new(
