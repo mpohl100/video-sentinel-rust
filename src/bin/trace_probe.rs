@@ -2,12 +2,22 @@ use image::{ImageBuffer, Rgb};
 use imageproc::drawing::{draw_filled_circle_mut, draw_polygon_mut};
 use imageproc::point::Point;
 use rs_math3d::Vec3d;
+use std::env;
 
-use video_sentinel::math::Rectangle as MathRectangle;
+use video_sentinel::math::{CoordinatedPoint, WrappedCoordinateSystem};
 use video_sentinel::mosaics::{WrappedMosaic, deduce_mosaics};
 use video_sentinel::object_detection::ReferenceObject;
-use video_sentinel::slices::{BasicParams, Rectangle, WrappedRgbImage, calculate_slices, find_connected_slices};
+use video_sentinel::slices::{
+    AnnotatedSlice, BasicParams, Rectangle, Slice, SliceLine, SliceMatrix, WrappedRgbImage,
+    calculate_slices, find_connected_slices,
+};
 use video_sentinel::traces::{Trace, TraceParams};
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ReferenceBuildMode {
+    FromImage,
+    FromSliceMatrix,
+}
 
 #[derive(Clone)]
 struct ColoredTestRectangle {
@@ -103,6 +113,74 @@ fn basic_params() -> BasicParams {
     BasicParams::new(false, 15)
 }
 
+fn global_coordinate_system() -> WrappedCoordinateSystem {
+    WrappedCoordinateSystem::new(
+        Vec3d::new(0.0, 0.0, 0.0),
+        Vec3d::new(1.0, 0.0, 0.0),
+        Vec3d::new(0.0, 1.0, 0.0),
+    )
+}
+
+fn coordinated_point(x: f64, y: f64) -> CoordinatedPoint {
+    CoordinatedPoint::new(global_coordinate_system(), Vec3d::new(x, y, 0.0))
+}
+
+fn blank_image(width: u32, height: u32) -> WrappedRgbImage {
+    WrappedRgbImage::new(ImageBuffer::from_pixel(width, height, Rgb([0, 0, 0])))
+}
+
+fn add_horizontal_slice(
+    slice_matrix: &mut SliceMatrix,
+    line_number: usize,
+    start_x: f64,
+    end_x: f64,
+) {
+    let slice = Slice::new(
+        coordinated_point(start_x, line_number as f64),
+        coordinated_point(end_x, line_number as f64),
+    );
+    slice_matrix.add(SliceLine::new(
+        line_number,
+        vec![AnnotatedSlice::new(slice, line_number)],
+    ));
+}
+
+fn rectangle_slice_matrix(
+    width: u32,
+    height: u32,
+    top_left: Vec3d,
+    bottom_right: Vec3d,
+) -> SliceMatrix {
+    let mut slice_matrix = SliceMatrix::new(blank_image(width, height));
+    let start_x = top_left.x;
+    let end_x = bottom_right.x - 1.0;
+
+    for y in top_left.y as usize..bottom_right.y as usize {
+        add_horizontal_slice(&mut slice_matrix, y, start_x, end_x);
+    }
+
+    slice_matrix
+}
+
+fn circle_slice_matrix(width: u32, height: u32, center: Vec3d, radius: f64) -> SliceMatrix {
+    let mut slice_matrix = SliceMatrix::new(blank_image(width, height));
+    let start_y = (center.y - radius).floor().max(0.0) as usize;
+    let end_y = (center.y + radius).ceil().min(height as f64) as usize;
+    let max_x = width.saturating_sub(1) as f64;
+
+    for y in start_y..end_y {
+        let dy = y as f64 - center.y;
+        let x_offset = (radius * radius - dy * dy).max(0.0).sqrt();
+        let start_x = (center.x - x_offset).ceil().max(0.0);
+        let end_x = (center.x + x_offset).floor().min(max_x);
+        if start_x <= end_x {
+            add_horizontal_slice(&mut slice_matrix, y, start_x, end_x);
+        }
+    }
+
+    slice_matrix
+}
+
 fn surrounding_rectangle(image: &WrappedRgbImage) -> Rectangle {
     let width = image.image.lock().unwrap().width() as f64;
     let height = image.image.lock().unwrap().height() as f64;
@@ -118,15 +196,12 @@ fn deduce_all_mosaics(image: WrappedRgbImage) -> Vec<WrappedMosaic> {
 
 fn deduce_mosaic_at_position(image: WrappedRgbImage, position: Vec3d) -> Option<WrappedMosaic> {
     deduce_all_mosaics(image).into_iter().find(|mosaic| {
-        mosaic.contains_point(video_sentinel::math::CoordinatedPoint::new(
-            video_sentinel::math::WrappedCoordinateSystem::new(
-                Vec3d::new(0.0, 0.0, 0.0),
-                Vec3d::new(1.0, 0.0, 0.0),
-                Vec3d::new(0.0, 1.0, 0.0),
-            ),
-            position,
-        ))
+        mosaic.contains_point(CoordinatedPoint::new(global_coordinate_system(), position))
     })
+}
+
+fn reference_object_from_slice_matrices(id: &str, slice_matrices: Vec<SliceMatrix>) -> ReferenceObject {
+    ReferenceObject::new(id.to_string(), deduce_mosaics(slice_matrices))
 }
 
 fn single_reference_object_from_image(
@@ -140,59 +215,106 @@ fn single_reference_object_from_image(
     )
 }
 
-fn trace_cpp_square_reference_object() -> ReferenceObject {
-    let reference_image = create_test_image_with_shapes(
-        &ShapesData {
-            rectangles: vec![ColoredTestRectangle {
-                top_left: Vec3d::new(15.0, 15.0, 0.0),
-                bottom_right: Vec3d::new(35.0, 35.0, 0.0),
-                color: "red",
-                rotation_angle_degrees: 0.0,
-            }],
-            circles: Vec::new(),
-        },
-        50,
-        50,
-    );
+fn trace_cpp_square_reference_object(mode: ReferenceBuildMode) -> ReferenceObject {
+    match mode {
+        ReferenceBuildMode::FromImage => {
+            let reference_image = create_test_image_with_shapes(
+                &ShapesData {
+                    rectangles: vec![ColoredTestRectangle {
+                        top_left: Vec3d::new(15.0, 15.0, 0.0),
+                        bottom_right: Vec3d::new(35.0, 35.0, 0.0),
+                        color: "red",
+                        rotation_angle_degrees: 0.0,
+                    }],
+                    circles: Vec::new(),
+                },
+                50,
+                50,
+            );
 
-    single_reference_object_from_image(reference_image, Vec3d::new(20.0, 20.0, 0.0), "square")
+            single_reference_object_from_image(
+                reference_image,
+                Vec3d::new(20.0, 20.0, 0.0),
+                "square",
+            )
+        }
+        ReferenceBuildMode::FromSliceMatrix => reference_object_from_slice_matrices(
+            "square",
+            vec![rectangle_slice_matrix(
+                50,
+                50,
+                Vec3d::new(15.0, 15.0, 0.0),
+                Vec3d::new(35.0, 35.0, 0.0),
+            )],
+        ),
+    }
 }
 
-fn trace_cpp_circle_reference_object() -> ReferenceObject {
-    let reference_image = create_test_image_with_shapes(
-        &ShapesData {
-            rectangles: Vec::new(),
-            circles: vec![ColoredTestCircle {
-                center: Vec3d::new(25.0, 25.0, 0.0),
-                radius: 25.0,
-                color: "red",
-            }],
-        },
-        50,
-        50,
-    );
+fn trace_cpp_circle_reference_object(mode: ReferenceBuildMode) -> ReferenceObject {
+    match mode {
+        ReferenceBuildMode::FromImage => {
+            let reference_image = create_test_image_with_shapes(
+                &ShapesData {
+                    rectangles: Vec::new(),
+                    circles: vec![ColoredTestCircle {
+                        center: Vec3d::new(25.0, 25.0, 0.0),
+                        radius: 25.0,
+                        color: "red",
+                    }],
+                },
+                50,
+                50,
+            );
 
-    single_reference_object_from_image(reference_image, Vec3d::new(25.0, 25.0, 0.0), "circle")
+            single_reference_object_from_image(
+                reference_image,
+                Vec3d::new(25.0, 25.0, 0.0),
+                "circle",
+            )
+        }
+        ReferenceBuildMode::FromSliceMatrix => reference_object_from_slice_matrices(
+            "circle",
+            vec![circle_slice_matrix(50, 50, Vec3d::new(25.0, 25.0, 0.0), 25.0)],
+        ),
+    }
 }
 
-fn trace_cpp_rectangle_reference_object() -> ReferenceObject {
-    let reference_image = create_test_image_with_shapes(
-        &ShapesData {
-            rectangles: vec![ColoredTestRectangle {
-                top_left: Vec3d::new(15.0, 15.0, 0.0),
-                bottom_right: Vec3d::new(25.0, 35.0, 0.0),
-                color: "red",
-                rotation_angle_degrees: 0.0,
-            }],
-            circles: Vec::new(),
-        },
-        50,
-        50,
-    );
+fn trace_cpp_rectangle_reference_object(mode: ReferenceBuildMode) -> ReferenceObject {
+    match mode {
+        ReferenceBuildMode::FromImage => {
+            let reference_image = create_test_image_with_shapes(
+                &ShapesData {
+                    rectangles: vec![ColoredTestRectangle {
+                        top_left: Vec3d::new(15.0, 15.0, 0.0),
+                        bottom_right: Vec3d::new(25.0, 35.0, 0.0),
+                        color: "red",
+                        rotation_angle_degrees: 0.0,
+                    }],
+                    circles: Vec::new(),
+                },
+                50,
+                50,
+            );
 
-    single_reference_object_from_image(reference_image, Vec3d::new(20.0, 20.0, 0.0), "rectangle")
+            single_reference_object_from_image(
+                reference_image,
+                Vec3d::new(20.0, 20.0, 0.0),
+                "rectangle",
+            )
+        }
+        ReferenceBuildMode::FromSliceMatrix => reference_object_from_slice_matrices(
+            "rectangle",
+            vec![rectangle_slice_matrix(
+                50,
+                50,
+                Vec3d::new(15.0, 15.0, 0.0),
+                Vec3d::new(25.0, 35.0, 0.0),
+            )],
+        ),
+    }
 }
 
+#[allow(dead_code)]
 fn reference_object_methods_reference_object() -> ReferenceObject {
     let image = create_test_image_with_shapes(
         &ShapesData {
@@ -220,37 +342,58 @@ fn reference_object_methods_reference_object() -> ReferenceObject {
     ReferenceObject::new("ref-id".to_string(), vec![small, large])
 }
 
-fn pair_reference_object() -> ReferenceObject {
-    let reference_image = create_test_image_with_shapes(
-        &ShapesData {
-            rectangles: vec![
-                ColoredTestRectangle {
-                    top_left: Vec3d::new(10.0, 10.0, 0.0),
-                    bottom_right: Vec3d::new(30.0, 30.0, 0.0),
-                    color: "white",
-                    rotation_angle_degrees: 0.0,
+fn pair_reference_object(mode: ReferenceBuildMode) -> ReferenceObject {
+    match mode {
+        ReferenceBuildMode::FromImage => {
+            let reference_image = create_test_image_with_shapes(
+                &ShapesData {
+                    rectangles: vec![
+                        ColoredTestRectangle {
+                            top_left: Vec3d::new(10.0, 10.0, 0.0),
+                            bottom_right: Vec3d::new(30.0, 30.0, 0.0),
+                            color: "white",
+                            rotation_angle_degrees: 0.0,
+                        },
+                        ColoredTestRectangle {
+                            top_left: Vec3d::new(50.0, 10.0, 0.0),
+                            bottom_right: Vec3d::new(70.0, 30.0, 0.0),
+                            color: "white",
+                            rotation_angle_degrees: 0.0,
+                        },
+                    ],
+                    circles: Vec::new(),
                 },
-                ColoredTestRectangle {
-                    top_left: Vec3d::new(50.0, 10.0, 0.0),
-                    bottom_right: Vec3d::new(70.0, 30.0, 0.0),
-                    color: "white",
-                    rotation_angle_degrees: 0.0,
-                },
-            ],
-            circles: Vec::new(),
-        },
-        80,
-        50,
-    );
+                80,
+                50,
+            );
 
-    ReferenceObject::new(
-        "pair".to_string(),
-        vec![
-            deduce_mosaic_at_position(reference_image.clone(), Vec3d::new(20.0, 20.0, 0.0))
-                .unwrap(),
-            deduce_mosaic_at_position(reference_image, Vec3d::new(60.0, 20.0, 0.0)).unwrap(),
-        ],
-    )
+            ReferenceObject::new(
+                "pair".to_string(),
+                vec![
+                    deduce_mosaic_at_position(reference_image.clone(), Vec3d::new(20.0, 20.0, 0.0))
+                        .unwrap(),
+                    deduce_mosaic_at_position(reference_image, Vec3d::new(60.0, 20.0, 0.0)).unwrap(),
+                ],
+            )
+        }
+        ReferenceBuildMode::FromSliceMatrix => reference_object_from_slice_matrices(
+            "pair",
+            vec![
+                rectangle_slice_matrix(
+                    80,
+                    50,
+                    Vec3d::new(10.0, 10.0, 0.0),
+                    Vec3d::new(30.0, 30.0, 0.0),
+                ),
+                rectangle_slice_matrix(
+                    80,
+                    50,
+                    Vec3d::new(50.0, 10.0, 0.0),
+                    Vec3d::new(70.0, 30.0, 0.0),
+                ),
+            ],
+        ),
+    }
 }
 
 fn print_reference_object_trace(
@@ -289,7 +432,11 @@ fn print_reference_object_trace(
 }
 
 fn main() {
-    let _ = MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(1.0, 1.0, 0.0));
+    let build_mode = if env::args().any(|arg| arg == "--deduce-from-slice-matrix") {
+        ReferenceBuildMode::FromSliceMatrix
+    } else {
+        ReferenceBuildMode::FromImage
+    };
 
     // print_reference_object_trace(
     //    "reference_object_methods_return_id_surrounding_box_and_relative_rectangle",
@@ -300,25 +447,25 @@ fn main() {
     print_reference_object_trace(
         "detect_objects_finds_square_results_from_trace_cpp_scene",
         "Square(20, 20)",
-        trace_cpp_square_reference_object(),
+        trace_cpp_square_reference_object(build_mode),
         TraceParams::new(36, 1e-4),
     );
     print_reference_object_trace(
         "detect_objects_finds_circle_results_from_trace_cpp_scene",
         "Circle(radius=25)",
-        trace_cpp_circle_reference_object(),
+        trace_cpp_circle_reference_object(build_mode),
         TraceParams::new(36, 1e-4),
     );
     print_reference_object_trace(
         "detect_objects_finds_rectangle_results_from_trace_cpp_scene",
         "Rectangle(10, 20)",
-        trace_cpp_rectangle_reference_object(),
+        trace_cpp_rectangle_reference_object(build_mode),
         TraceParams::new(36, 1e-4),
     );
     print_reference_object_trace(
         "detect_objects_with_two_reference_mosaics_respects_relative_layout",
         "Square(20, 20) with Square(20, 20)",
-        pair_reference_object(),
+        pair_reference_object(build_mode),
         TraceParams::new(24, 1e-4),
     );
 }
