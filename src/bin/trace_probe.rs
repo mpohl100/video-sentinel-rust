@@ -200,7 +200,10 @@ fn deduce_mosaic_at_position(image: WrappedRgbImage, position: Vec3d) -> Option<
     })
 }
 
-fn reference_object_from_slice_matrices(id: &str, slice_matrices: Vec<SliceMatrix>) -> ReferenceObject {
+fn reference_object_from_slice_matrices(
+    id: &str,
+    slice_matrices: Vec<SliceMatrix>,
+) -> ReferenceObject {
     ReferenceObject::new(id.to_string(), deduce_mosaics(slice_matrices))
 }
 
@@ -274,7 +277,12 @@ fn trace_cpp_circle_reference_object(mode: ReferenceBuildMode) -> ReferenceObjec
         }
         ReferenceBuildMode::FromSliceMatrix => reference_object_from_slice_matrices(
             "circle",
-            vec![circle_slice_matrix(50, 50, Vec3d::new(25.0, 25.0, 0.0), 25.0)],
+            vec![circle_slice_matrix(
+                50,
+                50,
+                Vec3d::new(25.0, 25.0, 0.0),
+                25.0,
+            )],
         ),
     }
 }
@@ -372,7 +380,8 @@ fn pair_reference_object(mode: ReferenceBuildMode) -> ReferenceObject {
                 vec![
                     deduce_mosaic_at_position(reference_image.clone(), Vec3d::new(20.0, 20.0, 0.0))
                         .unwrap(),
-                    deduce_mosaic_at_position(reference_image, Vec3d::new(60.0, 20.0, 0.0)).unwrap(),
+                    deduce_mosaic_at_position(reference_image, Vec3d::new(60.0, 20.0, 0.0))
+                        .unwrap(),
                 ],
             )
         }
@@ -405,13 +414,12 @@ fn print_reference_object_trace(
     println!("=== {name} ===");
     println!("reference id: {}", reference_object.get_id());
     println!("reference shape: {shape_description}");
-    println!("mosaic count: {}", reference_object.get_mosaics(usize::MAX).len());
+    println!(
+        "mosaic count: {}",
+        reference_object.get_mosaics(usize::MAX).len()
+    );
 
-    for (index, mosaic) in reference_object
-        .get_mosaics(usize::MAX)
-        .iter()
-        .enumerate()
-    {
+    for (index, mosaic) in reference_object.get_mosaics(usize::MAX).iter().enumerate() {
         let bounding_box = mosaic.get_bounding_box().to_global_rectangle();
         let center = mosaic.get_center_of_mass();
         println!(

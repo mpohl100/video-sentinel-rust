@@ -21,7 +21,10 @@ impl PolarSlice {
         if start.get_radius() < end.get_radius() {
             PolarSlice { start, end }
         } else {
-            PolarSlice { start: end, end: start }
+            PolarSlice {
+                start: end,
+                end: start,
+            }
         }
     }
 
@@ -442,8 +445,10 @@ fn deduce_slices_from_mosaic(
             //     br.y,
             //     br.z,
             // );
-            let coordinated_rectangle =
-                CoordinatedRectangle::new_from_rectangle(rectangle, global_coordinate_system.clone());
+            let coordinated_rectangle = CoordinatedRectangle::new_from_rectangle(
+                rectangle,
+                global_coordinate_system.clone(),
+            );
             // let coordinated_rectangle_global = coordinated_rectangle.to_global_rectangle();
             // println!(
             //     "  local coordinated_rectangle global_top_left=({:.8}, {:.8}, {:.8}) global_bottom_right=({:.8}, {:.8}, {:.8})",
@@ -454,7 +459,9 @@ fn deduce_slices_from_mosaic(
             //     coordinated_rectangle_global.get_bottom_right().y,
             //     coordinated_rectangle_global.get_bottom_right().z,
             // );
-            let line_coordinate_system = coordinated_regioned_angle.get_coordinate_system().duplicate();
+            let line_coordinate_system = coordinated_regioned_angle
+                .get_coordinate_system()
+                .duplicate();
             // let line_coordinate_system_origin = line_coordinate_system.to_global(CoordinatedPoint::new(
             //     line_coordinate_system.clone(),
             //     Vec3d::new(0.0, 0.0, 0.0),
@@ -494,7 +501,8 @@ fn deduce_slices_from_mosaic(
             //     "    target_angle_degrees={:.8}",
             //     coordinated_regioned_angle.get_angle_degrees(),
             // );
-            line_coordinate_system.rotate(coordinated_regioned_angle.get_regioned_angle().inverted());
+            line_coordinate_system
+                .rotate(coordinated_regioned_angle.get_regioned_angle().inverted());
             // let rotated_origin = line_coordinate_system.to_global(CoordinatedPoint::new(
             //     line_coordinate_system.clone(),
             //     Vec3d::new(0.0, 0.0, 0.0),
@@ -528,10 +536,8 @@ fn deduce_slices_from_mosaic(
             //     rotated_y_axis.y,
             //     rotated_y_axis.z,
             // );
-            let x_line_start = CoordinatedPoint::new(
-                line_coordinate_system.clone(),
-                Vec3d::new(0.0, 0.0, 0.0),
-            );
+            let x_line_start =
+                CoordinatedPoint::new(line_coordinate_system.clone(), Vec3d::new(0.0, 0.0, 0.0));
             // let x_line_start_global = x_line_start.convert_to(global_coordinate_system.clone());
             // println!(
             //     "  local x_line_start=({:.8}, {:.8}, {:.8})",
@@ -539,8 +545,10 @@ fn deduce_slices_from_mosaic(
             //     x_line_start_global.get_y(),
             //     x_line_start_global.get_z(),
             // );
-            let x_line_end =
-                CoordinatedPoint::new(line_coordinate_system.clone(), Vec3d::new(1.1 * radius, 0.0, 0.0));
+            let x_line_end = CoordinatedPoint::new(
+                line_coordinate_system.clone(),
+                Vec3d::new(1.1 * radius, 0.0, 0.0),
+            );
             // let x_line_end_global = x_line_end.convert_to(global_coordinate_system.clone());
             // println!(
             //     "  local x_line_end=({:.8}, {:.8}, {:.8})",
@@ -599,7 +607,7 @@ fn deduce_slices_from_mosaic(
                 // );
                 assert!(clipped_line.get_start().get_y().abs() < 1e-4);
                 assert!(clipped_line.get_end().get_y().abs() < 1e-4);
-                
+
                 let slice = PolarSlice::new(polar_start, polar_end);
                 // let created_slice_start_cartesian = slice.get_start().to_cartesian();
                 // let created_slice_start_cartesian_global =
@@ -638,8 +646,7 @@ fn deduce_slices_from_mosaic(
                 // );
                 slices.push(Some(slice));
                 // println!("  local slices.len after push = {}", slices.len());
-            }
-            else {
+            } else {
                 slices.push(None);
             }
         }
@@ -841,7 +848,10 @@ mod tests {
         start_x: f64,
         end_x: f64,
     ) {
-        let slice = Slice::new(point(start_x, line_number as f64), point(end_x, line_number as f64));
+        let slice = Slice::new(
+            point(start_x, line_number as f64),
+            point(end_x, line_number as f64),
+        );
         slice_matrix.add(SliceLine::new(
             line_number,
             vec![AnnotatedSlice::new(slice, line_number)],
@@ -897,7 +907,10 @@ mod tests {
             match expected_slice {
                 Some((start_radius, end_radius)) => {
                     assert_eq!(ratio_line.slices.len(), 1, "line {index}");
-                    assert_trace_float_eq(ratio_line.slices[0].get_start().get_radius(), *start_radius);
+                    assert_trace_float_eq(
+                        ratio_line.slices[0].get_start().get_radius(),
+                        *start_radius,
+                    );
                     assert_trace_float_eq(ratio_line.slices[0].get_end().get_radius(), *end_radius);
                 }
                 None => {
@@ -1187,7 +1200,12 @@ mod tests {
     #[test]
     fn trace_from_slice_matrix_circle_matches_probe_slice_counts_and_radii() {
         let trace = trace_from_slice_matrices(
-            vec![circle_slice_matrix(50, 50, Vec3d::new(25.0, 25.0, 0.0), 25.0)],
+            vec![circle_slice_matrix(
+                50,
+                50,
+                Vec3d::new(25.0, 25.0, 0.0),
+                25.0,
+            )],
             TraceParams::new(36, 1e-4),
         );
 
@@ -1352,7 +1370,10 @@ mod tests {
         let trace = Trace::new_from_mosaic(square_mosaic(), TraceParams::new(18, 0.2));
         let self_similarity = trace.compare_with(0.0, &trace.clone());
 
-        assert_float_eq(trace.compare_with(self_similarity + EPSILON, &trace.clone()), 0.0);
+        assert_float_eq(
+            trace.compare_with(self_similarity + EPSILON, &trace.clone()),
+            0.0,
+        );
     }
 
     #[test]
@@ -1369,6 +1390,9 @@ mod tests {
 
         assert_eq!(combined.ratio_lines.len(), 18);
         assert!(similarity >= 1.0);
-        assert_float_eq(combined.compare_with(similarity + EPSILON, &same_family), 0.0);
+        assert_float_eq(
+            combined.compare_with(similarity + EPSILON, &same_family),
+            0.0,
+        );
     }
 }
