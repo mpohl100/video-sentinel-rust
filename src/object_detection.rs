@@ -653,7 +653,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn reference_object_methods_return_id_surrounding_box_and_relative_rectangle() {
         let image = create_test_image_with_shapes(
             &ShapesData {
@@ -750,7 +749,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn detect_objects_finds_square_results_from_trace_cpp_scene() {
         let scene = create_test_image_with_shapes(&generate_shape_data(), 300, 300);
         let reference = trace_cpp_square_reference_object();
@@ -771,7 +769,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn detect_objects_finds_circle_results_from_trace_cpp_scene() {
         let scene = create_test_image_with_shapes(&generate_shape_data(), 300, 300);
         let reference = trace_cpp_circle_reference_object();
@@ -792,7 +789,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn detect_objects_finds_rectangle_results_from_trace_cpp_scene() {
         let scene = create_test_image_with_shapes(&generate_shape_data(), 300, 300);
         let reference = trace_cpp_rectangle_reference_object();
@@ -813,7 +809,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn detect_objects_with_two_reference_mosaics_respects_relative_layout() {
         let reference_image = create_test_image_with_shapes(
             &ShapesData {
