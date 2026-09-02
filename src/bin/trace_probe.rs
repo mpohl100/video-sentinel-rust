@@ -19,6 +19,29 @@ enum ReferenceBuildMode {
     FromSliceMatrix,
 }
 
+#[derive(Clone, Copy)]
+enum SceneShapeKind {
+    Square,
+    Circle,
+    Rectangle,
+}
+
+impl SceneShapeKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            SceneShapeKind::Square => "square",
+            SceneShapeKind::Circle => "circle",
+            SceneShapeKind::Rectangle => "rectangle",
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct SceneShapeMarker {
+    kind: SceneShapeKind,
+    midpoint: Vec3d,
+}
+
 #[derive(Clone)]
 struct ColoredTestRectangle {
     top_left: Vec3d,
@@ -179,6 +202,57 @@ fn object_detection_scene_shapes() -> ShapesData {
         rotation_angle_degrees: 60.0,
     });
     shapes_data
+}
+
+fn rectangle_midpoint(rectangle: &ColoredTestRectangle) -> Vec3d {
+    Vec3d::new(
+        (rectangle.top_left.x + rectangle.bottom_right.x) / 2.0,
+        (rectangle.top_left.y + rectangle.bottom_right.y) / 2.0,
+        0.0,
+    )
+}
+
+fn classify_rectangle(rectangle: &ColoredTestRectangle) -> SceneShapeKind {
+    let width = (rectangle.bottom_right.x - rectangle.top_left.x).abs();
+    let height = (rectangle.bottom_right.y - rectangle.top_left.y).abs();
+    if (width - height).abs() < f64::EPSILON {
+        SceneShapeKind::Square
+    } else {
+        SceneShapeKind::Rectangle
+    }
+}
+
+fn scene_shape_markers(shapes_data: &ShapesData) -> Vec<SceneShapeMarker> {
+    let rectangle_markers = shapes_data.rectangles.iter().map(|rectangle| SceneShapeMarker {
+        kind: classify_rectangle(rectangle),
+        midpoint: rectangle_midpoint(rectangle),
+    });
+    let circle_markers = shapes_data.circles.iter().map(|circle| SceneShapeMarker {
+        kind: SceneShapeKind::Circle,
+        midpoint: circle.center,
+    });
+
+    rectangle_markers.chain(circle_markers).collect()
+}
+
+fn distance_squared(left: Vec3d, right: Vec3d) -> f64 {
+    let dx = left.x - right.x;
+    let dy = left.y - right.y;
+    let dz = left.z - right.z;
+    dx * dx + dy * dy + dz * dz
+}
+
+fn classify_scene_mosaic(
+    mosaic: &WrappedMosaic,
+    scene_markers: &[SceneShapeMarker],
+) -> Option<SceneShapeMarker> {
+    let center = mosaic.get_center_of_mass();
+    let center = Vec3d::new(center.get_x(), center.get_y(), center.get_z());
+    scene_markers.iter().copied().min_by(|left, right| {
+        distance_squared(center, left.midpoint)
+            .partial_cmp(&distance_squared(center, right.midpoint))
+            .unwrap()
+    })
 }
 
 fn basic_params() -> BasicParams {
@@ -512,7 +586,9 @@ fn print_reference_object_trace(
 }
 
 fn print_reference_object_image_similarities(build_mode: ReferenceBuildMode) {
-    let image = create_test_image_with_shapes(&object_detection_scene_shapes(), 300, 300);
+    let shapes_data = object_detection_scene_shapes();
+    let scene_markers = scene_shape_markers(&shapes_data);
+    let image = create_test_image_with_shapes(&shapes_data, 300, 300);
     let scene_mosaics = deduce_all_mosaics(image);
     let reference_cases = vec![
         (
@@ -558,10 +634,16 @@ fn print_reference_object_image_similarities(build_mode: ReferenceBuildMode) {
 
         for (mosaic_index, mosaic) in scene_mosaics.iter().enumerate() {
             let mosaic_trace = Trace::new_from_mosaic(mosaic.clone(), params.clone());
-            let similarity = reference_trace.compare_with(0.0, &mosaic_trace);
+            let similarity = reference_trace.compare_with(0.8, &mosaic_trace);
             let bounding_box = mosaic.get_bounding_box().to_global_rectangle();
+            let center = mosaic.get_center_of_mass();
+            let scene_shape = classify_scene_mosaic(mosaic, &scene_markers).unwrap();
             println!(
-                "  scene_mosaic[{mosaic_index}] similarity={similarity:.8} area={:.8} bbox=(({:.8}, {:.8}), ({:.8}, {:.8}))",
+                "  scene_mosaic[{mosaic_index}] similarity={similarity:.8} shape={} midpoint=({:.8}, {:.8}, {:.8}) area={:.8} bbox=(({:.8}, {:.8}), ({:.8}, {:.8}))",
+                scene_shape.kind.as_str(),
+                center.get_x(),
+                center.get_y(),
+                center.get_z(),
                 mosaic.get_area(),
                 bounding_box.get_top_left().x,
                 bounding_box.get_top_left().y,
