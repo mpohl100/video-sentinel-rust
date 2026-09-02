@@ -634,7 +634,7 @@ fn print_reference_object_image_similarities(build_mode: ReferenceBuildMode) {
 
         for (mosaic_index, mosaic) in scene_mosaics.iter().enumerate() {
             let mosaic_trace = Trace::new_from_mosaic(mosaic.clone(), params.clone());
-            let similarity = reference_trace.compare_with(0.8, &mosaic_trace);
+            let similarity = reference_trace.compare_with(0.85, &mosaic_trace);
             let bounding_box = mosaic.get_bounding_box().to_global_rectangle();
             let center = mosaic.get_center_of_mass();
             let scene_shape = classify_scene_mosaic(mosaic, &scene_markers).unwrap();

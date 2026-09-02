@@ -142,12 +142,12 @@ impl Trace {
         Trace { ratio_lines }
     }
 
-    pub fn compare_with(&self, _target_similarity: f64, other: &Trace) -> f64 {
+    pub fn compare_with(&self, target_similarity: f64, other: &Trace) -> f64 {
         let mut highest_similarity = 0.0;
         for i in 0..self.ratio_lines.len() {
             let mut second_ratio_lines = other.ratio_lines.clone();
             second_ratio_lines.rotate_right(i);
-            let similarity = compare_with(&self.ratio_lines, &second_ratio_lines);
+            let similarity = compare_with(&self.ratio_lines, &second_ratio_lines, target_similarity);
             if similarity > highest_similarity {
                 highest_similarity = similarity;
             }
@@ -194,13 +194,15 @@ impl Trace {
     }
 }
 
-fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine]) -> f64 {
-    let mut total_similarity = 0.0;
+fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine], similarity_threshold: f64) -> f64 {
+    let mut count_similar = 0;
     for (line1, line2) in first_ratio_lines.iter().zip(second_ratio_lines.iter()) {
         let similarity = compare_lines(line1, line2);
-        total_similarity += similarity;
+        if similarity >= similarity_threshold {
+            count_similar += 1;
+        }
     }
-    total_similarity / first_ratio_lines.len() as f64
+    count_similar as f64 / first_ratio_lines.len() as f64
 }
 
 fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
@@ -1060,7 +1062,7 @@ mod tests {
         let first = vec![ratio_line(&[(0.2, 0.4)]), ratio_line(&[(0.1, 0.3)])];
         let second = vec![ratio_line(&[(0.2, 0.4)]), ratio_line(&[(0.2, 0.4)])];
 
-        assert_float_eq(compare_with(&first, &second), 0.9);
+        assert_float_eq(compare_with(&first, &second, 0.9), 0.9);
     }
 
     #[test]
