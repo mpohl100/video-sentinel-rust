@@ -361,7 +361,7 @@ fn deduce_slices_from_mosaic(
     let mut x = -0.1 * radius;
     // let mut iteration = 0usize;
     // println!("  local initial x = {:.8}", x);
-    while x <= 1.5 * radius {
+    while x <= 1.15 * radius {
         // println!("loop iteration {iteration}: begin");
         // println!("  local x = {:.8}", x);
         let global_coordinate_system = WrappedCoordinateSystem::new(
