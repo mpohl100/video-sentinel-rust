@@ -142,16 +142,17 @@ impl Trace {
         Trace { ratio_lines }
     }
 
-    pub fn compare_with(&self, target_similarity: f64, other: &Trace) -> f64 {
+    pub fn compare_with(&self, _target_similarity: f64, other: &Trace) -> f64 {
+        let mut highest_similarity = 0.0;
         for i in 0..self.ratio_lines.len() {
             let mut second_ratio_lines = other.ratio_lines.clone();
             second_ratio_lines.rotate_right(i);
             let similarity = compare_with(&self.ratio_lines, &second_ratio_lines);
-            if similarity >= target_similarity {
-                return similarity;
+            if similarity > highest_similarity {
+                highest_similarity = similarity;
             }
         }
-        0.0
+        highest_similarity
     }
 
     pub fn dump_details(&self) -> String {
