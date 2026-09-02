@@ -109,6 +109,78 @@ fn create_test_image_with_shapes(
     WrappedRgbImage::new(image)
 }
 
+fn object_detection_scene_shapes() -> ShapesData {
+    let mut shapes_data = ShapesData::default();
+    shapes_data.rectangles.push(ColoredTestRectangle {
+        top_left: Vec3d::new(5.0, 5.0, 0.0),
+        bottom_right: Vec3d::new(25.0, 25.0, 0.0),
+        color: "red",
+        rotation_angle_degrees: 0.0,
+    });
+    shapes_data.rectangles.push(ColoredTestRectangle {
+        top_left: Vec3d::new(35.0, 5.0, 0.0),
+        bottom_right: Vec3d::new(55.0, 25.0, 0.0),
+        color: "green",
+        rotation_angle_degrees: 30.0,
+    });
+    shapes_data.rectangles.push(ColoredTestRectangle {
+        top_left: Vec3d::new(65.0, 5.0, 0.0),
+        bottom_right: Vec3d::new(85.0, 25.0, 0.0),
+        color: "blue",
+        rotation_angle_degrees: 60.0,
+    });
+    shapes_data.rectangles.push(ColoredTestRectangle {
+        top_left: Vec3d::new(95.0, 5.0, 0.0),
+        bottom_right: Vec3d::new(125.0, 35.0, 0.0),
+        color: "white",
+        rotation_angle_degrees: 90.0,
+    });
+    shapes_data.circles.push(ColoredTestCircle {
+        center: Vec3d::new(20.0, 55.0, 0.0),
+        radius: 15.0,
+        color: "red",
+    });
+    shapes_data.circles.push(ColoredTestCircle {
+        center: Vec3d::new(60.0, 55.0, 0.0),
+        radius: 15.0,
+        color: "green",
+    });
+    shapes_data.circles.push(ColoredTestCircle {
+        center: Vec3d::new(100.0, 55.0, 0.0),
+        radius: 15.0,
+        color: "blue",
+    });
+    shapes_data.circles.push(ColoredTestCircle {
+        center: Vec3d::new(140.0, 55.0, 0.0),
+        radius: 20.0,
+        color: "white",
+    });
+    shapes_data.circles.push(ColoredTestCircle {
+        center: Vec3d::new(200.0, 55.0, 0.0),
+        radius: 25.0,
+        color: "black",
+    });
+    shapes_data.rectangles.push(ColoredTestRectangle {
+        top_left: Vec3d::new(5.0, 85.0, 0.0),
+        bottom_right: Vec3d::new(15.0, 105.0, 0.0),
+        color: "red",
+        rotation_angle_degrees: 0.0,
+    });
+    shapes_data.rectangles.push(ColoredTestRectangle {
+        top_left: Vec3d::new(25.0, 85.0, 0.0),
+        bottom_right: Vec3d::new(35.0, 105.0, 0.0),
+        color: "green",
+        rotation_angle_degrees: 30.0,
+    });
+    shapes_data.rectangles.push(ColoredTestRectangle {
+        top_left: Vec3d::new(55.0, 85.0, 0.0),
+        bottom_right: Vec3d::new(75.0, 125.0, 0.0),
+        color: "blue",
+        rotation_angle_degrees: 60.0,
+    });
+    shapes_data
+}
+
 fn basic_params() -> BasicParams {
     BasicParams::new(false, 15)
 }
@@ -439,19 +511,82 @@ fn print_reference_object_trace(
     println!("{}", trace.dump_details());
 }
 
+fn print_reference_object_image_similarities(build_mode: ReferenceBuildMode) {
+    let image = create_test_image_with_shapes(&object_detection_scene_shapes(), 300, 300);
+    let scene_mosaics = deduce_all_mosaics(image);
+    let reference_cases = vec![
+        (
+            "reference_object_methods_return_id_surrounding_box_and_relative_rectangle",
+            "Square(10, 10) with Square(20, 20)",
+            reference_object_methods_reference_object(),
+            TraceParams::new(36, 1e-4),
+        ),
+        (
+            "detect_objects_finds_square_results_from_trace_cpp_scene",
+            "Square(20, 20)",
+            trace_cpp_square_reference_object(build_mode),
+            TraceParams::new(36, 1e-4),
+        ),
+        (
+            "detect_objects_finds_circle_results_from_trace_cpp_scene",
+            "Circle(radius=25)",
+            trace_cpp_circle_reference_object(build_mode),
+            TraceParams::new(36, 1e-4),
+        ),
+        (
+            "detect_objects_finds_rectangle_results_from_trace_cpp_scene",
+            "Rectangle(10, 20)",
+            trace_cpp_rectangle_reference_object(build_mode),
+            TraceParams::new(36, 1e-4),
+        ),
+        (
+            "detect_objects_with_two_reference_mosaics_respects_relative_layout",
+            "Square(20, 20) with Square(20, 20)",
+            pair_reference_object(build_mode),
+            TraceParams::new(24, 1e-4),
+        ),
+    ];
+
+    println!("=== compare-to-image ===");
+    println!("scene mosaic count: {}", scene_mosaics.len());
+
+    for (reference_name, shape_description, reference_object, params) in reference_cases {
+        println!("reference: {reference_name}");
+        println!("reference shape: {shape_description}");
+
+        let reference_trace = Trace::new_from_mosaics(reference_object.get_mosaics(usize::MAX), params.clone());
+
+        for (mosaic_index, mosaic) in scene_mosaics.iter().enumerate() {
+            let mosaic_trace = Trace::new_from_mosaic(mosaic.clone(), params.clone());
+            let similarity = reference_trace.compare_with(0.0, &mosaic_trace);
+            let bounding_box = mosaic.get_bounding_box().to_global_rectangle();
+            println!(
+                "  scene_mosaic[{mosaic_index}] similarity={similarity:.8} area={:.8} bbox=(({:.8}, {:.8}), ({:.8}, {:.8}))",
+                mosaic.get_area(),
+                bounding_box.get_top_left().x,
+                bounding_box.get_top_left().y,
+                bounding_box.get_bottom_right().x,
+                bounding_box.get_bottom_right().y,
+            );
+        }
+    }
+}
+
 fn main() {
-    let build_mode = if env::args().any(|arg| arg == "--deduce-from-slice-matrix") {
+    let args: Vec<String> = env::args().collect();
+    let build_mode = if args.iter().any(|arg| arg == "--deduce-from-slice-matrix") {
         ReferenceBuildMode::FromSliceMatrix
     } else {
         ReferenceBuildMode::FromImage
     };
+    let compare_to_image = args.iter().any(|arg| arg == "--compare-to-image");
 
-    // print_reference_object_trace(
-    //    "reference_object_methods_return_id_surrounding_box_and_relative_rectangle",
-    //    "Square(10, 10) with Square(20, 20)",
-    //    reference_object_methods_reference_object(),
-    //    TraceParams::new(36, 1e-4),
-    //);
+    print_reference_object_trace(
+        "reference_object_methods_return_id_surrounding_box_and_relative_rectangle",
+        "Square(10, 10) with Square(20, 20)",
+        reference_object_methods_reference_object(),
+        TraceParams::new(36, 1e-4),
+    );
     print_reference_object_trace(
         "detect_objects_finds_square_results_from_trace_cpp_scene",
         "Square(20, 20)",
@@ -476,4 +611,8 @@ fn main() {
         pair_reference_object(build_mode),
         TraceParams::new(24, 1e-4),
     );
+
+    if compare_to_image {
+        print_reference_object_image_similarities(build_mode);
+    }
 }
