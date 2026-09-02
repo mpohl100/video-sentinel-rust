@@ -512,7 +512,7 @@ mod tests {
     fn standard_detection_params(target_similarity: f64) -> ObjectDetectionParams {
         ObjectDetectionParams::new(
             TileParams::new(0.2, 0.2),
-            0.5,
+            0.1,
             TraceParams::new(36, 0.2),
             target_similarity,
         )
