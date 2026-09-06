@@ -272,17 +272,33 @@ impl SliceMatrix {
         let mut longest_distance_point = None;
         for line in &self.lines {
             for slice in &line.slices {
-                let slice_start = slice.get_slice().get_start();
-                let slice_end = slice.get_slice().get_end();
-                let distance_to_start = point.distance_to(slice_start.clone());
-                let distance_to_end = point.distance_to(slice_end.clone());
-                if distance_to_start > longest_distance {
-                    longest_distance = distance_to_start;
-                    longest_distance_point = Some(slice_start.clone());
+                let slice_start_tl = slice.get_slice().get_start();
+                let mut slice_start_bl = slice.get_slice().get_start();
+                slice_start_bl.set_y(slice_start_bl.get_y() + 1.0); // Move to bottom-left corner
+                let slice_end_tr = slice.get_slice().get_end();
+                let mut slice_end_br = slice.get_slice().get_end();
+                slice_end_br.set_y(slice_end_br.get_y() + 1.0); // Move to bottom-right corner
+
+                let distance_to_start_tl = point.distance_to(slice_start_tl.clone());
+                let distance_to_start_bl = point.distance_to(slice_start_bl.clone());
+                let distance_to_end_tr = point.distance_to(slice_end_tr.clone());
+                let distance_to_end_br = point.distance_to(slice_end_br.clone());
+
+                if distance_to_start_tl > longest_distance {
+                    longest_distance = distance_to_start_tl;
+                    longest_distance_point = Some(slice_start_tl.clone());
                 }
-                if distance_to_end > longest_distance {
-                    longest_distance = distance_to_end;
-                    longest_distance_point = Some(slice_end.clone());
+                if distance_to_start_bl > longest_distance {
+                    longest_distance = distance_to_start_bl;
+                    longest_distance_point = Some(slice_start_bl.clone());
+                }
+                if distance_to_end_tr > longest_distance {
+                    longest_distance = distance_to_end_tr;
+                    longest_distance_point = Some(slice_end_tr.clone());
+                }
+                if distance_to_end_br > longest_distance {
+                    longest_distance = distance_to_end_br;
+                    longest_distance_point = Some(slice_end_br.clone());
                 }
             }
         }
@@ -477,6 +493,16 @@ impl SliceMatrix {
             Vec3d::new(0.0, 1.0, 0.0),
         );
         let global_point = point.convert_to(global_coordinate_system.clone());
+        let y_coordinate = global_point.get_y().floor();
+        let first_line_number = self.lines.first().unwrap().line_number as f64;
+        if y_coordinate < first_line_number {
+            return false;
+        }
+        let last_line_number = self.lines.last().unwrap().line_number as f64;
+        if y_coordinate > last_line_number {
+            return false;
+        }
+        let line = &self.lines[(y_coordinate - first_line_number) as usize];
         let point_rectangle_tl = CoordinatedPoint::new(
             global_coordinate_system.clone(),
             Vec3d::new(
@@ -494,22 +520,20 @@ impl SliceMatrix {
             ),
         );
         let point_rectangle = CoordinatedRectangle::new(point_rectangle_tl, point_rectangle_br);
-        for line in &self.lines {
-            for slice in &line.slices {
-                let slice_start = slice.get_slice().get_start();
-                let slice_end = slice.get_slice().get_end();
-                let global_start = slice_start.convert_to(global_coordinate_system.clone());
-                let global_end = slice_end.convert_to(global_coordinate_system.clone());
-                let global_rectangle_tl = global_start.clone();
-                let global_rectangle_br = CoordinatedPoint::new(
-                    global_coordinate_system.clone(),
-                    Vec3d::new(global_end.get_x(), global_end.get_y() + 1.0, 0.0),
-                );
-                let global_rectangle =
-                    CoordinatedRectangle::new(global_rectangle_tl, global_rectangle_br);
-                if point_rectangle.overlaps(&global_rectangle) {
-                    return true;
-                }
+        for slice in line.get_slices() {
+            let slice_start = slice.get_slice().get_start();
+            let slice_end = slice.get_slice().get_end();
+            let global_start = slice_start.convert_to(global_coordinate_system.clone());
+            let global_end = slice_end.convert_to(global_coordinate_system.clone());
+            let global_rectangle_tl = global_start.clone();
+            let global_rectangle_br = CoordinatedPoint::new(
+                global_coordinate_system.clone(),
+                Vec3d::new(global_end.get_x(), global_end.get_y() + 1.0, 0.0),
+            );
+            let global_rectangle =
+                CoordinatedRectangle::new(global_rectangle_tl, global_rectangle_br);
+            if point_rectangle.overlaps(&global_rectangle) {
+                return true;
             }
         }
         false

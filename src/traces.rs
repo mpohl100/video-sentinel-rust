@@ -9,6 +9,17 @@ use crate::math::WrappedCoordinateSystem;
 use crate::mosaics::WrappedMosaic;
 
 use rs_math3d::Vec3d;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static TRACE_DEBUG: AtomicBool = AtomicBool::new(false);
+
+pub fn set_trace_debug(enabled: bool) {
+    TRACE_DEBUG.store(enabled, Ordering::Relaxed);
+}
+
+fn trace_debug_enabled() -> bool {
+    TRACE_DEBUG.load(Ordering::Relaxed)
+}
 
 #[derive(Clone)]
 struct PolarSlice {
@@ -68,6 +79,8 @@ impl TraceParams {
 #[derive(Clone)]
 pub struct Trace {
     ratio_lines: Vec<RatioLine>,
+    total_mass: f64,
+    total_surrounding_circle_area: f64,
 }
 
 impl Trace {
@@ -104,7 +117,13 @@ impl Trace {
                 }
             })
             .collect();
-        Trace { ratio_lines }
+        Trace {
+            ratio_lines,
+            total_mass: calculate_total_mass(&vec![mosaic.clone()]),
+            total_surrounding_circle_area: calculate_total_surrounding_circle_area(&vec![
+                mosaic.clone(),
+            ]),
+        }
     }
 
     pub fn new_from_mosaics(mosaics: Vec<WrappedMosaic>, params: TraceParams) -> Self {
@@ -139,19 +158,39 @@ impl Trace {
                 }
             })
             .collect();
-        Trace { ratio_lines }
+        Trace {
+            ratio_lines,
+            total_mass: calculate_total_mass(&mosaics),
+            total_surrounding_circle_area: calculate_total_surrounding_circle_area(&mosaics),
+        }
     }
 
     pub fn compare_with(&self, target_similarity: f64, other: &Trace) -> f64 {
+        let mut highest_similarity = 0.0;
         for i in 0..self.ratio_lines.len() {
             let mut second_ratio_lines = other.ratio_lines.clone();
             second_ratio_lines.rotate_right(i);
             let similarity = compare_with(&self.ratio_lines, &second_ratio_lines);
-            if similarity >= target_similarity {
-                return similarity;
+            if trace_debug_enabled() {
+                println!(
+                    "trace.compare_with rotation={} similarity={:.8} highest_before={:.8} target={:.8}",
+                    i, similarity, highest_similarity, target_similarity,
+                );
+            }
+            if similarity > highest_similarity {
+                highest_similarity = similarity;
             }
         }
-        0.0
+        if trace_debug_enabled() {
+            println!(
+                "trace.compare_with final highest_similarity={:.8}",
+                highest_similarity,
+            );
+        }
+        let first_factor = self.total_mass / self.total_surrounding_circle_area;
+        let second_factor = other.total_mass / other.total_surrounding_circle_area;
+        let closeness = (first_factor.min(second_factor) / first_factor.max(second_factor)).max(0.0);
+        highest_similarity * closeness
     }
 
     pub fn dump_details(&self) -> String {
@@ -193,37 +232,118 @@ impl Trace {
     }
 }
 
+fn calculate_total_mass(mosaics: &[WrappedMosaic]) -> f64 {
+    mosaics.iter().map(|m| m.get_area()).sum()
+}
+
+fn calculate_total_surrounding_circle_area(mosaics: &[WrappedMosaic]) -> f64 {
+    if mosaics.is_empty() {
+        return 0.0;
+    }
+
+    let center_of_mass = calculate_center_of_mass(mosaics);
+    let radius = deduce_longest_radius(mosaics, center_of_mass);
+
+    std::f64::consts::PI * radius * radius
+}
+
 fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine]) -> f64 {
     let mut total_similarity = 0.0;
-    for (line1, line2) in first_ratio_lines.iter().zip(second_ratio_lines.iter()) {
+    for (line_index, (line1, line2)) in first_ratio_lines
+        .iter()
+        .zip(second_ratio_lines.iter())
+        .enumerate()
+    {
         let similarity = compare_lines(line1, line2);
+        if trace_debug_enabled() {
+            println!(
+                "trace.compare_with line_index={} line_similarity={:.8}",
+                line_index, similarity,
+            );
+        }
         total_similarity += similarity;
     }
-    total_similarity / first_ratio_lines.len() as f64
+    // calculate the average similarity
+    let similarity = total_similarity / first_ratio_lines.len() as f64;
+    if trace_debug_enabled() {
+        println!(
+            "trace.compare_with average_similarity={:.8} line_count={}",
+            similarity,
+            first_ratio_lines.len(),
+        );
+    }
+    similarity
 }
 
 fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
     if line1.slices.is_empty() && line2.slices.is_empty() {
+        if trace_debug_enabled() {
+            println!("trace.compare_lines both_empty similarity=1.00000000");
+        }
         return 1.0;
     }
     if line1.slices.is_empty() || line2.slices.is_empty() {
+        if trace_debug_enabled() {
+            println!(
+                "trace.compare_lines one_empty left_slice_count={} right_slice_count={} similarity=0.00000000",
+                line1.slices.len(),
+                line2.slices.len(),
+            );
+        }
         return 0.0;
     }
 
     let overlaps = get_overlaps(line1, line2);
-    // convert the following code to rust
-    let mut filtered_overlaps: Vec<TaggedRatio> = overlaps
+    if trace_debug_enabled() {
+        println!(
+            "trace.compare_lines overlap_count={} left_slice_count={} right_slice_count={}",
+            overlaps.len(),
+            line1.slices.len(),
+            line2.slices.len(),
+        );
+        for (overlap_index, overlap) in overlaps.iter().enumerate() {
+            println!(
+                "trace.compare_lines overlap[{}] from={:.8} to={:.8} left_tag={:?} right_tag={:?}",
+                overlap_index,
+                overlap.ratio.from,
+                overlap.ratio.to,
+                overlap.left_tag,
+                overlap.right_tag,
+            );
+        }
+    }
+    let similar_overlaps: Vec<TaggedRatio> = overlaps
+        .clone()
         .into_iter()
-        .filter(|tr| (tr.left_tag + tr.right_tag) != 1)
+        .filter(|tr| tr.left_tag == Tag::Filled && tr.right_tag == Tag::Filled)
         .collect();
-    filtered_overlaps.sort_by(|lhs, rhs| rhs.ratio.from.partial_cmp(&lhs.ratio.from).unwrap());
-    let left_quantile_index = 2 * line1.slices.len() + 1;
-    let right_quantile_index = 2 * line2.slices.len() + 1;
-    let quantile_index = std::cmp::max(left_quantile_index, right_quantile_index) + 1;
-    let n = std::cmp::min(filtered_overlaps.len(), quantile_index);
-    let mut similarity = 0.0;
-    for item in filtered_overlaps.iter().take(n) {
-        similarity += item.ratio.to - item.ratio.from;
+    let mut similar_overlap = 0.0;
+    for item in similar_overlaps.iter() {
+        similar_overlap += item.ratio.to - item.ratio.from;
+    }
+    let different_overlaps: Vec<TaggedRatio> = overlaps
+        .into_iter()
+        .filter(|tr| tr.left_tag != tr.right_tag)
+        .collect();
+    let mut different_overlap = 0.0;
+    for item in different_overlaps {
+        different_overlap += item.ratio.to - item.ratio.from;
+    }
+    if similar_overlap.abs() < 1e-6 {
+        if trace_debug_enabled() {
+            println!(
+                "trace.compare_lines similar_overlap={:.8} different_overlap={:.8} similarity=0.00000000",
+                similar_overlap, different_overlap,
+            );
+        }
+        return 0.0;
+    }
+    let similarity = (similar_overlap - different_overlap) / similar_overlap;
+    if trace_debug_enabled() {
+        println!(
+            "trace.compare_lines similar_overlap={:.8} different_overlap={:.8} similarity={:.8}",
+            similar_overlap, different_overlap, similarity,
+        );
     }
     similarity
 }
@@ -234,11 +354,17 @@ struct Ratio {
     to: f64,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Tag {
+    Empty = 0,
+    Filled = 1,
+}
+
 #[derive(Clone)]
 struct TaggedRatio {
     ratio: Ratio,
-    left_tag: usize,
-    right_tag: usize,
+    left_tag: Tag,
+    right_tag: Tag,
 }
 
 fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
@@ -269,13 +395,13 @@ fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
         };
         let lit = line1.slices.iter().find(|&ratio| pred(ratio));
         let rit = line2.slices.iter().find(|&ratio| pred(ratio));
-        let mut left_tag = 1;
-        let mut right_tag = 1;
+        let mut left_tag = Tag::Empty;
+        let mut right_tag = Tag::Empty;
         if lit.is_some() {
-            left_tag = 0;
+            left_tag = Tag::Filled;
         }
         if rit.is_some() {
-            right_tag = 0;
+            right_tag = Tag::Filled;
         }
         overlaps.push(TaggedRatio {
             ratio: Ratio { from, to },
@@ -361,7 +487,7 @@ fn deduce_slices_from_mosaic(
     let mut x = -0.1 * radius;
     // let mut iteration = 0usize;
     // println!("  local initial x = {:.8}", x);
-    while x <= 1.5 * radius {
+    while x <= 1.15 * radius {
         // println!("loop iteration {iteration}: begin");
         // println!("  local x = {:.8}", x);
         let global_coordinate_system = WrappedCoordinateSystem::new(
@@ -962,16 +1088,16 @@ mod tests {
         let ratio = Ratio { from: 0.1, to: 0.9 };
         let tagged_ratio = TaggedRatio {
             ratio: ratio.clone(),
-            left_tag: 0,
-            right_tag: 1,
+            left_tag: Tag::Empty,
+            right_tag: Tag::Filled,
         };
         let line = ratio_line(&[(0.1, 0.4), (0.6, 0.8)]);
 
         assert_float_eq(ratio.from, 0.1);
         assert_float_eq(ratio.to, 0.9);
         assert_float_eq(tagged_ratio.ratio.from, 0.1);
-        assert_eq!(tagged_ratio.left_tag, 0);
-        assert_eq!(tagged_ratio.right_tag, 1);
+        assert_eq!(tagged_ratio.left_tag, Tag::Empty);
+        assert_eq!(tagged_ratio.right_tag, Tag::Filled);
         assert_eq!(line.slices.len(), 2);
     }
 
@@ -987,6 +1113,8 @@ mod tests {
     fn dump_details_includes_ratio_line_and_slice_information() {
         let trace = Trace {
             ratio_lines: vec![ratio_line(&[(0.1, 0.4)]), ratio_line(&[(0.6, 0.8)])],
+            total_mass: 0.0,
+            total_surrounding_circle_area: 0.0,
         };
 
         let dump = trace.dump_details();
@@ -1007,12 +1135,12 @@ mod tests {
         assert_eq!(overlaps.len(), 5);
         assert_float_eq(overlaps[0].ratio.from, 0.0);
         assert_float_eq(overlaps[0].ratio.to, 0.2);
-        assert_eq!(overlaps[0].left_tag, 1);
-        assert_eq!(overlaps[0].right_tag, 1);
+        assert_eq!(overlaps[0].left_tag, Tag::Filled);
+        assert_eq!(overlaps[0].right_tag, Tag::Filled);
         assert_float_eq(overlaps[2].ratio.from, 0.3);
         assert_float_eq(overlaps[2].ratio.to, 0.4);
-        assert_eq!(overlaps[2].left_tag, 0);
-        assert_eq!(overlaps[2].right_tag, 0);
+        assert_eq!(overlaps[2].left_tag, Tag::Empty);
+        assert_eq!(overlaps[2].right_tag, Tag::Empty);
         assert_float_eq(overlaps[4].ratio.from, 0.5);
         assert_float_eq(overlaps[4].ratio.to, 1.0);
     }
@@ -1070,6 +1198,8 @@ mod tests {
                 ratio_line(&[(0.3, 0.4)]),
                 ratio_line(&[(0.5, 0.6)]),
             ],
+            total_mass: 0.0,
+            total_surrounding_circle_area: 0.0,
         };
         let trace2 = Trace {
             ratio_lines: vec![
@@ -1077,6 +1207,8 @@ mod tests {
                 ratio_line(&[(0.5, 0.6)]),
                 ratio_line(&[(0.1, 0.2)]),
             ],
+            total_mass: 0.0,
+            total_surrounding_circle_area: 0.0,
         };
 
         assert_float_eq(trace1.compare_with(0.99, &trace2), 1.0);
@@ -1119,6 +1251,18 @@ mod tests {
         let radius = deduce_longest_radius(&mosaics, center);
 
         assert_float_eq(radius, 4.038873605350878);
+    }
+
+    #[test]
+    fn calculate_total_surrounding_circle_area_uses_farthest_point_from_weighted_center() {
+        let mosaics = weighted_center_mosaics();
+
+        let area = calculate_total_surrounding_circle_area(&mosaics);
+
+        assert_float_eq(
+            area,
+            std::f64::consts::PI * 4.038873605350878 * 4.038873605350878,
+        );
     }
 
     #[test]
