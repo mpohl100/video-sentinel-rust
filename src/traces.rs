@@ -216,20 +216,15 @@ fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
 
     let overlaps = get_overlaps(line1, line2);
     // convert the following code to rust
-    let mut filtered_overlaps: Vec<TaggedRatio> = overlaps
+    let similar_overlaps: Vec<TaggedRatio> = overlaps.clone()
         .into_iter()
-        .filter(|tr| (tr.left_tag as u8 + tr.right_tag as u8) != 1)
+        .filter(|tr| tr.left_tag == tr.right_tag)
         .collect();
-    filtered_overlaps.sort_by(|lhs, rhs| rhs.ratio.from.partial_cmp(&lhs.ratio.from).unwrap());
-    let left_quantile_index = 2 * line1.slices.len() + 1;
-    let right_quantile_index = 2 * line2.slices.len() + 1;
-    let quantile_index = std::cmp::max(left_quantile_index, right_quantile_index) + 1;
-    let n = std::cmp::min(filtered_overlaps.len(), quantile_index);
     let mut similar_overlap = 0.0;
-    for item in filtered_overlaps.iter().take(n) {
+    for item in similar_overlaps.iter() {
         similar_overlap += item.ratio.to - item.ratio.from;
     }
-    let different_overlaps = filtered_overlaps.iter().filter(|tr| tr.left_tag as u8 + tr.right_tag as u8 == 1);
+    let different_overlaps: Vec<TaggedRatio> = overlaps.into_iter().filter(|tr| tr.left_tag != tr.right_tag).collect();
     let mut different_overlap = 0.0;
     for item in different_overlaps {
         different_overlap += item.ratio.to - item.ratio.from;
@@ -246,10 +241,10 @@ struct Ratio {
     to: f64,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Tag {
-    Filled,
-    Empty,
+    Empty = 0,
+    Filled = 1,
 }
 
 #[derive(Clone)]
@@ -980,16 +975,16 @@ mod tests {
         let ratio = Ratio { from: 0.1, to: 0.9 };
         let tagged_ratio = TaggedRatio {
             ratio: ratio.clone(),
-            left_tag: 0,
-            right_tag: 1,
+            left_tag: Tag::Empty,
+            right_tag: Tag::Filled,
         };
         let line = ratio_line(&[(0.1, 0.4), (0.6, 0.8)]);
 
         assert_float_eq(ratio.from, 0.1);
         assert_float_eq(ratio.to, 0.9);
         assert_float_eq(tagged_ratio.ratio.from, 0.1);
-        assert_eq!(tagged_ratio.left_tag, 0);
-        assert_eq!(tagged_ratio.right_tag, 1);
+        assert_eq!(tagged_ratio.left_tag, Tag::Empty);
+        assert_eq!(tagged_ratio.right_tag, Tag::Filled);
         assert_eq!(line.slices.len(), 2);
     }
 
@@ -1025,12 +1020,12 @@ mod tests {
         assert_eq!(overlaps.len(), 5);
         assert_float_eq(overlaps[0].ratio.from, 0.0);
         assert_float_eq(overlaps[0].ratio.to, 0.2);
-        assert_eq!(overlaps[0].left_tag, 1);
-        assert_eq!(overlaps[0].right_tag, 1);
+        assert_eq!(overlaps[0].left_tag, Tag::Filled);
+        assert_eq!(overlaps[0].right_tag, Tag::Filled);
         assert_float_eq(overlaps[2].ratio.from, 0.3);
         assert_float_eq(overlaps[2].ratio.to, 0.4);
-        assert_eq!(overlaps[2].left_tag, 0);
-        assert_eq!(overlaps[2].right_tag, 0);
+        assert_eq!(overlaps[2].left_tag, Tag::Empty);
+        assert_eq!(overlaps[2].right_tag, Tag::Empty);
         assert_float_eq(overlaps[4].ratio.from, 0.5);
         assert_float_eq(overlaps[4].ratio.to, 1.0);
     }
