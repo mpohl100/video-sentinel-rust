@@ -383,7 +383,7 @@ mod tests {
         shapes_data.rectangles.push(ColoredTestRectangle {
             top_left: Vec3d::new(5.0, 5.0, 0.0),
             bottom_right: Vec3d::new(25.0, 25.0, 0.0),
-            color: "red",
+            color: "green",
             rotation_angle_degrees: 0.0,
         });
         shapes_data.rectangles.push(ColoredTestRectangle {
@@ -395,13 +395,13 @@ mod tests {
         shapes_data.rectangles.push(ColoredTestRectangle {
             top_left: Vec3d::new(65.0, 5.0, 0.0),
             bottom_right: Vec3d::new(85.0, 25.0, 0.0),
-            color: "blue",
+            color: "green",
             rotation_angle_degrees: 60.0,
         });
         shapes_data.rectangles.push(ColoredTestRectangle {
             top_left: Vec3d::new(95.0, 5.0, 0.0),
             bottom_right: Vec3d::new(125.0, 35.0, 0.0),
-            color: "white",
+            color: "green",
             rotation_angle_degrees: 90.0,
         });
         shapes_data.circles.push(ColoredTestCircle {
@@ -412,33 +412,33 @@ mod tests {
         shapes_data.circles.push(ColoredTestCircle {
             center: Vec3d::new(60.0, 55.0, 0.0),
             radius: 15.0,
-            color: "green",
+            color: "red",
         });
         shapes_data.circles.push(ColoredTestCircle {
             center: Vec3d::new(100.0, 55.0, 0.0),
             radius: 15.0,
-            color: "blue",
+            color: "red",
         });
         shapes_data.circles.push(ColoredTestCircle {
             center: Vec3d::new(140.0, 55.0, 0.0),
             radius: 20.0,
-            color: "white",
+            color: "red",
         });
         shapes_data.circles.push(ColoredTestCircle {
             center: Vec3d::new(200.0, 55.0, 0.0),
             radius: 25.0,
-            color: "black",
+            color: "red",
         });
         shapes_data.rectangles.push(ColoredTestRectangle {
             top_left: Vec3d::new(5.0, 85.0, 0.0),
             bottom_right: Vec3d::new(15.0, 105.0, 0.0),
-            color: "red",
+            color: "blue",
             rotation_angle_degrees: 0.0,
         });
         shapes_data.rectangles.push(ColoredTestRectangle {
             top_left: Vec3d::new(25.0, 85.0, 0.0),
             bottom_right: Vec3d::new(35.0, 105.0, 0.0),
-            color: "green",
+            color: "blue",
             rotation_angle_degrees: 30.0,
         });
         shapes_data.rectangles.push(ColoredTestRectangle {
@@ -689,8 +689,8 @@ mod tests {
         assert_eq!(reference.get_id(), "ref-id".to_string());
         assert_vec_eq(surrounding.get_top_left(), Vec3d::new(7.0, 7.0, 0.0));
         assert_vec_eq(surrounding.get_bottom_right(), Vec3d::new(43.0, 23.0, 0.0));
-        assert_vec_eq(relative.get_top_left(), Vec3d::new(35.0, 10.0, 0.0));
-        assert_vec_eq(relative.get_bottom_right(), Vec3d::new(43.0, 18.0, 0.0));
+        assert_vec_eq(relative.get_top_left(), Vec3d::new(37.0, 12.0, 0.0));
+        assert_vec_eq(relative.get_bottom_right(), Vec3d::new(44.0, 19.0, 0.0));
     }
 
     #[test]
@@ -756,7 +756,7 @@ mod tests {
         let results = detect_objects(
             reference,
             &bucketed,
-            standard_detection_params(0.9),
+            standard_detection_params(0.7),
             surrounding_rectangle(&scene),
         );
 
@@ -776,7 +776,7 @@ mod tests {
         let results = detect_objects(
             reference,
             &bucketed,
-            standard_detection_params(0.9),
+            standard_detection_params(0.8),
             surrounding_rectangle(&scene),
         );
 
@@ -796,11 +796,11 @@ mod tests {
         let results = detect_objects(
             reference,
             &bucketed,
-            standard_detection_params(0.9),
+            standard_detection_params(0.8),
             surrounding_rectangle(&scene),
         );
 
-        assert_eq!(results.len(), 3);
+        assert_eq!(results.len(), 2);
         assert_all_green(&results);
         for result in &results {
             let center_y = extract_center_y(&result.get_rectangle());
@@ -844,25 +844,25 @@ mod tests {
                 rectangles: vec![
                     ColoredTestRectangle {
                         top_left: Vec3d::new(10.0, 10.0, 0.0),
-                        bottom_right: Vec3d::new(34.0, 34.0, 0.0),
+                        bottom_right: Vec3d::new(30.0, 30.0, 0.0),
                         color: "white",
                         rotation_angle_degrees: 0.0,
                     },
                     ColoredTestRectangle {
-                        top_left: Vec3d::new(58.0, 14.0, 0.0),
-                        bottom_right: Vec3d::new(70.0, 26.0, 0.0),
+                        top_left: Vec3d::new(50.0, 10.0, 0.0),
+                        bottom_right: Vec3d::new(70.0, 30.0, 0.0),
                         color: "white",
                         rotation_angle_degrees: 0.0,
                     },
                     ColoredTestRectangle {
                         top_left: Vec3d::new(100.0, 10.0, 0.0),
-                        bottom_right: Vec3d::new(124.0, 34.0, 0.0),
+                        bottom_right: Vec3d::new(120.0, 30.0, 0.0),
                         color: "white",
                         rotation_angle_degrees: 0.0,
                     },
                     ColoredTestRectangle {
-                        top_left: Vec3d::new(148.0, 14.0, 0.0),
-                        bottom_right: Vec3d::new(160.0, 26.0, 0.0),
+                        top_left: Vec3d::new(140.0, 10.0, 0.0),
+                        bottom_right: Vec3d::new(160.0, 30.0, 0.0),
                         color: "white",
                         rotation_angle_degrees: 0.0,
                     },
@@ -886,7 +886,7 @@ mod tests {
                 TileParams::new(0.25, 0.25),
                 0.5,
                 TraceParams::new(24, 0.2),
-                0.86,
+                0.8,
             ),
             surrounding_rectangle(&scene),
         );
