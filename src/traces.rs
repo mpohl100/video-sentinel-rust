@@ -227,7 +227,7 @@ impl Trace {
 }
 
 fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine]) -> f64 {
-    let mut total_similarity = 0.0;
+    let mut similarities = Vec::new();
     for (line_index, (line1, line2)) in first_ratio_lines
         .iter()
         .zip(second_ratio_lines.iter())
@@ -240,9 +240,10 @@ fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine
                 line_index, similarity,
             );
         }
-        total_similarity += similarity;
+        similarities.push(similarity);
     }
-    let similarity = total_similarity / first_ratio_lines.len() as f64;
+    // calculate the average similarity
+    let similarity = similarities.iter().sum::<f64>() / similarities.len() as f64;
     if trace_debug_enabled() {
         println!(
             "trace.compare_with average_similarity={:.8} line_count={}",

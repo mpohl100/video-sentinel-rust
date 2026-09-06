@@ -137,68 +137,68 @@ fn object_detection_scene_shapes() -> ShapesData {
     shapes_data.rectangles.push(ColoredTestRectangle {
         top_left: Vec3d::new(5.0, 5.0, 0.0),
         bottom_right: Vec3d::new(25.0, 25.0, 0.0),
-        color: "red",
+        color: "green",
         rotation_angle_degrees: 0.0,
     });
     shapes_data.rectangles.push(ColoredTestRectangle {
-        top_left: Vec3d::new(35.0, 5.0, 0.0),
-        bottom_right: Vec3d::new(55.0, 25.0, 0.0),
+        top_left: Vec3d::new(45.0, 5.0, 0.0),
+        bottom_right: Vec3d::new(65.0, 25.0, 0.0),
         color: "green",
         rotation_angle_degrees: 30.0,
     });
     shapes_data.rectangles.push(ColoredTestRectangle {
-        top_left: Vec3d::new(65.0, 5.0, 0.0),
-        bottom_right: Vec3d::new(85.0, 25.0, 0.0),
-        color: "blue",
+        top_left: Vec3d::new(85.0, 5.0, 0.0),
+        bottom_right: Vec3d::new(105.0, 25.0, 0.0),
+        color: "green",
         rotation_angle_degrees: 60.0,
     });
     shapes_data.rectangles.push(ColoredTestRectangle {
-        top_left: Vec3d::new(95.0, 5.0, 0.0),
-        bottom_right: Vec3d::new(125.0, 35.0, 0.0),
-        color: "white",
+        top_left: Vec3d::new(125.0, 5.0, 0.0),
+        bottom_right: Vec3d::new(155.0, 35.0, 0.0),
+        color: "green",
         rotation_angle_degrees: 90.0,
     });
     shapes_data.circles.push(ColoredTestCircle {
-        center: Vec3d::new(20.0, 55.0, 0.0),
-        radius: 15.0,
-        color: "red",
-    });
-    shapes_data.circles.push(ColoredTestCircle {
-        center: Vec3d::new(60.0, 55.0, 0.0),
+        center: Vec3d::new(20.0, 155.0, 0.0),
         radius: 15.0,
         color: "green",
     });
     shapes_data.circles.push(ColoredTestCircle {
-        center: Vec3d::new(100.0, 55.0, 0.0),
+        center: Vec3d::new(60.0, 155.0, 0.0),
         radius: 15.0,
-        color: "blue",
+        color: "green",
     });
     shapes_data.circles.push(ColoredTestCircle {
-        center: Vec3d::new(140.0, 55.0, 0.0),
+        center: Vec3d::new(100.0, 155.0, 0.0),
+        radius: 15.0,
+        color: "green",
+    });
+    shapes_data.circles.push(ColoredTestCircle {
+        center: Vec3d::new(140.0, 155.0, 0.0),
         radius: 20.0,
-        color: "white",
+        color: "green",
     });
     shapes_data.circles.push(ColoredTestCircle {
-        center: Vec3d::new(200.0, 55.0, 0.0),
+        center: Vec3d::new(200.0, 155.0, 0.0),
         radius: 25.0,
-        color: "black",
+        color: "green",
     });
     shapes_data.rectangles.push(ColoredTestRectangle {
-        top_left: Vec3d::new(5.0, 85.0, 0.0),
-        bottom_right: Vec3d::new(15.0, 105.0, 0.0),
-        color: "red",
+        top_left: Vec3d::new(5.0, 385.0, 0.0),
+        bottom_right: Vec3d::new(15.0, 405.0, 0.0),
+        color: "green",
         rotation_angle_degrees: 0.0,
     });
     shapes_data.rectangles.push(ColoredTestRectangle {
-        top_left: Vec3d::new(25.0, 85.0, 0.0),
-        bottom_right: Vec3d::new(35.0, 105.0, 0.0),
+        top_left: Vec3d::new(25.0, 385.0, 0.0),
+        bottom_right: Vec3d::new(35.0, 405.0, 0.0),
         color: "green",
         rotation_angle_degrees: 30.0,
     });
     shapes_data.rectangles.push(ColoredTestRectangle {
-        top_left: Vec3d::new(55.0, 85.0, 0.0),
-        bottom_right: Vec3d::new(75.0, 125.0, 0.0),
-        color: "blue",
+        top_left: Vec3d::new(55.0, 385.0, 0.0),
+        bottom_right: Vec3d::new(75.0, 425.0, 0.0),
+        color: "green",
         rotation_angle_degrees: 60.0,
     });
     shapes_data
@@ -505,20 +505,20 @@ fn pair_reference_object(mode: ReferenceBuildMode) -> ReferenceObject {
                         ColoredTestRectangle {
                             top_left: Vec3d::new(10.0, 10.0, 0.0),
                             bottom_right: Vec3d::new(30.0, 30.0, 0.0),
-                            color: "white",
+                            color: "green",
                             rotation_angle_degrees: 0.0,
                         },
                         ColoredTestRectangle {
                             top_left: Vec3d::new(50.0, 10.0, 0.0),
                             bottom_right: Vec3d::new(70.0, 30.0, 0.0),
-                            color: "white",
+                            color: "green",
                             rotation_angle_degrees: 0.0,
                         },
                     ],
                     circles: Vec::new(),
                 },
-                80,
-                50,
+                1000,
+                1000,
             );
 
             ReferenceObject::new(
@@ -535,14 +535,14 @@ fn pair_reference_object(mode: ReferenceBuildMode) -> ReferenceObject {
             "pair",
             vec![
                 rectangle_slice_matrix(
-                    80,
-                    50,
+                    1000,
+                    1000,
                     Vec3d::new(10.0, 10.0, 0.0),
                     Vec3d::new(30.0, 30.0, 0.0),
                 ),
                 rectangle_slice_matrix(
-                    80,
-                    50,
+                    1000,
+                    1000,
                     Vec3d::new(50.0, 10.0, 0.0),
                     Vec3d::new(70.0, 30.0, 0.0),
                 ),
@@ -588,7 +588,7 @@ fn print_reference_object_trace(
 fn print_reference_object_image_similarities(build_mode: ReferenceBuildMode) {
     let shapes_data = object_detection_scene_shapes();
     let scene_markers = scene_shape_markers(&shapes_data);
-    let image = create_test_image_with_shapes(&shapes_data, 300, 300);
+    let image = create_test_image_with_shapes(&shapes_data, 1000, 1000);
     let scene_mosaics = deduce_all_mosaics(image);
     let reference_cases = vec![
         (
@@ -736,7 +736,7 @@ fn main() {
         .iter()
         .any(|arg| arg == "--compare-reference-objects");
 
-    set_trace_debug(compare_to_image || compare_reference_objects);
+    set_trace_debug(compare_reference_objects);
 
     print_reference_object_trace(
         "reference_object_methods_return_id_surrounding_box_and_relative_rectangle",
