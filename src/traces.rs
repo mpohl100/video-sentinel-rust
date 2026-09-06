@@ -147,9 +147,12 @@ impl Trace {
         for i in 0..self.ratio_lines.len() {
             let mut second_ratio_lines = other.ratio_lines.clone();
             second_ratio_lines.rotate_right(i);
-            let similarity = compare_with(&self.ratio_lines, &second_ratio_lines, target_similarity);
+            let similarity = compare_with(&self.ratio_lines, &second_ratio_lines);
             if similarity > highest_similarity {
                 highest_similarity = similarity;
+            }
+            if highest_similarity >= target_similarity {
+                break;
             }
         }
         highest_similarity
@@ -194,15 +197,13 @@ impl Trace {
     }
 }
 
-fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine], similarity_threshold: f64) -> f64 {
-    let mut count_similar = 0;
+fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine]) -> f64 {
+    let mut total_similarity = 0.0;
     for (line1, line2) in first_ratio_lines.iter().zip(second_ratio_lines.iter()) {
         let similarity = compare_lines(line1, line2);
-        if similarity >= similarity_threshold {
-            count_similar += 1;
-        }
+        total_similarity += similarity;
     }
-    count_similar as f64 / first_ratio_lines.len() as f64
+    total_similarity / first_ratio_lines.len() as f64
 }
 
 fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
@@ -217,18 +218,26 @@ fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
     // convert the following code to rust
     let mut filtered_overlaps: Vec<TaggedRatio> = overlaps
         .into_iter()
-        .filter(|tr| (tr.left_tag + tr.right_tag) != 1)
+        .filter(|tr| (tr.left_tag as u8 + tr.right_tag as u8) != 1)
         .collect();
     filtered_overlaps.sort_by(|lhs, rhs| rhs.ratio.from.partial_cmp(&lhs.ratio.from).unwrap());
     let left_quantile_index = 2 * line1.slices.len() + 1;
     let right_quantile_index = 2 * line2.slices.len() + 1;
     let quantile_index = std::cmp::max(left_quantile_index, right_quantile_index) + 1;
     let n = std::cmp::min(filtered_overlaps.len(), quantile_index);
-    let mut similarity = 0.0;
+    let mut similar_overlap = 0.0;
     for item in filtered_overlaps.iter().take(n) {
-        similarity += item.ratio.to - item.ratio.from;
+        similar_overlap += item.ratio.to - item.ratio.from;
     }
-    similarity
+    let different_overlaps = filtered_overlaps.iter().filter(|tr| tr.left_tag as u8 + tr.right_tag as u8 == 1);
+    let mut different_overlap = 0.0;
+    for item in different_overlaps {
+        different_overlap += item.ratio.to - item.ratio.from;
+    }
+    if similar_overlap.abs() < 1e-6 {
+        return 0.0;
+    }
+    (similar_overlap - different_overlap) / similar_overlap
 }
 
 #[derive(Clone)]
@@ -237,11 +246,17 @@ struct Ratio {
     to: f64,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Tag {
+    Filled,
+    Empty,
+}
+
 #[derive(Clone)]
 struct TaggedRatio {
     ratio: Ratio,
-    left_tag: usize,
-    right_tag: usize,
+    left_tag: Tag,
+    right_tag: Tag,
 }
 
 fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
@@ -272,13 +287,13 @@ fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
         };
         let lit = line1.slices.iter().find(|&ratio| pred(ratio));
         let rit = line2.slices.iter().find(|&ratio| pred(ratio));
-        let mut left_tag = 1;
-        let mut right_tag = 1;
+        let mut left_tag = Tag::Empty;
+        let mut right_tag = Tag::Empty;
         if lit.is_some() {
-            left_tag = 0;
+            left_tag = Tag::Filled;
         }
         if rit.is_some() {
-            right_tag = 0;
+            right_tag = Tag::Filled;
         }
         overlaps.push(TaggedRatio {
             ratio: Ratio { from, to },
@@ -1062,7 +1077,7 @@ mod tests {
         let first = vec![ratio_line(&[(0.2, 0.4)]), ratio_line(&[(0.1, 0.3)])];
         let second = vec![ratio_line(&[(0.2, 0.4)]), ratio_line(&[(0.2, 0.4)])];
 
-        assert_float_eq(compare_with(&first, &second, 0.9), 0.9);
+        assert_float_eq(compare_with(&first, &second), 0.9);
     }
 
     #[test]
