@@ -79,6 +79,8 @@ impl TraceParams {
 #[derive(Clone)]
 pub struct Trace {
     ratio_lines: Vec<RatioLine>,
+    total_mass: f64,
+    total_surrounding_circle_area: f64,
 }
 
 impl Trace {
@@ -115,7 +117,13 @@ impl Trace {
                 }
             })
             .collect();
-        Trace { ratio_lines }
+        Trace {
+            ratio_lines,
+            total_mass: calculate_total_mass(&vec![mosaic.clone()]),
+            total_surrounding_circle_area: calculate_total_surrounding_circle_area(&vec![
+                mosaic.clone(),
+            ]),
+        }
     }
 
     pub fn new_from_mosaics(mosaics: Vec<WrappedMosaic>, params: TraceParams) -> Self {
@@ -150,7 +158,11 @@ impl Trace {
                 }
             })
             .collect();
-        Trace { ratio_lines }
+        Trace {
+            ratio_lines,
+            total_mass: calculate_total_mass(&mosaics),
+            total_surrounding_circle_area: calculate_total_surrounding_circle_area(&mosaics),
+        }
     }
 
     pub fn compare_with(&self, target_similarity: f64, other: &Trace) -> f64 {
@@ -168,15 +180,6 @@ impl Trace {
             if similarity > highest_similarity {
                 highest_similarity = similarity;
             }
-            if highest_similarity >= target_similarity {
-                if trace_debug_enabled() {
-                    println!(
-                        "trace.compare_with early_exit rotation={} highest_similarity={:.8}",
-                        i, highest_similarity,
-                    );
-                }
-                break;
-            }
         }
         if trace_debug_enabled() {
             println!(
@@ -184,7 +187,10 @@ impl Trace {
                 highest_similarity,
             );
         }
-        highest_similarity
+        let first_factor = self.total_mass / self.total_surrounding_circle_area;
+        let second_factor = other.total_mass / other.total_surrounding_circle_area;
+        let closeness = (first_factor.min(second_factor) / first_factor.max(second_factor)).max(0.0);
+        highest_similarity * closeness
     }
 
     pub fn dump_details(&self) -> String {
@@ -226,8 +232,23 @@ impl Trace {
     }
 }
 
+fn calculate_total_mass(mosaics: &[WrappedMosaic]) -> f64 {
+    mosaics.iter().map(|m| m.get_area()).sum()
+}
+
+fn calculate_total_surrounding_circle_area(mosaics: &[WrappedMosaic]) -> f64 {
+    if mosaics.is_empty() {
+        return 0.0;
+    }
+
+    let center_of_mass = calculate_center_of_mass(mosaics);
+    let radius = deduce_longest_radius(mosaics, center_of_mass);
+
+    std::f64::consts::PI * radius * radius
+}
+
 fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine]) -> f64 {
-    let mut similarities = Vec::new();
+    let mut total_similarity = 0.0;
     for (line_index, (line1, line2)) in first_ratio_lines
         .iter()
         .zip(second_ratio_lines.iter())
@@ -240,10 +261,10 @@ fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine
                 line_index, similarity,
             );
         }
-        similarities.push(similarity);
+        total_similarity += similarity;
     }
     // calculate the average similarity
-    let similarity = similarities.iter().sum::<f64>() / similarities.len() as f64;
+    let similarity = total_similarity / first_ratio_lines.len() as f64;
     if trace_debug_enabled() {
         println!(
             "trace.compare_with average_similarity={:.8} line_count={}",
@@ -291,7 +312,8 @@ fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
             );
         }
     }
-    let similar_overlaps: Vec<TaggedRatio> = overlaps.clone()
+    let similar_overlaps: Vec<TaggedRatio> = overlaps
+        .clone()
         .into_iter()
         .filter(|tr| tr.left_tag == Tag::Filled && tr.right_tag == Tag::Filled)
         .collect();
@@ -299,7 +321,10 @@ fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
     for item in similar_overlaps.iter() {
         similar_overlap += item.ratio.to - item.ratio.from;
     }
-    let different_overlaps: Vec<TaggedRatio> = overlaps.into_iter().filter(|tr| tr.left_tag != tr.right_tag).collect();
+    let different_overlaps: Vec<TaggedRatio> = overlaps
+        .into_iter()
+        .filter(|tr| tr.left_tag != tr.right_tag)
+        .collect();
     let mut different_overlap = 0.0;
     for item in different_overlaps {
         different_overlap += item.ratio.to - item.ratio.from;
@@ -308,8 +333,7 @@ fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
         if trace_debug_enabled() {
             println!(
                 "trace.compare_lines similar_overlap={:.8} different_overlap={:.8} similarity=0.00000000",
-                similar_overlap,
-                different_overlap,
+                similar_overlap, different_overlap,
             );
         }
         return 0.0;
@@ -318,9 +342,7 @@ fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
     if trace_debug_enabled() {
         println!(
             "trace.compare_lines similar_overlap={:.8} different_overlap={:.8} similarity={:.8}",
-            similar_overlap,
-            different_overlap,
-            similarity,
+            similar_overlap, different_overlap, similarity,
         );
     }
     similarity
@@ -1091,6 +1113,8 @@ mod tests {
     fn dump_details_includes_ratio_line_and_slice_information() {
         let trace = Trace {
             ratio_lines: vec![ratio_line(&[(0.1, 0.4)]), ratio_line(&[(0.6, 0.8)])],
+            total_mass: 0.0,
+            total_surrounding_circle_area: 0.0,
         };
 
         let dump = trace.dump_details();
@@ -1174,6 +1198,8 @@ mod tests {
                 ratio_line(&[(0.3, 0.4)]),
                 ratio_line(&[(0.5, 0.6)]),
             ],
+            total_mass: 0.0,
+            total_surrounding_circle_area: 0.0,
         };
         let trace2 = Trace {
             ratio_lines: vec![
@@ -1181,6 +1207,8 @@ mod tests {
                 ratio_line(&[(0.5, 0.6)]),
                 ratio_line(&[(0.1, 0.2)]),
             ],
+            total_mass: 0.0,
+            total_surrounding_circle_area: 0.0,
         };
 
         assert_float_eq(trace1.compare_with(0.99, &trace2), 1.0);
@@ -1223,6 +1251,18 @@ mod tests {
         let radius = deduce_longest_radius(&mosaics, center);
 
         assert_float_eq(radius, 4.038873605350878);
+    }
+
+    #[test]
+    fn calculate_total_surrounding_circle_area_uses_farthest_point_from_weighted_center() {
+        let mosaics = weighted_center_mosaics();
+
+        let area = calculate_total_surrounding_circle_area(&mosaics);
+
+        assert_float_eq(
+            area,
+            std::f64::consts::PI * 4.038873605350878 * 4.038873605350878,
+        );
     }
 
     #[test]
