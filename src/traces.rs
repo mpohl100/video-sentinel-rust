@@ -9,6 +9,17 @@ use crate::math::WrappedCoordinateSystem;
 use crate::mosaics::WrappedMosaic;
 
 use rs_math3d::Vec3d;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static TRACE_DEBUG: AtomicBool = AtomicBool::new(false);
+
+pub fn set_trace_debug(enabled: bool) {
+    TRACE_DEBUG.store(enabled, Ordering::Relaxed);
+}
+
+fn trace_debug_enabled() -> bool {
+    TRACE_DEBUG.load(Ordering::Relaxed)
+}
 
 #[derive(Clone)]
 struct PolarSlice {
@@ -148,12 +159,30 @@ impl Trace {
             let mut second_ratio_lines = other.ratio_lines.clone();
             second_ratio_lines.rotate_right(i);
             let similarity = compare_with(&self.ratio_lines, &second_ratio_lines);
+            if trace_debug_enabled() {
+                println!(
+                    "trace.compare_with rotation={} similarity={:.8} highest_before={:.8} target={:.8}",
+                    i, similarity, highest_similarity, target_similarity,
+                );
+            }
             if similarity > highest_similarity {
                 highest_similarity = similarity;
             }
             if highest_similarity >= target_similarity {
+                if trace_debug_enabled() {
+                    println!(
+                        "trace.compare_with early_exit rotation={} highest_similarity={:.8}",
+                        i, highest_similarity,
+                    );
+                }
                 break;
             }
+        }
+        if trace_debug_enabled() {
+            println!(
+                "trace.compare_with final highest_similarity={:.8}",
+                highest_similarity,
+            );
         }
         highest_similarity
     }
@@ -199,23 +228,68 @@ impl Trace {
 
 fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine]) -> f64 {
     let mut total_similarity = 0.0;
-    for (line1, line2) in first_ratio_lines.iter().zip(second_ratio_lines.iter()) {
+    for (line_index, (line1, line2)) in first_ratio_lines
+        .iter()
+        .zip(second_ratio_lines.iter())
+        .enumerate()
+    {
         let similarity = compare_lines(line1, line2);
+        if trace_debug_enabled() {
+            println!(
+                "trace.compare_with line_index={} line_similarity={:.8}",
+                line_index, similarity,
+            );
+        }
         total_similarity += similarity;
     }
-    total_similarity / first_ratio_lines.len() as f64
+    let similarity = total_similarity / first_ratio_lines.len() as f64;
+    if trace_debug_enabled() {
+        println!(
+            "trace.compare_with average_similarity={:.8} line_count={}",
+            similarity,
+            first_ratio_lines.len(),
+        );
+    }
+    similarity
 }
 
 fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
     if line1.slices.is_empty() && line2.slices.is_empty() {
+        if trace_debug_enabled() {
+            println!("trace.compare_lines both_empty similarity=1.00000000");
+        }
         return 1.0;
     }
     if line1.slices.is_empty() || line2.slices.is_empty() {
+        if trace_debug_enabled() {
+            println!(
+                "trace.compare_lines one_empty left_slice_count={} right_slice_count={} similarity=0.00000000",
+                line1.slices.len(),
+                line2.slices.len(),
+            );
+        }
         return 0.0;
     }
 
     let overlaps = get_overlaps(line1, line2);
-    // convert the following code to rust
+    if trace_debug_enabled() {
+        println!(
+            "trace.compare_lines overlap_count={} left_slice_count={} right_slice_count={}",
+            overlaps.len(),
+            line1.slices.len(),
+            line2.slices.len(),
+        );
+        for (overlap_index, overlap) in overlaps.iter().enumerate() {
+            println!(
+                "trace.compare_lines overlap[{}] from={:.8} to={:.8} left_tag={:?} right_tag={:?}",
+                overlap_index,
+                overlap.ratio.from,
+                overlap.ratio.to,
+                overlap.left_tag,
+                overlap.right_tag,
+            );
+        }
+    }
     let similar_overlaps: Vec<TaggedRatio> = overlaps.clone()
         .into_iter()
         .filter(|tr| tr.left_tag == Tag::Filled && tr.right_tag == Tag::Filled)
@@ -230,9 +304,25 @@ fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
         different_overlap += item.ratio.to - item.ratio.from;
     }
     if similar_overlap.abs() < 1e-6 {
+        if trace_debug_enabled() {
+            println!(
+                "trace.compare_lines similar_overlap={:.8} different_overlap={:.8} similarity=0.00000000",
+                similar_overlap,
+                different_overlap,
+            );
+        }
         return 0.0;
     }
-    (similar_overlap - different_overlap) / similar_overlap
+    let similarity = (similar_overlap - different_overlap) / similar_overlap;
+    if trace_debug_enabled() {
+        println!(
+            "trace.compare_lines similar_overlap={:.8} different_overlap={:.8} similarity={:.8}",
+            similar_overlap,
+            different_overlap,
+            similarity,
+        );
+    }
+    similarity
 }
 
 #[derive(Clone)]
