@@ -218,7 +218,7 @@ fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
     // convert the following code to rust
     let similar_overlaps: Vec<TaggedRatio> = overlaps.clone()
         .into_iter()
-        .filter(|tr| tr.left_tag == tr.right_tag)
+        .filter(|tr| tr.left_tag == Tag::Filled && tr.right_tag == Tag::Filled)
         .collect();
     let mut similar_overlap = 0.0;
     for item in similar_overlaps.iter() {
