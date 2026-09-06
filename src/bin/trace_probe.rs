@@ -11,7 +11,7 @@ use video_sentinel::slices::{
     AnnotatedSlice, BasicParams, Rectangle, Slice, SliceLine, SliceMatrix, WrappedRgbImage,
     calculate_slices, find_connected_slices,
 };
-use video_sentinel::traces::{Trace, TraceParams};
+use video_sentinel::traces::{Trace, TraceParams, set_trace_debug};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ReferenceBuildMode {
@@ -654,6 +654,76 @@ fn print_reference_object_image_similarities(build_mode: ReferenceBuildMode) {
     }
 }
 
+fn reference_cases(build_mode: ReferenceBuildMode) -> Vec<(&'static str, &'static str, ReferenceObject, TraceParams)> {
+    vec![
+        (
+            "reference_object_methods_return_id_surrounding_box_and_relative_rectangle",
+            "Square(10, 10) with Square(20, 20)",
+            reference_object_methods_reference_object(),
+            TraceParams::new(36, 1e-4),
+        ),
+        (
+            "detect_objects_finds_square_results_from_trace_cpp_scene",
+            "Square(20, 20)",
+            trace_cpp_square_reference_object(build_mode),
+            TraceParams::new(36, 1e-4),
+        ),
+        (
+            "detect_objects_finds_circle_results_from_trace_cpp_scene",
+            "Circle(radius=25)",
+            trace_cpp_circle_reference_object(build_mode),
+            TraceParams::new(36, 1e-4),
+        ),
+        (
+            "detect_objects_finds_rectangle_results_from_trace_cpp_scene",
+            "Rectangle(10, 20)",
+            trace_cpp_rectangle_reference_object(build_mode),
+            TraceParams::new(36, 1e-4),
+        ),
+        (
+            "detect_objects_with_two_reference_mosaics_respects_relative_layout",
+            "Square(20, 20) with Square(20, 20)",
+            pair_reference_object(build_mode),
+            TraceParams::new(24, 1e-4),
+        ),
+    ]
+}
+
+fn print_reference_object_cross_similarities(build_mode: ReferenceBuildMode) {
+    let reference_cases = reference_cases(build_mode);
+    let comparison_params = TraceParams::new(36, 1e-4);
+
+    println!("=== compare-reference-objects ===");
+    println!("reference count: {}", reference_cases.len());
+
+    for (left_index, (left_name, left_shape, left_reference_object, _)) in
+        reference_cases.iter().enumerate()
+    {
+        println!(
+            "left_reference[{left_index}]: {left_name} shape={left_shape} mosaic_count={}",
+            left_reference_object.get_mosaics(usize::MAX).len(),
+        );
+        let left_trace = Trace::new_from_mosaics(
+            left_reference_object.get_mosaics(usize::MAX),
+            comparison_params.clone(),
+        );
+
+        for (right_index, (right_name, right_shape, right_reference_object, _)) in
+            reference_cases.iter().enumerate()
+        {
+            let right_trace = Trace::new_from_mosaics(
+                right_reference_object.get_mosaics(usize::MAX),
+                comparison_params.clone(),
+            );
+            println!(
+                "compare reference[{left_index}]={left_name} ({left_shape}) with reference[{right_index}]={right_name} ({right_shape})",
+            );
+            let similarity = left_trace.compare_with(0.85, &right_trace);
+            println!("  similarity={similarity:.8}");
+        }
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let build_mode = if args.iter().any(|arg| arg == "--deduce-from-slice-matrix") {
@@ -662,6 +732,11 @@ fn main() {
         ReferenceBuildMode::FromImage
     };
     let compare_to_image = args.iter().any(|arg| arg == "--compare-to-image");
+    let compare_reference_objects = args
+        .iter()
+        .any(|arg| arg == "--compare-reference-objects");
+
+    set_trace_debug(compare_to_image || compare_reference_objects);
 
     print_reference_object_trace(
         "reference_object_methods_return_id_surrounding_box_and_relative_rectangle",
@@ -696,5 +771,9 @@ fn main() {
 
     if compare_to_image {
         print_reference_object_image_similarities(build_mode);
+    }
+
+    if compare_reference_objects {
+        print_reference_object_cross_similarities(build_mode);
     }
 }
