@@ -272,17 +272,33 @@ impl SliceMatrix {
         let mut longest_distance_point = None;
         for line in &self.lines {
             for slice in &line.slices {
-                let slice_start = slice.get_slice().get_start();
-                let slice_end = slice.get_slice().get_end();
-                let distance_to_start = point.distance_to(slice_start.clone());
-                let distance_to_end = point.distance_to(slice_end.clone());
-                if distance_to_start > longest_distance {
-                    longest_distance = distance_to_start;
-                    longest_distance_point = Some(slice_start.clone());
+                let slice_start_tl = slice.get_slice().get_start();
+                let mut slice_start_bl = slice.get_slice().get_start();
+                slice_start_bl.set_y(slice_start_bl.get_y() + 1.0); // Move to bottom-left corner
+                let slice_end_tr = slice.get_slice().get_end();
+                let mut slice_end_br = slice.get_slice().get_end();
+                slice_end_br.set_y(slice_end_br.get_y() + 1.0); // Move to bottom-right corner
+
+                let distance_to_start_tl = point.distance_to(slice_start_tl.clone());
+                let distance_to_start_bl = point.distance_to(slice_start_bl.clone());
+                let distance_to_end_tr = point.distance_to(slice_end_tr.clone());
+                let distance_to_end_br = point.distance_to(slice_end_br.clone());
+
+                if distance_to_start_tl > longest_distance {
+                    longest_distance = distance_to_start_tl;
+                    longest_distance_point = Some(slice_start_tl.clone());
                 }
-                if distance_to_end > longest_distance {
-                    longest_distance = distance_to_end;
-                    longest_distance_point = Some(slice_end.clone());
+                if distance_to_start_bl > longest_distance {
+                    longest_distance = distance_to_start_bl;
+                    longest_distance_point = Some(slice_start_bl.clone());
+                }
+                if distance_to_end_tr > longest_distance {
+                    longest_distance = distance_to_end_tr;
+                    longest_distance_point = Some(slice_end_tr.clone());
+                }
+                if distance_to_end_br > longest_distance {
+                    longest_distance = distance_to_end_br;
+                    longest_distance_point = Some(slice_end_br.clone());
                 }
             }
         }
