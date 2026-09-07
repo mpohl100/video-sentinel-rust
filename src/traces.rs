@@ -119,10 +119,10 @@ impl Trace {
             .collect();
         Trace {
             ratio_lines,
-            total_mass: calculate_total_mass(&vec![mosaic.clone()]),
-            total_surrounding_circle_area: calculate_total_surrounding_circle_area(&vec![
-                mosaic.clone(),
-            ]),
+            total_mass: calculate_total_mass(std::slice::from_ref(&mosaic)),
+            total_surrounding_circle_area: calculate_total_surrounding_circle_area(
+                std::slice::from_ref(&mosaic),
+            ),
         }
     }
 
@@ -189,7 +189,8 @@ impl Trace {
         }
         let first_factor = self.total_mass / self.total_surrounding_circle_area;
         let second_factor = other.total_mass / other.total_surrounding_circle_area;
-        let closeness = (first_factor.min(second_factor) / first_factor.max(second_factor)).max(0.0);
+        let closeness =
+            (first_factor.min(second_factor) / first_factor.max(second_factor)).max(0.0);
         highest_similarity * closeness
     }
 
@@ -1155,7 +1156,10 @@ mod tests {
         assert_float_eq(compare_lines(&empty, &empty), 1.0);
         assert_float_eq(compare_lines(&empty, &identical_left), 0.0);
         assert_float_eq(compare_lines(&identical_left, &identical_right), 1.0);
-        assert_float_eq(compare_lines(&identical_left, &partial), -0.9999999999999989);
+        assert_float_eq(
+            compare_lines(&identical_left, &partial),
+            -0.9999999999999989,
+        );
     }
 
     #[test]
@@ -1171,7 +1175,10 @@ mod tests {
         let ratio_line_1 = ratio_line(&[(0.05, 0.45), (0.6, 1.0)]);
         let ratio_line_2 = ratio_line(&[(0.05, 0.45), (0.55, 0.95)]);
 
-        assert_float_eq(compare_lines(&ratio_line_1, &ratio_line_2), 0.8666666666666667);
+        assert_float_eq(
+            compare_lines(&ratio_line_1, &ratio_line_2),
+            0.8666666666666667,
+        );
     }
 
     #[test]
@@ -1179,7 +1186,10 @@ mod tests {
         let ratio_line_1 = ratio_line(&[(0.0, 0.4), (0.6, 1.0)]);
         let ratio_line_2 = ratio_line(&[(0.05, 0.45), (0.55, 0.95)]);
 
-        assert_float_eq(compare_lines(&ratio_line_1, &ratio_line_2), 0.7142857142857143);
+        assert_float_eq(
+            compare_lines(&ratio_line_1, &ratio_line_2),
+            0.7142857142857143,
+        );
     }
 
     #[test]
@@ -1187,7 +1197,10 @@ mod tests {
         let first = vec![ratio_line(&[(0.2, 0.4)]), ratio_line(&[(0.1, 0.3)])];
         let second = vec![ratio_line(&[(0.2, 0.4)]), ratio_line(&[(0.2, 0.4)])];
 
-        assert_float_eq(compare_with(&first, &second), -0.0000000000000004440892098500626);
+        assert_float_eq(
+            compare_with(&first, &second),
+            -0.0000000000000004440892098500626,
+        );
     }
 
     #[test]

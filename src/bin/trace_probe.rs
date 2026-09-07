@@ -223,10 +223,13 @@ fn classify_rectangle(rectangle: &ColoredTestRectangle) -> SceneShapeKind {
 }
 
 fn scene_shape_markers(shapes_data: &ShapesData) -> Vec<SceneShapeMarker> {
-    let rectangle_markers = shapes_data.rectangles.iter().map(|rectangle| SceneShapeMarker {
-        kind: classify_rectangle(rectangle),
-        midpoint: rectangle_midpoint(rectangle),
-    });
+    let rectangle_markers = shapes_data
+        .rectangles
+        .iter()
+        .map(|rectangle| SceneShapeMarker {
+            kind: classify_rectangle(rectangle),
+            midpoint: rectangle_midpoint(rectangle),
+        });
     let circle_markers = shapes_data.circles.iter().map(|circle| SceneShapeMarker {
         kind: SceneShapeKind::Circle,
         midpoint: circle.center,
@@ -630,7 +633,8 @@ fn print_reference_object_image_similarities(build_mode: ReferenceBuildMode) {
         println!("reference: {reference_name}");
         println!("reference shape: {shape_description}");
 
-        let reference_trace = Trace::new_from_mosaics(reference_object.get_mosaics(usize::MAX), params.clone());
+        let reference_trace =
+            Trace::new_from_mosaics(reference_object.get_mosaics(usize::MAX), params.clone());
 
         for (mosaic_index, mosaic) in scene_mosaics.iter().enumerate() {
             let mosaic_trace = Trace::new_from_mosaic(mosaic.clone(), params.clone());
@@ -654,7 +658,9 @@ fn print_reference_object_image_similarities(build_mode: ReferenceBuildMode) {
     }
 }
 
-fn reference_cases(build_mode: ReferenceBuildMode) -> Vec<(&'static str, &'static str, ReferenceObject, TraceParams)> {
+fn reference_cases(
+    build_mode: ReferenceBuildMode,
+) -> Vec<(&'static str, &'static str, ReferenceObject, TraceParams)> {
     vec![
         (
             "reference_object_methods_return_id_surrounding_box_and_relative_rectangle",
@@ -732,9 +738,7 @@ fn main() {
         ReferenceBuildMode::FromImage
     };
     let compare_to_image = args.iter().any(|arg| arg == "--compare-to-image");
-    let compare_reference_objects = args
-        .iter()
-        .any(|arg| arg == "--compare-reference-objects");
+    let compare_reference_objects = args.iter().any(|arg| arg == "--compare-reference-objects");
 
     set_trace_debug(compare_reference_objects);
 
