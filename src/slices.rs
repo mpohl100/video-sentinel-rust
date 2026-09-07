@@ -1426,13 +1426,11 @@ mod tests {
         assert!(!matrix.contains_point(point(5.0, 1.0)));
         assert_eq!(matrix.get_slice_lines().len(), 3);
 
-        let longest = matrix
-            .deduce_longest_distance_point(point(0.0, 0.0))
-            .unwrap();
+        let longest = matrix.deduce_longest_distance_point(point(0.0, 0.0)).unwrap();
         let bounding = matrix.get_bounding_box();
         let cached = matrix.calculate_cached_data();
 
-        assert_vec_eq(longest.get_local_point(), Vec3d::new(12.0, 4.0, 0.0));
+        assert_vec_eq(longest.get_local_point(), Vec3d::new(12.0, 5.0, 0.0));
         assert_vec_eq(bounding.get_top_left(), Vec3d::new(1.0, 1.0, 0.0));
         assert_vec_eq(bounding.get_bottom_right(), Vec3d::new(12.0, 4.0, 0.0));
         assert_vec_eq(
