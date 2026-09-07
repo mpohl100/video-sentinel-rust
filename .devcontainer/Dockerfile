@@ -1,9 +1,9 @@
 #Use microsoft devcontainer
-ARG VARIANT=bullseye
+ARG VARIANT=trixie
 FROM mcr.microsoft.com/vscode/devcontainers/rust:${VARIANT}
 
-RUN apt-get update \
-	&& apt-get install -y --no-install-recommends \
+RUN apt update \
+	&& apt install -y --no-install-recommends \
 		pkg-config \
 		clang \
 		libclang-dev \
