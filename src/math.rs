@@ -459,11 +459,11 @@ impl CoordinatedPoint {
     pub fn set_y(&mut self, y: f64) {
         self.local_coordinates.y = y;
     }
-    
+
     pub fn set_x(&mut self, x: f64) {
         self.local_coordinates.x = x;
     }
-    
+
     pub fn set_z(&mut self, z: f64) {
         self.local_coordinates.z = z;
     }

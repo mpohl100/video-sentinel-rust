@@ -94,8 +94,6 @@ impl Mosaic {
         self.cached_data.as_ref().unwrap().get_area()
     }
 
-
-
     pub fn deduce_longest_distance_point(
         &self,
         point: CoordinatedPoint,
