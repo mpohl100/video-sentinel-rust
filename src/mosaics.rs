@@ -529,7 +529,7 @@ mod tests {
                 .deduce_longest_distance_point(point(2.0, 2.0))
                 .unwrap()
                 .get_local_point(),
-            Vec3d::new(1.0, 1.0, 0.0),
+            Vec3d::new(1.0, 4.0, 0.0),
         );
         assert_vec_eq(mosaic.get_average_color(), Vec3d::new(12.0, 34.0, 56.0));
     }

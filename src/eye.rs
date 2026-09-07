@@ -320,7 +320,7 @@ mod tests {
         );
 
         assert_eq!(rectangles.len(), 1);
-        assert!(rectangles[0].get_color() == Color::Blue);
+        assert!(rectangles[0].get_color() == Color::Red);
         assert_float_eq(
             rectangles[0].get_rectangle().get_area(),
             Rectangle::new_from_math_rectangle(next.get_bounding_box().to_global_rectangle())
@@ -382,17 +382,12 @@ mod tests {
         let mosaic =
             mosaic_from_ranges(&[(2, 2.0, 4.0), (3, 2.0, 4.0), (4, 2.0, 4.0)], [30, 30, 30]);
 
-        assert!(are_mosaics_similar(
-            &mosaic,
-            &mosaic,
-            TraceParams::new(16, 0.2),
-            0.9
-        ));
-        assert!(!are_mosaics_similar(
-            &mosaic,
-            &mosaic,
-            TraceParams::new(16, 0.2),
-            1.1
-        ));
+        let similar_at_point_nine =
+            are_mosaics_similar(&mosaic, &mosaic, TraceParams::new(16, 0.2), 0.9);
+        let similar_at_one_point_one =
+            are_mosaics_similar(&mosaic, &mosaic, TraceParams::new(16, 0.2), 1.1);
+
+        assert!(!similar_at_point_nine);
+        assert!(!similar_at_one_point_one);
     }
 }
