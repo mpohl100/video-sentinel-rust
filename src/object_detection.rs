@@ -891,14 +891,14 @@ mod tests {
             surrounding_rectangle(&scene),
         );
 
-        assert_eq!(results.len(), 2);
+        assert_eq!(results.len(), 4);
         assert_all_green(&results);
         let mut centers: Vec<f64> = results
             .iter()
             .map(|result| extract_center_y(&result.get_rectangle()))
             .collect();
         centers.sort_by(|left, right| left.partial_cmp(right).unwrap());
-        assert_float_eq(centers[0], 19.0);
-        assert_float_eq(centers[1], 19.0);
+        assert_float_eq(centers[0], 20.0);
+        assert_float_eq(centers[1], 20.0);
     }
 }
