@@ -61,16 +61,16 @@ struct TrackingParamsArgs {
     #[arg(long, default_value_t = 0.1)]
     tile_y: f64,
 
-    #[arg(long, default_value_t = 10.0)]
+    #[arg(long, default_value_t = 0.1)]
     bucket_delta: f64,
 
-    #[arg(long, default_value_t = 8)]
+    #[arg(long, default_value_t = 18)]
     num_skeleton: usize,
 
-    #[arg(long, default_value_t = 15.0)]
+    #[arg(long, default_value_t = 1e-4)]
     close_slice_threshold: f64,
 
-    #[arg(long, default_value_t = 0.8)]
+    #[arg(long, default_value_t = 0.7)]
     target_similarity: f64,
 }
 
