@@ -1,20 +1,48 @@
 use crate::mosaics::WrappedMosaic;
+use crate::mosaics::WrappedRelativeMosaic;
 use crate::traces::{Trace, TraceParams};
 
 #[derive(Clone)]
 pub struct TracedMosaic {
-    mosaic: WrappedMosaic,
+    mosaics: WrappedMosaic,
     trace: Trace,
 }
 
 impl TracedMosaic {
     pub fn new(mosaic: WrappedMosaic, trace_params: TraceParams) -> Self {
         let trace = Trace::new_from_mosaic(mosaic.clone(), trace_params);
-        TracedMosaic { mosaic, trace }
+        TracedMosaic {
+            mosaics: mosaic,
+            trace,
+        }
     }
 
     pub fn get_mosaic(&self) -> &WrappedMosaic {
-        &self.mosaic
+        &self.mosaics
+    }
+
+    pub fn get_trace(&self) -> &Trace {
+        &self.trace
+    }
+}
+
+#[derive(Clone)]
+pub struct TracedRelativeMosaic {
+    relative_mosaic: WrappedRelativeMosaic,
+    trace: Trace,
+}
+
+impl TracedRelativeMosaic {
+    pub fn new(relative_mosaic: WrappedRelativeMosaic, trace_params: TraceParams) -> Self {
+        let trace = Trace::new_from_mosaic(relative_mosaic.get_mosaic().clone(), trace_params);
+        TracedRelativeMosaic {
+            relative_mosaic,
+            trace,
+        }
+    }
+
+    pub fn get_relative_mosaic(&self) -> &WrappedRelativeMosaic {
+        &self.relative_mosaic
     }
 
     pub fn get_trace(&self) -> &Trace {
