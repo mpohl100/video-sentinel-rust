@@ -19,6 +19,45 @@
         "video/output.mp4"
       ],
       "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug eye session BillardTakeoff",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin",
+          "video-sentinel-exe"
+        ]
+      },
+      "args": [
+        "--input-video",
+        "video/BillardTakeoff.mp4",
+        "--output-video",
+        "video/output_eye.mp4",
+        "--session-id",
+        "video-session",
+        "--do-grayscale",
+        "--gradient-threshold",
+        "15",
+        "--results",
+        "absolute",
+        "eye",
+        "--tile-x",
+        "0.1",
+        "--tile-y",
+        "0.1",
+        "--bucket-delta",
+        "0.1",
+        "--num-skeleton",
+        "18",
+        "--close-slice-threshold",
+        "0.0001",
+        "--target-similarity",
+        "0.7"
+      ],
+      "cwd": "${workspaceFolder}"
     }
   ]
 }
