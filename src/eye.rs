@@ -5,7 +5,7 @@ use crate::mosaics::WrappedRelativeMosaic;
 use crate::slices::Color;
 use crate::slices::{ColoredRectangle, Rectangle, RelativeRectangle, WrappedRelativeRectangle};
 use crate::traced_mosaics::TracedRelativeMosaic;
-use crate::traces::{Trace, TraceParams};
+use crate::traces::TraceParams;
 
 use rs_math3d::Vec3d;
 
