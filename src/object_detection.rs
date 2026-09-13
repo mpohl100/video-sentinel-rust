@@ -130,7 +130,7 @@ pub fn detect_objects(
         .into_iter()
         .filter(|candidate| {
             let candidate_trace = candidate.get_trace();
-            candidate_trace.compare_with(object_detection_params.target_similarity, &biggest_trace)
+            candidate_trace.compare_with(object_detection_params.target_similarity, biggest_trace)
                 >= object_detection_params.target_similarity
         })
         .map(|candidate| ReferenceObject::new("dummy_id".to_string(), vec![candidate]))
@@ -183,7 +183,7 @@ pub fn detect_objects(
                 .filter(|next_mosaic_candidate| {
                     let next_candidate_trace = next_mosaic_candidate.get_trace();
                     next_candidate_trace
-                        .compare_with(object_detection_params.target_similarity, &current_trace)
+                        .compare_with(object_detection_params.target_similarity, current_trace)
                         >= object_detection_params.target_similarity
                 })
                 .collect();

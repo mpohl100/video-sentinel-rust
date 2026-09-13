@@ -73,7 +73,7 @@ impl BucketedMosaics {
         if !similar_mosaics.iter().any(|existing| {
             existing
                 .get_relative_mosaic()
-                .shares_identity_with(&candidate.get_relative_mosaic())
+                .shares_identity_with(candidate.get_relative_mosaic())
         }) {
             similar_mosaics.push(candidate);
         }
