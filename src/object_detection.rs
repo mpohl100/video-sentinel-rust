@@ -271,6 +271,7 @@ mod tests {
     use crate::eye::calculate_rectangles_of_bucketed_mosaics;
     use crate::mosaics::deduce_mosaics;
     use crate::slices::{BasicParams, WrappedRgbImage, calculate_slices, find_connected_slices};
+    use crate::math::Rectangle as MathRectangle;
     use image::{ImageBuffer, Rgb};
     use imageproc::drawing::{draw_filled_circle_mut, draw_polygon_mut};
     use imageproc::point::Point;
