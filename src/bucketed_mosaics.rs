@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use crate::traced_mosaics::TracedRelativeMosaic;
 use crate::slices::{Rectangle, WrappedRelativeRectangle};
+use crate::traced_mosaics::TracedRelativeMosaic;
 
 pub struct BucketedMosaicsPerSection {
     region: WrappedRelativeRectangle,
@@ -19,8 +19,12 @@ impl BucketedMosaicsPerSection {
     }
 
     pub fn add_mosaic(&mut self, traced_mosaic: TracedRelativeMosaic) {
-        let bounding_box =
-            Rectangle::new_from_math_rectangle(traced_mosaic.get_relative_mosaic().get_bounding_box().to_global_rectangle());
+        let bounding_box = Rectangle::new_from_math_rectangle(
+            traced_mosaic
+                .get_relative_mosaic()
+                .get_bounding_box()
+                .to_global_rectangle(),
+        );
         if self.region.overlaps(&bounding_box) {
             self.bucket
                 .entry(self.get_bucket_key(&traced_mosaic))
@@ -30,7 +34,10 @@ impl BucketedMosaicsPerSection {
     }
 
     fn get_bucket_key(&self, traced_mosaic: &TracedRelativeMosaic) -> i64 {
-        let bounding_circle_area = traced_mosaic.get_relative_mosaic().get_bounding_circle().get_area();
+        let bounding_circle_area = traced_mosaic
+            .get_relative_mosaic()
+            .get_bounding_circle()
+            .get_area();
         let mosaic_area = traced_mosaic.get_relative_mosaic().get_area();
         if bounding_circle_area == 0.0 {
             0
@@ -63,10 +70,11 @@ impl BucketedMosaics {
         similar_mosaics: &mut Vec<TracedRelativeMosaic>,
         candidate: TracedRelativeMosaic,
     ) {
-        if !similar_mosaics
-            .iter()
-            .any(|existing| existing.get_relative_mosaic().shares_identity_with(&candidate.get_relative_mosaic()))
-        {
+        if !similar_mosaics.iter().any(|existing| {
+            existing
+                .get_relative_mosaic()
+                .shares_identity_with(&candidate.get_relative_mosaic())
+        }) {
             similar_mosaics.push(candidate);
         }
     }
@@ -91,7 +99,10 @@ impl BucketedMosaics {
     ) -> Vec<TracedRelativeMosaic> {
         let mut similar_mosaics: Vec<TracedRelativeMosaic> = Vec::new();
         for section in self.get_overlapping_sections(Rectangle::new_from_math_rectangle(
-            mosaic.get_relative_mosaic().get_bounding_box().to_global_rectangle(),
+            mosaic
+                .get_relative_mosaic()
+                .get_bounding_box()
+                .to_global_rectangle(),
         )) {
             for candidate in section.get_potentially_similar_mosaics(mosaic) {
                 Self::push_unique(&mut similar_mosaics, candidate);
@@ -140,11 +151,11 @@ mod tests {
     use super::*;
     use crate::math::Rectangle as MathRectangle;
     use crate::mosaics::WrappedMosaic;
-    use crate::traces::TraceParams;
     use crate::mosaics::WrappedRelativeMosaic;
     use crate::slices::{
         AnnotatedSlice, RelativeRectangle, Slice, SliceLine, SliceMatrix, WrappedRgbImage,
     };
+    use crate::traces::TraceParams;
     use image::{ImageBuffer, Rgb};
     use rs_math3d::Vec3d;
 
@@ -478,7 +489,13 @@ mod tests {
         assert_float_eq(bounding_circle.get_center().get_y(), 0.05);
         assert_float_eq(bounding_circle.get_radius(), 0.05);
         assert_float_eq(bounding_circle.get_area(), 0.007853981633974483);
-        assert_float_eq(mosaic.get_relative_mosaic().get_absolute_rectangle().get_area(), 100.0);
+        assert_float_eq(
+            mosaic
+                .get_relative_mosaic()
+                .get_absolute_rectangle()
+                .get_area(),
+            100.0,
+        );
         assert_float_eq(mosaic.get_relative_mosaic().get_mosaic().get_area(), 2.0);
     }
 

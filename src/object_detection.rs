@@ -465,7 +465,8 @@ mod tests {
     fn deduce_all_mosaics(image: WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
         let trace_params = TraceParams::new(12, 0.2);
         let rectangle = surrounding_rectangle(&image);
-        let math_rectangle = MathRectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right());
+        let math_rectangle =
+            MathRectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right());
         let slices = calculate_slices(image.clone(), rectangle, basic_params());
         let connected_slices = find_connected_slices(&mut slices.clone());
         deduce_mosaics(connected_slices, trace_params, math_rectangle)
@@ -653,9 +654,18 @@ mod tests {
 
         let ordered = reference.get_mosaics(usize::MAX);
         assert_eq!(ordered.len(), 3);
-        assert!(ordered[0].get_relative_mosaic().get_area() >= ordered[1].get_relative_mosaic().get_area());
-        assert!(ordered[1].get_relative_mosaic().get_area() >= ordered[2].get_relative_mosaic().get_area());
-        assert_float_eq(reference.get_mosaics(1)[0].get_relative_mosaic().get_area(), large.get_relative_mosaic().get_area());
+        assert!(
+            ordered[0].get_relative_mosaic().get_area()
+                >= ordered[1].get_relative_mosaic().get_area()
+        );
+        assert!(
+            ordered[1].get_relative_mosaic().get_area()
+                >= ordered[2].get_relative_mosaic().get_area()
+        );
+        assert_float_eq(
+            reference.get_mosaics(1)[0].get_relative_mosaic().get_area(),
+            large.get_relative_mosaic().get_area(),
+        );
     }
 
     #[test]
@@ -689,7 +699,11 @@ mod tests {
         let relative = reference
             .get_relative_rectangle_to_smallest()
             .multiply_with_rectangle(Rectangle::new_from_math_rectangle(
-                large.get_relative_mosaic().get_mosaic().get_bounding_box().to_global_rectangle(),
+                large
+                    .get_relative_mosaic()
+                    .get_mosaic()
+                    .get_bounding_box()
+                    .to_global_rectangle(),
             ));
 
         assert_eq!(reference.get_id(), "ref-id".to_string());

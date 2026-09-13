@@ -4,15 +4,15 @@ use imageproc::point::Point;
 use rs_math3d::Vec3d;
 use std::env;
 
-use video_sentinel::math::{CoordinatedPoint, WrappedCoordinateSystem, Rectangle as MathRectangle};
+use video_sentinel::math::{CoordinatedPoint, Rectangle as MathRectangle, WrappedCoordinateSystem};
 use video_sentinel::mosaics::{WrappedMosaic, deduce_mosaics};
 use video_sentinel::object_detection::ReferenceObject;
 use video_sentinel::slices::{
     AnnotatedSlice, BasicParams, Rectangle, Slice, SliceLine, SliceMatrix, WrappedRgbImage,
     calculate_slices, find_connected_slices,
 };
-use video_sentinel::traces::{Trace, TraceParams, set_trace_debug};
 use video_sentinel::traced_mosaics::TracedRelativeMosaic;
+use video_sentinel::traces::{Trace, TraceParams, set_trace_debug};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ReferenceBuildMode {
@@ -357,7 +357,8 @@ fn deduce_mosaic_at_position(
         .into_iter()
         .find(|traced_relative| {
             traced_relative
-                .get_relative_mosaic().get_mosaic()
+                .get_relative_mosaic()
+                .get_mosaic()
                 .contains_point(CoordinatedPoint::new(global_coordinate_system(), position))
         })
 }
@@ -594,7 +595,12 @@ fn print_reference_object_trace(
         reference_object.get_mosaics(usize::MAX).len()
     );
 
-    for (index, mosaic) in reference_object.get_mosaics(usize::MAX).iter().map(|mosaic| mosaic.get_relative_mosaic().get_mosaic()).enumerate() {
+    for (index, mosaic) in reference_object
+        .get_mosaics(usize::MAX)
+        .iter()
+        .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
+        .enumerate()
+    {
         let bounding_box = mosaic.get_bounding_box().to_global_rectangle();
         let center = mosaic.get_center_of_mass();
         println!(
@@ -678,9 +684,18 @@ fn print_reference_object_image_similarities(build_mode: ReferenceBuildMode) {
         for (mosaic_index, mosaic) in scene_mosaics.iter().enumerate() {
             let mosaic_trace = mosaic.get_trace();
             let similarity = reference_trace.compare_with(0.85, &mosaic_trace);
-            let bounding_box = mosaic.get_relative_mosaic().get_mosaic().get_bounding_box().to_global_rectangle();
-            let center = mosaic.get_relative_mosaic().get_mosaic().get_center_of_mass();
-            let scene_shape = classify_scene_mosaic(&mosaic.get_relative_mosaic().get_mosaic(), &scene_markers).unwrap();
+            let bounding_box = mosaic
+                .get_relative_mosaic()
+                .get_mosaic()
+                .get_bounding_box()
+                .to_global_rectangle();
+            let center = mosaic
+                .get_relative_mosaic()
+                .get_mosaic()
+                .get_center_of_mass();
+            let scene_shape =
+                classify_scene_mosaic(&mosaic.get_relative_mosaic().get_mosaic(), &scene_markers)
+                    .unwrap();
             println!(
                 "  scene_mosaic[{mosaic_index}] similarity={similarity:.8} shape={} midpoint=({:.8}, {:.8}, {:.8}) area={:.8} bbox=(({:.8}, {:.8}), ({:.8}, {:.8}))",
                 scene_shape.kind.as_str(),
