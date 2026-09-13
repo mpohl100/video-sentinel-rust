@@ -21,7 +21,6 @@ use crate::traces::TraceParams;
 
 use rs_math3d::Vec3d;
 use std::collections::BTreeMap;
-use video_rs::ffmpeg::log::Level::Trace;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 /// Controls whether enriched outputs use source mosaic coordinates (`Absolute`)

@@ -4,9 +4,6 @@ use rs_math3d::Vec3d;
 
 use crate::bucketed_mosaics::BucketedMosaics;
 use crate::eye::TileParams;
-use crate::math::Rectangle as MathRectangle;
-use crate::mosaics::WrappedMosaic;
-use crate::mosaics::WrappedRelativeMosaic;
 use crate::slices::Color;
 use crate::slices::RelativeRectangle;
 use crate::slices::{ColoredRectangle, Rectangle, WrappedRelativeRectangle};
@@ -126,14 +123,9 @@ pub fn detect_objects(
     object_detection_params: ObjectDetectionParams,
     surrounding_rectangle: Rectangle,
 ) -> Vec<ColoredRectangle> {
-    let surrounding_math_rectangle = MathRectangle::new(
-        surrounding_rectangle.get_top_left(),
-        surrounding_rectangle.get_bottom_right(),
-    );
     let traced_biggest_mosaic = reference_object.get_mosaics(1)[0].clone();
     let biggest_trace = traced_biggest_mosaic.get_trace();
     let biggest_candidates = bucketed_mosaics.get_all_similar_mosaics(&traced_biggest_mosaic);
-    let cloned_trace_params = object_detection_params.trace_params.clone();
     let mut candidates = biggest_candidates
         .into_iter()
         .filter(|candidate| {
