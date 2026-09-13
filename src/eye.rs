@@ -151,7 +151,7 @@ fn are_mosaics_similar(
 ) -> bool {
     let result = mosaic1
         .get_trace()
-        .compare_with(target_similarity, &mosaic2.get_trace());
+        .compare_with(target_similarity, mosaic2.get_trace());
     result >= target_similarity
 }
 

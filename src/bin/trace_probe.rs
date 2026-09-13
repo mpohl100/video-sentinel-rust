@@ -683,7 +683,7 @@ fn print_reference_object_image_similarities(build_mode: ReferenceBuildMode) {
 
         for (mosaic_index, mosaic) in scene_mosaics.iter().enumerate() {
             let mosaic_trace = mosaic.get_trace();
-            let similarity = reference_trace.compare_with(0.85, &mosaic_trace);
+            let similarity = reference_trace.compare_with(0.85, mosaic_trace);
             let bounding_box = mosaic
                 .get_relative_mosaic()
                 .get_mosaic()
