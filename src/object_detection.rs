@@ -277,7 +277,7 @@ mod tests {
     use super::*;
     use crate::bucketed_mosaics::BucketedMosaics;
     use crate::eye::calculate_rectangles_of_bucketed_mosaics;
-    use crate::mosaics::{WrappedMosaic, deduce_mosaics};
+    use crate::mosaics::deduce_mosaics;
     use crate::slices::{BasicParams, WrappedRgbImage, calculate_slices, find_connected_slices};
     use image::{ImageBuffer, Rgb};
     use imageproc::drawing::{draw_filled_circle_mut, draw_polygon_mut};
@@ -470,23 +470,30 @@ mod tests {
         Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(width, height, 0.0))
     }
 
-    fn deduce_all_mosaics(image: WrappedRgbImage) -> Vec<WrappedMosaic> {
+    fn deduce_all_mosaics(image: WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
+        let trace_params = TraceParams::new(12, 0.2);
         let rectangle = surrounding_rectangle(&image);
+        let math_rectangle = MathRectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right());
         let slices = calculate_slices(image.clone(), rectangle, basic_params());
         let connected_slices = find_connected_slices(&mut slices.clone());
-        deduce_mosaics(connected_slices)
+        deduce_mosaics(connected_slices, trace_params, math_rectangle)
     }
 
-    fn deduce_mosaic_at_position(image: WrappedRgbImage, position: Vec3d) -> Option<WrappedMosaic> {
+    fn deduce_mosaic_at_position(
+        image: WrappedRgbImage,
+        position: Vec3d,
+    ) -> Option<TracedRelativeMosaic> {
         deduce_all_mosaics(image).into_iter().find(|mosaic| {
-            mosaic.contains_point(crate::math::CoordinatedPoint::new(
-                crate::math::WrappedCoordinateSystem::new(
-                    Vec3d::new(0.0, 0.0, 0.0),
-                    Vec3d::new(1.0, 0.0, 0.0),
-                    Vec3d::new(0.0, 1.0, 0.0),
+            mosaic.get_relative_mosaic().get_mosaic().contains_point(
+                crate::math::CoordinatedPoint::new(
+                    crate::math::WrappedCoordinateSystem::new(
+                        Vec3d::new(0.0, 0.0, 0.0),
+                        Vec3d::new(1.0, 0.0, 0.0),
+                        Vec3d::new(0.0, 1.0, 0.0),
+                    ),
+                    position,
                 ),
-                position,
-            ))
+            )
         })
     }
 
@@ -494,19 +501,12 @@ mod tests {
         image: WrappedRgbImage,
         tile_params: TileParams,
         bucket_delta: f64,
-        trace_params: TraceParams,
     ) -> BucketedMosaics {
-        let surrounding = surrounding_rectangle(&image);
-        let surrounding_math =
-            MathRectangle::new(surrounding.get_top_left(), surrounding.get_bottom_right());
         let regions = calculate_rectangles_of_bucketed_mosaics(tile_params.clone());
         let mosaics = deduce_all_mosaics(image);
         let mut bucketed = BucketedMosaics::new(regions, bucket_delta);
         for mosaic in mosaics {
-            bucketed.add_mosaic(TracedRelativeMosaic::new(
-                WrappedRelativeMosaic::new(mosaic, surrounding_math.clone()),
-                trace_params.clone(),
-            ));
+            bucketed.add_mosaic(mosaic);
         }
         bucketed
     }
@@ -661,9 +661,9 @@ mod tests {
 
         let ordered = reference.get_mosaics(usize::MAX);
         assert_eq!(ordered.len(), 3);
-        assert!(ordered[0].get_area() >= ordered[1].get_area());
-        assert!(ordered[1].get_area() >= ordered[2].get_area());
-        assert_float_eq(reference.get_mosaics(1)[0].get_area(), large.get_area());
+        assert!(ordered[0].get_relative_mosaic().get_area() >= ordered[1].get_relative_mosaic().get_area());
+        assert!(ordered[1].get_relative_mosaic().get_area() >= ordered[2].get_relative_mosaic().get_area());
+        assert_float_eq(reference.get_mosaics(1)[0].get_relative_mosaic().get_area(), large.get_relative_mosaic().get_area());
     }
 
     #[test]
@@ -697,7 +697,7 @@ mod tests {
         let relative = reference
             .get_relative_rectangle_to_smallest()
             .multiply_with_rectangle(Rectangle::new_from_math_rectangle(
-                large.get_bounding_box().to_global_rectangle(),
+                large.get_relative_mosaic().get_mosaic().get_bounding_box().to_global_rectangle(),
             ));
 
         assert_eq!(reference.get_id(), "ref-id".to_string());
