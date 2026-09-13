@@ -98,8 +98,8 @@ pub fn deduce_rectangles(
             WrappedRelativeMosaic::new(next_mosaic.clone(), absolute_rectangle.clone());
         let traced_next_mosaic =
             TracedRelativeMosaic::new(wrapped_next_mosaic.clone(), eye_params.trace_params.clone());
-        let potentially_similar_mosaics = previous_bucketed_mosaics
-            .get_potentially_similar_mosaics(&traced_next_mosaic);
+        let potentially_similar_mosaics =
+            previous_bucketed_mosaics.get_potentially_similar_mosaics(&traced_next_mosaic);
         let mut current_color = Color::Red;
         for previous_mosaic in potentially_similar_mosaics.into_iter() {
             if are_mosaics_similar(
@@ -109,10 +109,16 @@ pub fn deduce_rectangles(
             ) {
                 let color = deduce_color(
                     Rectangle::new_from_math_rectangle(
-                        previous_mosaic.get_relative_mosaic().get_bounding_box().to_global_rectangle(),
+                        previous_mosaic
+                            .get_relative_mosaic()
+                            .get_bounding_box()
+                            .to_global_rectangle(),
                     ),
                     Rectangle::new_from_math_rectangle(
-                        traced_next_mosaic.get_relative_mosaic().get_bounding_box().to_global_rectangle(),
+                        traced_next_mosaic
+                            .get_relative_mosaic()
+                            .get_bounding_box()
+                            .to_global_rectangle(),
                     ),
                 );
                 if current_color != Color::Blue {
@@ -143,7 +149,9 @@ fn are_mosaics_similar(
     mosaic2: &TracedRelativeMosaic,
     target_similarity: f64,
 ) -> bool {
-    let result = mosaic1.get_trace().compare_with(target_similarity, &mosaic2.get_trace());
+    let result = mosaic1
+        .get_trace()
+        .compare_with(target_similarity, &mosaic2.get_trace());
     result >= target_similarity
 }
 
@@ -286,13 +294,21 @@ mod tests {
         let similar = bucketed.get_all_similar_mosaics(&wrapped);
 
         assert_eq!(similar.len(), 1);
-        assert_float_eq(similar[0].get_relative_mosaic().get_area(), wrapped.get_relative_mosaic().get_area());
         assert_float_eq(
-            similar[0].get_relative_mosaic()
+            similar[0].get_relative_mosaic().get_area(),
+            wrapped.get_relative_mosaic().get_area(),
+        );
+        assert_float_eq(
+            similar[0]
+                .get_relative_mosaic()
                 .get_bounding_box()
                 .to_global_rectangle()
                 .get_area(),
-            wrapped.get_relative_mosaic().get_bounding_box().to_global_rectangle().get_area(),
+            wrapped
+                .get_relative_mosaic()
+                .get_bounding_box()
+                .to_global_rectangle()
+                .get_area(),
         );
     }
 
@@ -385,15 +401,12 @@ mod tests {
     fn are_mosaics_similar_matches_trace_comparison_behavior() {
         let mosaic =
             mosaic_from_ranges(&[(2, 2.0, 4.0), (3, 2.0, 4.0), (4, 2.0, 4.0)], [30, 30, 30]);
-        
+
         let trace_params = TraceParams::new(16, 0.2);
         let traced_relative_mosaic = TracedRelativeMosaic::new(
             WrappedRelativeMosaic::new(
                 mosaic.clone(),
-                MathRectangle::new(
-                    Vec3d::new(0.0, 0.0, 0.0),
-                    Vec3d::new(4.0, 4.0, 0.0),
-                ),
+                MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(4.0, 4.0, 0.0)),
             ),
             trace_params.clone(),
         );

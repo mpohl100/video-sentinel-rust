@@ -418,7 +418,10 @@ pub fn deduce_mosaics(
         .into_iter()
         .map(WrappedMosaic::new)
         .map(|mosaic| {
-            TracedRelativeMosaic::new(WrappedRelativeMosaic::new(mosaic, surrounding_rectangle.clone()), trace_params.clone())
+            TracedRelativeMosaic::new(
+                WrappedRelativeMosaic::new(mosaic, surrounding_rectangle.clone()),
+                trace_params.clone(),
+            )
         })
         .collect()
 }
@@ -611,8 +614,13 @@ mod tests {
         let first_matrix = sample_slice_matrix([5, 6, 7]);
         let second_matrix = sample_slice_matrix([8, 9, 10]);
         let trace_params = TraceParams::new(36, 0.2);
-        let math_rectangle = crate::math::Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(10.0, 20.0, 0.0));
-        let mosaics = deduce_mosaics(vec![first_matrix.clone(), second_matrix.clone()], trace_params.clone(), math_rectangle);
+        let math_rectangle =
+            crate::math::Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(10.0, 20.0, 0.0));
+        let mosaics = deduce_mosaics(
+            vec![first_matrix.clone(), second_matrix.clone()],
+            trace_params.clone(),
+            math_rectangle,
+        );
         let first_wrapped = mosaics[0].get_relative_mosaic();
         let same_wrapper = first_wrapped.clone();
         let distinct_wrapper = mosaics[0].get_relative_mosaic();
