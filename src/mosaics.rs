@@ -1,3 +1,5 @@
+use crate::traced_mosaics::TracedRelativeMosaic;
+use crate::traces::TraceParams;
 use crate::{
     math::CoordinatedCircle,
     math::CoordinatedPoint,
@@ -407,8 +409,18 @@ impl WrappedRelativeMosaic {
     }
 }
 
-pub fn deduce_mosaics(slice_matrices: Vec<SliceMatrix>) -> Vec<WrappedMosaic> {
-    slice_matrices.into_iter().map(WrappedMosaic::new).collect()
+pub fn deduce_mosaics(
+    slice_matrices: Vec<SliceMatrix>,
+    trace_params: TraceParams,
+    surrounding_rectangle: crate::math::Rectangle,
+) -> Vec<TracedRelativeMosaic> {
+    slice_matrices
+        .into_iter()
+        .map(WrappedMosaic::new)
+        .map(|mosaic| {
+            TracedRelativeMosaic::new(WrappedRelativeMosaic::new(mosaic, surrounding_rectangle.clone()), trace_params.clone())
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -598,16 +610,12 @@ mod tests {
     fn wrapped_relative_mosaic_identity_and_deduce_mosaics_behave_as_expected() {
         let first_matrix = sample_slice_matrix([5, 6, 7]);
         let second_matrix = sample_slice_matrix([8, 9, 10]);
-        let mosaics = deduce_mosaics(vec![first_matrix.clone(), second_matrix.clone()]);
-        let first_wrapped = WrappedRelativeMosaic::new(
-            mosaics[0].clone(),
-            Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(10.0, 20.0, 0.0)),
-        );
+        let trace_params = TraceParams::new(36, 0.2);
+        let math_rectangle = crate::math::Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(10.0, 20.0, 0.0));
+        let mosaics = deduce_mosaics(vec![first_matrix.clone(), second_matrix.clone()], trace_params.clone(), math_rectangle);
+        let first_wrapped = mosaics[0].get_relative_mosaic();
         let same_wrapper = first_wrapped.clone();
-        let distinct_wrapper = WrappedRelativeMosaic::new(
-            mosaics[0].clone(),
-            Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(10.0, 20.0, 0.0)),
-        );
+        let distinct_wrapper = mosaics[0].get_relative_mosaic();
 
         assert_eq!(mosaics.len(), 2);
         assert!(first_wrapped.shares_identity_with(&same_wrapper));

@@ -4,7 +4,7 @@ use imageproc::point::Point;
 use rs_math3d::Vec3d;
 use std::env;
 
-use video_sentinel::math::{CoordinatedPoint, WrappedCoordinateSystem};
+use video_sentinel::math::{CoordinatedPoint, WrappedCoordinateSystem, Rectangle as MathRectangle};
 use video_sentinel::mosaics::{WrappedMosaic, deduce_mosaics};
 use video_sentinel::object_detection::ReferenceObject;
 use video_sentinel::slices::{
@@ -12,6 +12,7 @@ use video_sentinel::slices::{
     calculate_slices, find_connected_slices,
 };
 use video_sentinel::traces::{Trace, TraceParams, set_trace_debug};
+use video_sentinel::traced_mosaics::TracedRelativeMosaic;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ReferenceBuildMode {
@@ -336,24 +337,41 @@ fn surrounding_rectangle(image: &WrappedRgbImage) -> Rectangle {
     Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(width, height, 0.0))
 }
 
-fn deduce_all_mosaics(image: WrappedRgbImage) -> Vec<WrappedMosaic> {
+fn deduce_all_mosaics(image: WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
     let rectangle = surrounding_rectangle(&image);
     let slices = calculate_slices(image.clone(), rectangle, basic_params());
     let connected_slices = find_connected_slices(&mut slices.clone());
-    deduce_mosaics(connected_slices)
+    let surrounding_rectangle = surrounding_rectangle(&image);
+    let math_rectangle = MathRectangle::new(
+        surrounding_rectangle.get_top_left(),
+        surrounding_rectangle.get_bottom_right(),
+    );
+    deduce_mosaics(connected_slices, TraceParams::new(36, 0.2), math_rectangle)
 }
 
-fn deduce_mosaic_at_position(image: WrappedRgbImage, position: Vec3d) -> Option<WrappedMosaic> {
-    deduce_all_mosaics(image).into_iter().find(|mosaic| {
-        mosaic.contains_point(CoordinatedPoint::new(global_coordinate_system(), position))
-    })
+fn deduce_mosaic_at_position(
+    image: WrappedRgbImage,
+    position: Vec3d,
+) -> Option<TracedRelativeMosaic> {
+    deduce_all_mosaics(image)
+        .into_iter()
+        .find(|traced_relative| {
+            traced_relative
+                .get_relative_mosaic().get_mosaic()
+                .contains_point(CoordinatedPoint::new(global_coordinate_system(), position))
+        })
 }
 
 fn reference_object_from_slice_matrices(
     id: &str,
     slice_matrices: Vec<SliceMatrix>,
+    trace_params: TraceParams,
+    math_rectangle: MathRectangle,
 ) -> ReferenceObject {
-    ReferenceObject::new(id.to_string(), deduce_mosaics(slice_matrices))
+    ReferenceObject::new(
+        id.to_string(),
+        deduce_mosaics(slice_matrices, trace_params, math_rectangle),
+    )
 }
 
 fn single_reference_object_from_image(
@@ -398,6 +416,8 @@ fn trace_cpp_square_reference_object(mode: ReferenceBuildMode) -> ReferenceObjec
                 Vec3d::new(15.0, 15.0, 0.0),
                 Vec3d::new(35.0, 35.0, 0.0),
             )],
+            TraceParams::new(36, 0.2),
+            MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(50.0, 50.0, 0.0)),
         ),
     }
 }
@@ -432,6 +452,8 @@ fn trace_cpp_circle_reference_object(mode: ReferenceBuildMode) -> ReferenceObjec
                 Vec3d::new(25.0, 25.0, 0.0),
                 25.0,
             )],
+            TraceParams::new(36, 0.2),
+            MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(50.0, 50.0, 0.0)),
         ),
     }
 }
@@ -467,6 +489,8 @@ fn trace_cpp_rectangle_reference_object(mode: ReferenceBuildMode) -> ReferenceOb
                 Vec3d::new(15.0, 15.0, 0.0),
                 Vec3d::new(25.0, 35.0, 0.0),
             )],
+            TraceParams::new(36, 0.2),
+            MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(50.0, 50.0, 0.0)),
         ),
     }
 }
@@ -550,6 +574,8 @@ fn pair_reference_object(mode: ReferenceBuildMode) -> ReferenceObject {
                     Vec3d::new(70.0, 30.0, 0.0),
                 ),
             ],
+            TraceParams::new(36, 0.2),
+            MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(1000.0, 1000.0, 0.0)),
         ),
     }
 }
@@ -568,7 +594,7 @@ fn print_reference_object_trace(
         reference_object.get_mosaics(usize::MAX).len()
     );
 
-    for (index, mosaic) in reference_object.get_mosaics(usize::MAX).iter().enumerate() {
+    for (index, mosaic) in reference_object.get_mosaics(usize::MAX).iter().map(|mosaic| mosaic.get_relative_mosaic().get_mosaic()).enumerate() {
         let bounding_box = mosaic.get_bounding_box().to_global_rectangle();
         let center = mosaic.get_center_of_mass();
         println!(
@@ -584,7 +610,14 @@ fn print_reference_object_trace(
         );
     }
 
-    let trace = Trace::new_from_mosaics(reference_object.get_mosaics(usize::MAX), params);
+    let trace = Trace::new_from_mosaics(
+        reference_object
+            .get_mosaics(usize::MAX)
+            .into_iter()
+            .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
+            .collect(),
+        params,
+    );
     println!("{}", trace.dump_details());
 }
 
@@ -633,22 +666,28 @@ fn print_reference_object_image_similarities(build_mode: ReferenceBuildMode) {
         println!("reference: {reference_name}");
         println!("reference shape: {shape_description}");
 
-        let reference_trace =
-            Trace::new_from_mosaics(reference_object.get_mosaics(usize::MAX), params.clone());
+        let reference_trace = Trace::new_from_mosaics(
+            reference_object
+                .get_mosaics(usize::MAX)
+                .into_iter()
+                .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
+                .collect(),
+            params.clone(),
+        );
 
         for (mosaic_index, mosaic) in scene_mosaics.iter().enumerate() {
-            let mosaic_trace = Trace::new_from_mosaic(mosaic.clone(), params.clone());
+            let mosaic_trace = mosaic.get_trace();
             let similarity = reference_trace.compare_with(0.85, &mosaic_trace);
-            let bounding_box = mosaic.get_bounding_box().to_global_rectangle();
-            let center = mosaic.get_center_of_mass();
-            let scene_shape = classify_scene_mosaic(mosaic, &scene_markers).unwrap();
+            let bounding_box = mosaic.get_relative_mosaic().get_mosaic().get_bounding_box().to_global_rectangle();
+            let center = mosaic.get_relative_mosaic().get_mosaic().get_center_of_mass();
+            let scene_shape = classify_scene_mosaic(&mosaic.get_relative_mosaic().get_mosaic(), &scene_markers).unwrap();
             println!(
                 "  scene_mosaic[{mosaic_index}] similarity={similarity:.8} shape={} midpoint=({:.8}, {:.8}, {:.8}) area={:.8} bbox=(({:.8}, {:.8}), ({:.8}, {:.8}))",
                 scene_shape.kind.as_str(),
                 center.get_x(),
                 center.get_y(),
                 center.get_z(),
-                mosaic.get_area(),
+                mosaic.get_relative_mosaic().get_mosaic().get_area(),
                 bounding_box.get_top_left().x,
                 bounding_box.get_top_left().y,
                 bounding_box.get_bottom_right().x,
@@ -710,7 +749,11 @@ fn print_reference_object_cross_similarities(build_mode: ReferenceBuildMode) {
             left_reference_object.get_mosaics(usize::MAX).len(),
         );
         let left_trace = Trace::new_from_mosaics(
-            left_reference_object.get_mosaics(usize::MAX),
+            left_reference_object
+                .get_mosaics(usize::MAX)
+                .into_iter()
+                .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
+                .collect(),
             comparison_params.clone(),
         );
 
@@ -718,7 +761,11 @@ fn print_reference_object_cross_similarities(build_mode: ReferenceBuildMode) {
             reference_cases.iter().enumerate()
         {
             let right_trace = Trace::new_from_mosaics(
-                right_reference_object.get_mosaics(usize::MAX),
+                right_reference_object
+                    .get_mosaics(usize::MAX)
+                    .into_iter()
+                    .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
+                    .collect(),
                 comparison_params.clone(),
             );
             println!(

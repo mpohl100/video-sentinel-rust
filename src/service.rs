@@ -16,10 +16,12 @@ use crate::slices::Rectangle;
 use crate::slices::WrappedRgbImage;
 use crate::slices::calculate_slices;
 use crate::slices::find_connected_slices;
+use crate::traced_mosaics::TracedRelativeMosaic;
 use crate::traces::TraceParams;
 
 use rs_math3d::Vec3d;
 use std::collections::BTreeMap;
+use video_rs::ffmpeg::log::Level::Trace;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 /// Controls whether enriched outputs use source mosaic coordinates (`Absolute`)
@@ -540,6 +542,10 @@ impl Service {
         if let Some(session) = self.sessions.get_mut(&session_id) {
             match session {
                 Session::Object(object_session) => {
+                    let math_rectangle = crate::math::Rectangle::new(
+                        surrounding_rectangle.get_top_left(),
+                        surrounding_rectangle.get_bottom_right(),
+                    );
                     let mosaics =
                         calculate_ordinary_mosaics(object_session.basic_params.clone(), image);
                     let reference_mosaics = mosaics
@@ -551,6 +557,10 @@ impl Service {
                                 Rectangle::new_from_math_rectangle(global_bounding_box);
                             bounding_box.overlaps(&surrounding_rectangle)
                         })
+                        .map(|mosaic| TracedRelativeMosaic::new(
+                            WrappedRelativeMosaic::new(mosaic, math_rectangle.clone()),
+                            object_session.object_detection_params.trace_params.clone(),
+                        ))
                         .collect();
                     object_session
                         .objects_to_be_detected
@@ -754,9 +764,16 @@ fn calculate_ordinary_mosaics(
         Vec3d::new(0.0, 0.0, 0.0),
         Vec3d::new(width as f64, height as f64, 0.0),
     );
-    let slices = calculate_slices(image.clone(), rectangle, basic_params);
+    let slices = calculate_slices(image.clone(), rectangle.clone(), basic_params);
     let connected_slices = find_connected_slices(&mut slices.clone());
-    deduce_mosaics(connected_slices.clone())
+    deduce_mosaics(
+        connected_slices.clone(),
+        TraceParams::new(18, 0.2),
+        crate::math::Rectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right()),
+    )
+    .into_iter()
+    .map(|traced_relative_mosaic| traced_relative_mosaic.get_relative_mosaic().get_mosaic())
+    .collect()
 }
 
 /// Internal pairing of a color and a wrapped relative mosaic before enrichment.
@@ -891,6 +908,7 @@ fn calculate_eye(
         surrounding_rectangle.clone(),
         eye_session.eye_params.tile_params.clone(),
         eye_session.eye_params.bucket_delta,
+        eye_session.eye_params.trace_params.clone(),
     );
     let rectangles = deduce_rectangles(
         previous_bucketed_mosaics,
@@ -930,6 +948,7 @@ fn calculate_object(
         surrounding_rectangle.clone(),
         object_session.object_detection_params.tile_params.clone(),
         object_session.object_detection_params.bucket_delta,
+        object_session.object_detection_params.trace_params.clone(),
     );
     let mut rectangles = Vec::new();
     for reference_object in object_session.objects_to_be_detected.clone().into_iter() {
