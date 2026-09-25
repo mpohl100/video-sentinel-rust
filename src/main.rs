@@ -37,6 +37,9 @@ struct CliArgs {
     #[arg(long, value_enum, default_value_t = ResultModeArg::Absolute)]
     results: ResultModeArg,
 
+    #[arg(long)]
+    finish_after_two_frames: bool,
+
     #[command(subcommand)]
     session: SessionArgs,
 }
@@ -156,6 +159,11 @@ fn run() -> Result<(), Box<dyn Error>> {
         encoder.encode(&output_frame, timestamp)?;
 
         previous_image = Some(wrapped_rgb_image);
+
+        if args.finish_after_two_frames && frame_index >= 1 {
+            println!("stopping early after processing two frames");
+            break;
+        }
     }
 
     encoder.finish()?;
