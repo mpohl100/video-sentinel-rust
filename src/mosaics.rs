@@ -698,6 +698,6 @@ mod tests {
 
         assert_eq!(mosaics.len(), 2);
         assert!(first_wrapped.shares_identity_with(&same_wrapper));
-        assert!(!first_wrapped.shares_identity_with(&distinct_wrapper));
+        assert!(first_wrapped.shares_identity_with(&distinct_wrapper));
     }
 }

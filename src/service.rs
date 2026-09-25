@@ -1419,10 +1419,17 @@ mod tests {
         );
         assert!(!mosaics.is_empty());
 
+        let relative_mosaics = calculate_ordinary_mosaics(
+            BasicParams::new(false, 15),
+            Results::Relative,
+            larger_solid_image([255, 255, 255]),
+        );
+        assert!(!relative_mosaics.is_empty());
+
         let enriched_absolute =
             deduce_enriched_mosaic(mosaics[0].clone(), Color::Green, Results::Absolute);
         let enriched_relative =
-            deduce_enriched_mosaic(mosaics[0].clone(), Color::Blue, Results::Relative);
+            deduce_enriched_mosaic(relative_mosaics[0].clone(), Color::Blue, Results::Relative);
 
         assert!(matches!(
             service.get_rectangles(
