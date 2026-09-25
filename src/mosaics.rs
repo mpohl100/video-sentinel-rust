@@ -409,6 +409,71 @@ impl WrappedRelativeMosaic {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+/// Controls whether enriched outputs use source mosaic coordinates (`Absolute`)
+/// or normalized coordinates derived from `WrappedRelativeMosaic` (`Relative`).
+pub enum Results {
+    Absolute,
+    Relative,
+}
+
+#[derive(Clone)]
+pub enum AnonymizedMosaic {
+    Absolute(WrappedMosaic),
+    Relative(WrappedRelativeMosaic),
+}
+
+impl AnonymizedMosaic {
+    pub fn new(results: Results, mosaic: WrappedMosaic, relative_mosaic: Option<WrappedRelativeMosaic>) -> Self {
+        match results {
+            Results::Absolute => AnonymizedMosaic::Absolute(mosaic),
+            Results::Relative => AnonymizedMosaic::Relative(relative_mosaic.expect("Relative mosaic must be provided for Results::Relative")),
+        }
+    }
+
+    pub fn get_mosaic(&self) -> WrappedMosaic {
+        match self {
+            AnonymizedMosaic::Absolute(mosaic) => mosaic.clone(),
+            AnonymizedMosaic::Relative(relative_mosaic) => relative_mosaic.get_mosaic(),
+        }
+    }
+
+    pub fn get_bounding_box(&self) -> CoordinatedRectangle {
+        match self {
+            AnonymizedMosaic::Absolute(mosaic) => mosaic.get_bounding_box(),
+            AnonymizedMosaic::Relative(relative_mosaic) => relative_mosaic.get_bounding_box(),
+        }
+    }
+    
+    pub fn get_bounding_circle(&self) -> CoordinatedCircle {
+        match self {
+            AnonymizedMosaic::Absolute(mosaic) => mosaic.get_bounding_circle(),
+            AnonymizedMosaic::Relative(relative_mosaic) => relative_mosaic.get_bounding_circle(),
+        }
+    }
+
+    pub fn get_center_of_mass(&self) -> CoordinatedPoint {
+        match self {
+            AnonymizedMosaic::Absolute(mosaic) => mosaic.get_center_of_mass(),
+            AnonymizedMosaic::Relative(relative_mosaic) => relative_mosaic.get_center_of_mass(),
+        }
+    }
+
+    pub fn get_area(&self) -> f64 {
+        match self {
+            AnonymizedMosaic::Absolute(mosaic) => mosaic.get_area(),
+            AnonymizedMosaic::Relative(relative_mosaic) => relative_mosaic.get_area(),
+        }
+    }
+
+    pub fn get_average_color(&self) -> Vec3d {
+        match self {
+            AnonymizedMosaic::Absolute(mosaic) => mosaic.get_average_color(),
+            AnonymizedMosaic::Relative(relative_mosaic) => relative_mosaic.get_average_color(),
+        }
+    }
+}
+
 pub fn deduce_mosaics(
     slice_matrices: Vec<SliceMatrix>,
     trace_params: TraceParams,

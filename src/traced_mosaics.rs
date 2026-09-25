@@ -41,8 +41,8 @@ impl TracedRelativeMosaic {
         }
     }
 
-    pub fn get_relative_mosaic(&self) -> &WrappedRelativeMosaic {
-        &self.relative_mosaic
+    pub fn get_relative_mosaic(&self) -> WrappedRelativeMosaic {
+        self.relative_mosaic.clone()
     }
 
     pub fn get_trace(&self) -> &Trace {

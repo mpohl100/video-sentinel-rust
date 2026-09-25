@@ -1,7 +1,7 @@
 use crate::bucketed_mosaics::BucketedMosaics;
 use crate::math::Rectangle as MathRectangle;
-use crate::mosaics::WrappedMosaic;
 use crate::mosaics::WrappedRelativeMosaic;
+use crate::mosaics::AnonymizedMosaic;
 use crate::slices::Color;
 use crate::slices::{ColoredRectangle, Rectangle, RelativeRectangle, WrappedRelativeRectangle};
 use crate::traced_mosaics::TracedRelativeMosaic;
@@ -61,7 +61,7 @@ impl EyeParams {
 }
 
 pub fn deduce_bucketed_mosaics(
-    mosaics: Vec<WrappedMosaic>,
+    mosaics: Vec<AnonymizedMosaic>,
     surrounding_rectangle: Rectangle,
     tile_params: TileParams,
     bucket_delta: f64,
@@ -75,7 +75,7 @@ pub fn deduce_bucketed_mosaics(
     );
     for mosaic in mosaics.into_iter() {
         bucketed_mosaics.add_mosaic(TracedRelativeMosaic::new(
-            WrappedRelativeMosaic::new(mosaic, absolute_rectangle.clone()),
+            WrappedRelativeMosaic::new(mosaic.get_mosaic(), absolute_rectangle.clone()),
             trace_params.clone(),
         ));
     }
@@ -84,7 +84,7 @@ pub fn deduce_bucketed_mosaics(
 
 pub fn deduce_rectangles(
     previous_bucketed_mosaics: BucketedMosaics,
-    next_mosaics: Vec<WrappedMosaic>,
+    next_mosaics: Vec<AnonymizedMosaic>,
     eye_params: EyeParams,
     surrounding_rectangle: Rectangle,
 ) -> Vec<ColoredRectangle> {
@@ -95,7 +95,7 @@ pub fn deduce_rectangles(
     );
     for next_mosaic in next_mosaics.into_iter() {
         let wrapped_next_mosaic =
-            WrappedRelativeMosaic::new(next_mosaic.clone(), absolute_rectangle.clone());
+            WrappedRelativeMosaic::new(next_mosaic.get_mosaic(), absolute_rectangle.clone());
         let traced_next_mosaic =
             TracedRelativeMosaic::new(wrapped_next_mosaic.clone(), eye_params.trace_params.clone());
         let potentially_similar_mosaics =
@@ -131,7 +131,7 @@ pub fn deduce_rectangles(
                 next_mosaic.get_bounding_box().to_global_rectangle(),
             ),
             current_color,
-            vec![next_mosaic.clone()],
+            vec![next_mosaic],
         ));
     }
     results
@@ -184,7 +184,7 @@ pub fn calculate_rectangles_of_bucketed_mosaics(
 mod tests {
     use super::*;
     use crate::math::{CoordinatedPoint, WrappedCoordinateSystem};
-    use crate::mosaics::WrappedMosaic;
+    use crate::mosaics::{WrappedMosaic, Results};
     use crate::slices::{AnnotatedSlice, Slice, SliceLine, SliceMatrix, WrappedRgbImage};
     use image::{ImageBuffer, Rgb};
 
@@ -213,7 +213,7 @@ mod tests {
         AnnotatedSlice::new(Slice::new(point(x1, y), point(x2, y)), line_number)
     }
 
-    fn mosaic_from_ranges(ranges: &[(usize, f64, f64)], color: [u8; 3]) -> WrappedMosaic {
+    fn mosaic_from_ranges(ranges: &[(usize, f64, f64)], color: [u8; 3]) -> AnonymizedMosaic {
         let image = WrappedRgbImage::new(ImageBuffer::from_pixel(32, 32, Rgb(color)));
         let mut matrix = SliceMatrix::new(image);
         for (line_number, start, end) in ranges {
@@ -227,7 +227,7 @@ mod tests {
                 )],
             ));
         }
-        WrappedMosaic::new(matrix)
+        AnonymizedMosaic::new(Results::Absolute, WrappedMosaic::new(matrix), None)
     }
 
     fn sample_surrounding_rectangle() -> Rectangle {
@@ -282,7 +282,7 @@ mod tests {
         );
         let wrapped = TracedRelativeMosaic::new(
             WrappedRelativeMosaic::new(
-                mosaic,
+                mosaic.get_mosaic(),
                 MathRectangle::new(
                     surrounding_rectangle.get_top_left(),
                     surrounding_rectangle.get_bottom_right(),
@@ -405,7 +405,7 @@ mod tests {
         let trace_params = TraceParams::new(16, 0.2);
         let traced_relative_mosaic = TracedRelativeMosaic::new(
             WrappedRelativeMosaic::new(
-                mosaic.clone(),
+                mosaic.get_mosaic(),
                 MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(4.0, 4.0, 0.0)),
             ),
             trace_params.clone(),

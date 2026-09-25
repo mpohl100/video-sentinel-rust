@@ -3,7 +3,8 @@ use crate::eye::TileParams;
 use crate::eye::deduce_bucketed_mosaics;
 use crate::eye::deduce_rectangles;
 use crate::math::WrappedCoordinateSystem;
-use crate::mosaics::WrappedMosaic;
+use crate::mosaics::AnonymizedMosaic;
+use crate::mosaics::Results;
 use crate::mosaics::WrappedRelativeMosaic;
 use crate::mosaics::deduce_mosaics;
 use crate::object_detection::ObjectDetectionParams;
@@ -21,14 +22,6 @@ use crate::traces::TraceParams;
 
 use rs_math3d::Vec3d;
 use std::collections::BTreeMap;
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-/// Controls whether enriched outputs use source mosaic coordinates (`Absolute`)
-/// or normalized coordinates derived from `WrappedRelativeMosaic` (`Relative`).
-pub enum Results {
-    Absolute,
-    Relative,
-}
 
 #[derive(Clone)]
 pub struct BasicParamsInput {
@@ -546,7 +539,7 @@ impl Service {
                         surrounding_rectangle.get_bottom_right(),
                     );
                     let mosaics =
-                        calculate_ordinary_mosaics(object_session.basic_params.clone(), image);
+                        calculate_ordinary_mosaics(object_session.basic_params.clone(), Results::Absolute,image);
                     let reference_mosaics = mosaics
                         .into_iter()
                         .filter(|mosaic| {
@@ -557,7 +550,7 @@ impl Service {
                             bounding_box.overlaps(&surrounding_rectangle)
                         })
                         .map(|mosaic| TracedRelativeMosaic::new(
-                            WrappedRelativeMosaic::new(mosaic, math_rectangle.clone()),
+                            WrappedRelativeMosaic::new(mosaic.get_mosaic(), math_rectangle.clone()),
                             object_session.object_detection_params.trace_params.clone(),
                         ))
                         .collect();
@@ -755,8 +748,9 @@ impl Service {
 
 fn calculate_ordinary_mosaics(
     basic_params: BasicParams,
+    results: Results,
     image: WrappedRgbImage,
-) -> Vec<WrappedMosaic> {
+) -> Vec<AnonymizedMosaic> {
     let width = image.image.lock().unwrap().width() as usize;
     let height = image.image.lock().unwrap().height() as usize;
     let rectangle = Rectangle::new(
@@ -771,22 +765,28 @@ fn calculate_ordinary_mosaics(
         crate::math::Rectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right()),
     )
     .into_iter()
-    .map(|traced_relative_mosaic| traced_relative_mosaic.get_relative_mosaic().get_mosaic())
+    .map(|traced_relative_mosaic| {
+        AnonymizedMosaic::new(
+            results,
+            traced_relative_mosaic.get_relative_mosaic().get_mosaic(),
+            Some(traced_relative_mosaic.get_relative_mosaic()),
+        )
+    })
     .collect()
 }
 
 /// Internal pairing of a color and a wrapped relative mosaic before enrichment.
-struct ColoredRelativeMosaic {
+struct ColoredAnonymizedMosaic {
     color: Color,
-    mosaic: WrappedRelativeMosaic,
+    mosaic: AnonymizedMosaic,
 }
 
 fn deduce_enriched_mosaic(
-    wrapped_relative_mosaic: WrappedRelativeMosaic,
+    anonymized_mosaic: AnonymizedMosaic,
     color: Color,
     results: Results,
 ) -> EnrichedMosaic {
-    let mosaic = wrapped_relative_mosaic.get_mosaic();
+    let mosaic = anonymized_mosaic.get_mosaic();
     let slice_matrix = mosaic.get_slice_matrix();
     let global_coordinate_system = WrappedCoordinateSystem::new(
         Vec3d::new(0.0, 0.0, 0.0),
@@ -826,27 +826,17 @@ fn deduce_enriched_mosaic(
                 .collect(),
         })
         .collect();
-    let (bounding_box, bounding_circle, coordinated_center_of_mass, area) = match results {
-        Results::Absolute => (
-            mosaic.get_bounding_box(),
-            mosaic.get_bounding_circle(),
-            mosaic.get_center_of_mass(),
-            mosaic.get_area(),
-        ),
-        Results::Relative => (
-            wrapped_relative_mosaic.get_bounding_box(),
-            wrapped_relative_mosaic.get_bounding_circle(),
-            wrapped_relative_mosaic.get_center_of_mass(),
-            wrapped_relative_mosaic.get_area(),
-        ),
-    };
+    let bounding_box = anonymized_mosaic.get_bounding_box();
+    let bounding_circle = anonymized_mosaic.get_bounding_circle();
+    let area = anonymized_mosaic.get_area();
     let global_bounding_box = bounding_box.to_global_rectangle();
     let global_bounding_circle_center = bounding_circle
         .get_center()
         .convert_to(global_coordinate_system.clone())
         .get_local_point();
-    let global_center_of_mass =
-        coordinated_center_of_mass.convert_to(global_coordinate_system.clone());
+    let global_center_of_mass = anonymized_mosaic
+        .get_center_of_mass()
+        .convert_to(global_coordinate_system.clone());
     EnrichedMosaic {
         bounding_box: slices::Rectangle::new_from_math_rectangle(global_bounding_box),
         bounding_circle: Circle {
@@ -869,21 +859,19 @@ fn deduce_enriched_mosaic(
 fn calculate_ordinary(
     ordinary_session: &OrdinarySession,
     image: WrappedRgbImage,
-) -> Vec<ColoredRelativeMosaic> {
+) -> Vec<ColoredAnonymizedMosaic> {
     let image_guard = image.image.lock().unwrap();
-    let image_width = image_guard.width() as f64;
-    let image_height = image_guard.height() as f64;
     drop(image_guard);
-    let surrounding_rectangle = crate::math::Rectangle::new(
-        Vec3d::new(0.0, 0.0, 0.0),
-        Vec3d::new(image_width, image_height, 0.0),
+    let mosaics = calculate_ordinary_mosaics(
+        ordinary_session.basic_params.clone(),
+        ordinary_session.results,
+        image,
     );
-    let mosaics = calculate_ordinary_mosaics(ordinary_session.basic_params.clone(), image);
     mosaics
         .into_iter()
-        .map(|mosaic| ColoredRelativeMosaic {
+        .map(|mosaic| ColoredAnonymizedMosaic {
             color: Color::Green,
-            mosaic: WrappedRelativeMosaic::new(mosaic, surrounding_rectangle.clone()),
+            mosaic: mosaic.clone(),
         })
         .collect()
 }
@@ -892,16 +880,20 @@ fn calculate_eye(
     eye_session: &EyeSession,
     image: WrappedRgbImage,
     previous_image: WrappedRgbImage,
-) -> Vec<ColoredRelativeMosaic> {
+) -> Vec<ColoredAnonymizedMosaic> {
     let image_width = image.image.lock().unwrap().width() as f64;
     let image_height = image.image.lock().unwrap().height() as f64;
     let surrounding_rectangle = Rectangle::new(
         Vec3d::new(0.0, 0.0, 0.0),
         Vec3d::new(image_width, image_height, 0.0),
     );
-    let current_mosaics = calculate_ordinary_mosaics(eye_session.basic_params.clone(), image);
-    let previous_mosaics =
-        calculate_ordinary_mosaics(eye_session.basic_params.clone(), previous_image);
+    let current_mosaics =
+        calculate_ordinary_mosaics(eye_session.basic_params.clone(), eye_session.results, image);
+    let previous_mosaics = calculate_ordinary_mosaics(
+        eye_session.basic_params.clone(),
+        eye_session.results,
+        previous_image,
+    );
     let previous_bucketed_mosaics = deduce_bucketed_mosaics(
         previous_mosaics.clone(),
         surrounding_rectangle.clone(),
@@ -915,18 +907,11 @@ fn calculate_eye(
         eye_session.eye_params.clone(),
         surrounding_rectangle.clone(),
     );
-    let surrounding_math_rectangle = crate::math::Rectangle::new(
-        surrounding_rectangle.get_top_left(),
-        surrounding_rectangle.get_bottom_right(),
-    );
     rectangles
         .into_iter()
-        .map(|colored_rectangle| ColoredRelativeMosaic {
+        .map(|colored_rectangle| ColoredAnonymizedMosaic {
             color: colored_rectangle.get_color(),
-            mosaic: WrappedRelativeMosaic::new(
-                colored_rectangle.get_mosaics()[0].clone(),
-                surrounding_math_rectangle.clone(),
-            ),
+            mosaic: colored_rectangle.get_mosaics()[0].clone(),
         })
         .collect()
 }
@@ -934,14 +919,18 @@ fn calculate_eye(
 fn calculate_object(
     object_session: &ObjectSession,
     image: WrappedRgbImage,
-) -> Vec<ColoredRelativeMosaic> {
+) -> Vec<ColoredAnonymizedMosaic> {
     let image_width = image.image.lock().unwrap().width() as f64;
     let image_height = image.image.lock().unwrap().height() as f64;
     let surrounding_rectangle = Rectangle::new(
         Vec3d::new(0.0, 0.0, 0.0),
         Vec3d::new(image_width, image_height, 0.0),
     );
-    let current_mosaics = calculate_ordinary_mosaics(object_session.basic_params.clone(), image);
+    let current_mosaics = calculate_ordinary_mosaics(
+        object_session.basic_params.clone(),
+        object_session.results,
+        image,
+    );
     let bucketed_mosaics = deduce_bucketed_mosaics(
         current_mosaics.clone(),
         surrounding_rectangle.clone(),
@@ -956,20 +945,14 @@ fn calculate_object(
             &bucketed_mosaics,
             object_session.object_detection_params.clone(),
             surrounding_rectangle.clone(),
+            object_session.results,
         ));
     }
-    let surrounding_math_rectangle = crate::math::Rectangle::new(
-        surrounding_rectangle.get_top_left(),
-        surrounding_rectangle.get_bottom_right(),
-    );
     rectangles
         .into_iter()
-        .map(|colored_rectangle| ColoredRelativeMosaic {
+        .map(|colored_rectangle| ColoredAnonymizedMosaic {
             color: colored_rectangle.get_color(),
-            mosaic: WrappedRelativeMosaic::new(
-                colored_rectangle.get_mosaics()[0].clone(),
-                surrounding_math_rectangle.clone(),
-            ),
+            mosaic: colored_rectangle.get_mosaics()[0].clone(),
         })
         .collect()
 }
@@ -1431,21 +1414,18 @@ mod tests {
 
         let mosaics = calculate_ordinary_mosaics(
             BasicParams::new(false, 15),
+            Results::Absolute,
             larger_solid_image([255, 255, 255]),
         );
         assert!(!mosaics.is_empty());
 
-        let wrapped_relative_mosaic = WrappedRelativeMosaic::new(
-            mosaics[0].clone(),
-            crate::math::Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(16.0, 16.0, 0.0)),
-        );
         let enriched_absolute = deduce_enriched_mosaic(
-            wrapped_relative_mosaic.clone(),
+            mosaics[0].clone(),
             Color::Green,
             Results::Absolute,
         );
         let enriched_relative =
-            deduce_enriched_mosaic(wrapped_relative_mosaic, Color::Blue, Results::Relative);
+            deduce_enriched_mosaic(mosaics[0].clone(), Color::Blue, Results::Relative);
 
         assert!(matches!(
             service.get_rectangles(

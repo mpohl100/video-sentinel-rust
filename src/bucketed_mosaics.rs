@@ -73,7 +73,7 @@ impl BucketedMosaics {
         if !similar_mosaics.iter().any(|existing| {
             existing
                 .get_relative_mosaic()
-                .shares_identity_with(candidate.get_relative_mosaic())
+                .shares_identity_with(&candidate.get_relative_mosaic())
         }) {
             similar_mosaics.push(candidate);
         }
@@ -242,7 +242,7 @@ mod tests {
         expected_top_left: Vec3d,
         expected_bottom_right: Vec3d,
     ) {
-        let (top_left, bottom_right) = bounding_box_signature(traced_mosaic.get_relative_mosaic());
+        let (top_left, bottom_right) = bounding_box_signature(&traced_mosaic.get_relative_mosaic());
         assert_float_eq(top_left.x, expected_top_left.x);
         assert_float_eq(top_left.y, expected_top_left.y);
         assert_float_eq(bottom_right.x, expected_bottom_right.x);
