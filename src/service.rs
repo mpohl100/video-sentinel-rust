@@ -1419,11 +1419,8 @@ mod tests {
         );
         assert!(!mosaics.is_empty());
 
-        let enriched_absolute = deduce_enriched_mosaic(
-            mosaics[0].clone(),
-            Color::Green,
-            Results::Absolute,
-        );
+        let enriched_absolute =
+            deduce_enriched_mosaic(mosaics[0].clone(), Color::Green, Results::Absolute);
         let enriched_relative =
             deduce_enriched_mosaic(mosaics[0].clone(), Color::Blue, Results::Relative);
 
