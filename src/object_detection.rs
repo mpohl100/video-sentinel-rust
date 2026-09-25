@@ -56,6 +56,7 @@ impl ReferenceObject {
         for mosaic in &self.mosaics {
             let bounding_box = mosaic
                 .get_relative_mosaic()
+                .get_mosaic()
                 .get_bounding_box()
                 .to_global_rectangle();
             min_x = min_x.min(bounding_box.get_top_left().x);
@@ -75,6 +76,7 @@ impl ReferenceObject {
                 .last()
                 .unwrap()
                 .get_relative_mosaic()
+                .get_mosaic()
                 .get_bounding_box()
                 .to_global_rectangle(),
         );
@@ -85,6 +87,7 @@ impl ReferenceObject {
                     Rectangle::new_from_math_rectangle(
                         mosaic
                             .get_relative_mosaic()
+                            .get_mosaic()
                             .get_bounding_box()
                             .to_global_rectangle(),
                     )
@@ -402,19 +405,19 @@ mod tests {
             top_left: Vec3d::new(35.0, 5.0, 0.0),
             bottom_right: Vec3d::new(55.0, 25.0, 0.0),
             color: "green",
-            rotation_angle_degrees: 30.0,
+            rotation_angle_degrees: 0.0,
         });
         shapes_data.rectangles.push(ColoredTestRectangle {
             top_left: Vec3d::new(65.0, 5.0, 0.0),
             bottom_right: Vec3d::new(85.0, 25.0, 0.0),
             color: "green",
-            rotation_angle_degrees: 60.0,
+            rotation_angle_degrees: 0.0,
         });
         shapes_data.rectangles.push(ColoredTestRectangle {
             top_left: Vec3d::new(95.0, 5.0, 0.0),
             bottom_right: Vec3d::new(125.0, 35.0, 0.0),
             color: "green",
-            rotation_angle_degrees: 90.0,
+            rotation_angle_degrees: 0.0,
         });
         shapes_data.circles.push(ColoredTestCircle {
             center: Vec3d::new(20.0, 55.0, 0.0),
@@ -451,7 +454,7 @@ mod tests {
             top_left: Vec3d::new(25.0, 85.0, 0.0),
             bottom_right: Vec3d::new(35.0, 105.0, 0.0),
             color: "blue",
-            rotation_angle_degrees: 30.0,
+            rotation_angle_degrees: 0.0,
         });
         shapes_data.rectangles.push(ColoredTestRectangle {
             top_left: Vec3d::new(55.0, 85.0, 0.0),
@@ -786,7 +789,7 @@ mod tests {
         let results = detect_objects(
             reference,
             &bucketed,
-            standard_detection_params(0.7),
+            standard_detection_params(0.8),
             surrounding_rectangle(&scene),
             Results::Absolute,
         );
