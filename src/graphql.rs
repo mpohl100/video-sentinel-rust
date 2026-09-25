@@ -13,11 +13,12 @@ use crate::service::{
     CreateEyeSessionResult, CreateObjectSessionResult, CreateOrdinarySessionResult,
     DeleteReferenceObjectResult, DeleteSessionResult, EnrichedMosaic, EyeParamsInput,
     EyeParamsUpdateResult, GetRectanglesResult, ObjectDetectionParamsInput,
-    ObjectDetectionParamsUpdateResult, ObjectSession, Results, Service, SliceLine,
+    ObjectDetectionParamsUpdateResult, ObjectSession, Service, SliceLine,
     TargetSimilarityUpdateResult, TileParamsInput, TileParamsUpdateResult, TraceParamsInput,
     TraceParamsUpdateResult, UpdateBasicParamsResult,
 };
 use crate::slices::{Color, Rectangle, WrappedRgbImage};
+use crate::mosaics::Results;
 
 #[derive(Clone)]
 pub struct GraphqlAppState {

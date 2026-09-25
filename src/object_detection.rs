@@ -10,6 +10,8 @@ use crate::slices::{ColoredRectangle, Rectangle, WrappedRelativeRectangle};
 use crate::traced_mosaics::TracedRelativeMosaic;
 use crate::traces::Trace;
 use crate::traces::TraceParams;
+use crate::mosaics::Results;
+use crate::mosaics::AnonymizedMosaic;
 
 #[derive(Clone)]
 pub struct ReferenceObject {
@@ -122,6 +124,7 @@ pub fn detect_objects(
     bucketed_mosaics: &BucketedMosaics,
     object_detection_params: ObjectDetectionParams,
     surrounding_rectangle: Rectangle,
+    results: Results,
 ) -> Vec<ColoredRectangle> {
     let traced_biggest_mosaic = reference_object.get_mosaics(1)[0].clone();
     let biggest_trace = traced_biggest_mosaic.get_trace();
@@ -242,7 +245,13 @@ pub fn detect_objects(
                 candidate
                     .get_mosaics(usize::MAX)
                     .into_iter()
-                    .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
+                    .map(|mosaic| {
+                        AnonymizedMosaic::new(
+                            results,
+                            mosaic.get_relative_mosaic().get_mosaic(),
+                            Some(mosaic.get_relative_mosaic()),
+                        )
+                    })
                     .collect(),
             )
         })
@@ -269,9 +278,9 @@ mod tests {
     use super::*;
     use crate::bucketed_mosaics::BucketedMosaics;
     use crate::eye::calculate_rectangles_of_bucketed_mosaics;
+    use crate::math::Rectangle as MathRectangle;
     use crate::mosaics::deduce_mosaics;
     use crate::slices::{BasicParams, WrappedRgbImage, calculate_slices, find_connected_slices};
-    use crate::math::Rectangle as MathRectangle;
     use image::{ImageBuffer, Rgb};
     use imageproc::drawing::{draw_filled_circle_mut, draw_polygon_mut};
     use imageproc::point::Point;
@@ -779,6 +788,7 @@ mod tests {
             &bucketed,
             standard_detection_params(0.7),
             surrounding_rectangle(&scene),
+            Results::Absolute,
         );
 
         assert_eq!(results.len(), 4);
@@ -799,6 +809,7 @@ mod tests {
             &bucketed,
             standard_detection_params(0.8),
             surrounding_rectangle(&scene),
+            Results::Absolute,
         );
 
         assert_eq!(results.len(), 5);
@@ -819,6 +830,7 @@ mod tests {
             &bucketed,
             standard_detection_params(0.8),
             surrounding_rectangle(&scene),
+            Results::Absolute,
         );
 
         assert_eq!(results.len(), 2);
@@ -910,6 +922,7 @@ mod tests {
                 0.8,
             ),
             surrounding_rectangle(&scene),
+            Results::Absolute,
         );
 
         assert_eq!(results.len(), 4);

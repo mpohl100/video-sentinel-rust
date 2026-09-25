@@ -6,10 +6,11 @@ use image::{ImageBuffer, Rgb};
 use rs_math3d::Vec3d;
 use video_rs::{Decoder, Encoder, Frame};
 
+use video_sentinel::mosaics::Results;
 use video_sentinel::service::{
     BasicParamsInput, CreateEyeSessionResult, CreateObjectSessionResult,
     CreateOrdinarySessionResult, EyeParamsInput, GetRectanglesResult, ObjectDetectionParamsInput,
-    Results, Service, TileParamsInput, TraceParamsInput,
+    Service, TileParamsInput, TraceParamsInput,
 };
 use video_sentinel::slices::{Color, Rectangle, WrappedRgbImage};
 
