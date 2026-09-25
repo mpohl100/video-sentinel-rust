@@ -231,10 +231,10 @@ pub fn detect_objects(
                     .iter()
                     .map(|mosaic| {
                         Rectangle::new_from_math_rectangle(
-                            mosaic
-                                .get_relative_mosaic()
-                                .get_bounding_box()
-                                .to_global_rectangle(),
+                            match results {
+                                Results::Absolute => mosaic.get_relative_mosaic().get_mosaic().get_bounding_box().to_global_rectangle(),
+                                Results::Relative => mosaic.get_relative_mosaic().get_bounding_box().to_global_rectangle(),
+                            }
                         )
                     })
                     .collect(),
