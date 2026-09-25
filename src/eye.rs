@@ -1,7 +1,7 @@
 use crate::bucketed_mosaics::BucketedMosaics;
 use crate::math::Rectangle as MathRectangle;
-use crate::mosaics::WrappedRelativeMosaic;
 use crate::mosaics::AnonymizedMosaic;
+use crate::mosaics::WrappedRelativeMosaic;
 use crate::slices::Color;
 use crate::slices::{ColoredRectangle, Rectangle, RelativeRectangle, WrappedRelativeRectangle};
 use crate::traced_mosaics::TracedRelativeMosaic;
@@ -184,7 +184,7 @@ pub fn calculate_rectangles_of_bucketed_mosaics(
 mod tests {
     use super::*;
     use crate::math::{CoordinatedPoint, WrappedCoordinateSystem};
-    use crate::mosaics::{WrappedMosaic, Results};
+    use crate::mosaics::{Results, WrappedMosaic};
     use crate::slices::{AnnotatedSlice, Slice, SliceLine, SliceMatrix, WrappedRgbImage};
     use image::{ImageBuffer, Rgb};
 

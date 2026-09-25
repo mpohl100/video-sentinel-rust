@@ -4,14 +4,14 @@ use rs_math3d::Vec3d;
 
 use crate::bucketed_mosaics::BucketedMosaics;
 use crate::eye::TileParams;
+use crate::mosaics::AnonymizedMosaic;
+use crate::mosaics::Results;
 use crate::slices::Color;
 use crate::slices::RelativeRectangle;
 use crate::slices::{ColoredRectangle, Rectangle, WrappedRelativeRectangle};
 use crate::traced_mosaics::TracedRelativeMosaic;
 use crate::traces::Trace;
 use crate::traces::TraceParams;
-use crate::mosaics::Results;
-use crate::mosaics::AnonymizedMosaic;
 
 #[derive(Clone)]
 pub struct ReferenceObject {

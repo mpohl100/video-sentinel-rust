@@ -7,6 +7,7 @@ use async_graphql::{
 use rs_math3d::Vec3d;
 use tokio::sync::Mutex;
 
+use crate::mosaics::Results;
 use crate::object_detection::ReferenceObject;
 use crate::service::{
     AddObjectToBeDetectedResult, BasicParamsInput, BucketDeltaUpdateResult, Circle,
@@ -18,7 +19,6 @@ use crate::service::{
     TraceParamsUpdateResult, UpdateBasicParamsResult,
 };
 use crate::slices::{Color, Rectangle, WrappedRgbImage};
-use crate::mosaics::Results;
 
 #[derive(Clone)]
 pub struct GraphqlAppState {

@@ -424,10 +424,16 @@ pub enum AnonymizedMosaic {
 }
 
 impl AnonymizedMosaic {
-    pub fn new(results: Results, mosaic: WrappedMosaic, relative_mosaic: Option<WrappedRelativeMosaic>) -> Self {
+    pub fn new(
+        results: Results,
+        mosaic: WrappedMosaic,
+        relative_mosaic: Option<WrappedRelativeMosaic>,
+    ) -> Self {
         match results {
             Results::Absolute => AnonymizedMosaic::Absolute(mosaic),
-            Results::Relative => AnonymizedMosaic::Relative(relative_mosaic.expect("Relative mosaic must be provided for Results::Relative")),
+            Results::Relative => AnonymizedMosaic::Relative(
+                relative_mosaic.expect("Relative mosaic must be provided for Results::Relative"),
+            ),
         }
     }
 
@@ -444,7 +450,7 @@ impl AnonymizedMosaic {
             AnonymizedMosaic::Relative(relative_mosaic) => relative_mosaic.get_bounding_box(),
         }
     }
-    
+
     pub fn get_bounding_circle(&self) -> CoordinatedCircle {
         match self {
             AnonymizedMosaic::Absolute(mosaic) => mosaic.get_bounding_circle(),
