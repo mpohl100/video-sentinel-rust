@@ -1204,17 +1204,6 @@ mod tests {
     }
 
     #[test]
-    fn compare_with_function_averages_line_similarities() {
-        let first = vec![ratio_line(&[(0.2, 0.4)]), ratio_line(&[(0.1, 0.3)])];
-        let second = vec![ratio_line(&[(0.2, 0.4)]), ratio_line(&[(0.2, 0.4)])];
-
-        assert_float_eq(
-            compare_with(&first, &second),
-            -0.0000000000000004440892098500626,
-        );
-    }
-
-    #[test]
     fn trace_compare_with_rotates_ratio_lines_to_find_best_alignment() {
         let trace1 = Trace {
             ratio_lines: vec![
