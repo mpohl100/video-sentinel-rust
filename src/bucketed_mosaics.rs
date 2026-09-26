@@ -5,7 +5,7 @@ use rs_math3d::Vector3;
 use crate::eye::TileParams;
 use crate::slices::{Rectangle, WrappedRelativeRectangle};
 use crate::traced_mosaics::TracedRelativeMosaic;
-
+use std::collections::HashMap;
 pub struct BucketedMosaicsPerSection {
     region: WrappedRelativeRectangle,
     bucket: BTreeMap<i64, Vec<TracedRelativeMosaic>>,
@@ -69,19 +69,6 @@ pub struct BucketedMosaics {
 }
 
 impl BucketedMosaics {
-    fn push_unique(
-        similar_mosaics: &mut Vec<TracedRelativeMosaic>,
-        candidate: TracedRelativeMosaic,
-    ) {
-        if !similar_mosaics.iter().any(|existing| {
-            existing
-                .get_relative_mosaic()
-                .shares_identity_with(&candidate.get_relative_mosaic())
-        }) {
-            similar_mosaics.push(candidate);
-        }
-    }
-
     pub fn new(tile_params: TileParams, delta: f64) -> Self {
         let regions = Self::calculate_regions(tile_params);
         let sections = regions
@@ -101,7 +88,7 @@ impl BucketedMosaics {
         &self,
         mosaic: &TracedRelativeMosaic,
     ) -> Vec<TracedRelativeMosaic> {
-        let mut similar_mosaics: Vec<TracedRelativeMosaic> = Vec::new();
+        let mut mosaics_by_center_of_mass: HashMap<(i64, i64), TracedRelativeMosaic> = HashMap::new();
         for section in self.get_overlapping_sections(Rectangle::new_from_math_rectangle(
             mosaic
                 .get_relative_mosaic()
@@ -109,10 +96,12 @@ impl BucketedMosaics {
                 .to_global_rectangle(),
         )) {
             for candidate in section.get_potentially_similar_mosaics(mosaic) {
-                Self::push_unique(&mut similar_mosaics, candidate);
+                let center_of_mass = candidate.get_relative_mosaic().get_center_of_mass();
+                let key_tuple = ( (center_of_mass.get_x() * 1000000.0) as i64, (center_of_mass.get_y() * 1000000.0) as i64);
+                mosaics_by_center_of_mass.insert(key_tuple, candidate);
             }
         }
-        similar_mosaics
+        mosaics_by_center_of_mass.into_values().collect()
     }
 
     pub fn get_all_similar_mosaics(
