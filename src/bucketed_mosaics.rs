@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use rs_math3d::Vector3;
 
 use crate::eye::TileParams;
-use crate::mosaics;
+use crate::slices::RelativeRectangle;
 use crate::slices::{Rectangle, WrappedRelativeRectangle};
 use crate::traced_mosaics::TracedRelativeMosaic;
 use std::collections::HashMap;
@@ -141,10 +141,12 @@ impl BucketedMosaics {
             "Getting overlapping sections for bounding box: {:?}",
             bounding_box.get_area()
         );
-        self.sections
+        let sections: Vec<_> = self.sections
             .iter()
             .filter(|section| section.region.overlaps(&bounding_box))
-            .collect()
+            .collect();
+        println!("Found {} overlapping sections for bounding box: {:?}", sections.len(), bounding_box.get_area());
+        sections
     }
 
     fn calculate_regions(tile_params: TileParams) -> Vec<WrappedRelativeRectangle> {
@@ -153,16 +155,10 @@ impl BucketedMosaics {
         let mut regions = Vec::new();
         for i in 0..(num_steps_x as usize) {
             for j in 0..(num_steps_y as usize) {
-                let region = WrappedRelativeRectangle::new_from_rectangles(
-                    Rectangle::new(
-                        Vector3::new(i as f64 * num_steps_x, j as f64 * num_steps_y, 0.0),
-                        Vector3::new((i as f64 + tile_params.relative_tile_x()) * num_steps_x, (j as f64 + tile_params.relative_tile_y()) * num_steps_y, 0.0),
-                    ),
-                    Rectangle::new(
-                        Vector3::new(0.0, 0.0, 0.0),
-                        Vector3::new(1.0, 1.0, 0.0),
-                    ),
-                );
+                let region = WrappedRelativeRectangle::new(RelativeRectangle::new(
+                    Vector3::new(tile_params.relative_tile_x() * (i as f64), tile_params.relative_tile_y() * (j as f64), 0.0),
+                    Vector3::new(tile_params.relative_tile_x(), tile_params.relative_tile_y(), 0.0),
+                ));
                 regions.push(region);
             }
         }

@@ -755,6 +755,10 @@ pub struct RelativeRectangle {
 }
 
 impl RelativeRectangle {
+    pub fn new(top_left: Vec3d, dims: Vec3d) -> Self {
+        Self { top_left, dims }
+    }
+
     pub fn new_from_rectangles(first: Rectangle, second: Rectangle) -> Self {
         let rel_x = (first.get_top_left().x - second.get_top_left().x) / second.get_width();
         let rel_y = (first.get_top_left().y - second.get_top_left().y) / second.get_height();
