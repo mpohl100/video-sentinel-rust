@@ -168,9 +168,7 @@ impl Trace {
     pub fn compare_with(&self, target_similarity: f64, other: &Trace) -> f64 {
         let mut highest_similarity = 0.0;
         for i in 0..self.ratio_lines.len() {
-            let mut second_ratio_lines = other.ratio_lines.clone();
-            second_ratio_lines.rotate_right(i);
-            let similarity = compare_with(&self.ratio_lines, &second_ratio_lines);
+            let similarity = compare_with_rotation(&self.ratio_lines, &other.ratio_lines, i);
             if trace_debug_enabled() {
                 println!(
                     "trace.compare_with rotation={} similarity={:.8} highest_before={:.8} target={:.8}",
@@ -271,6 +269,47 @@ fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine
             "trace.compare_with average_similarity={:.8} line_count={}",
             similarity,
             first_ratio_lines.len(),
+        );
+    }
+    similarity
+}
+
+fn compare_with_rotation(
+    first_ratio_lines: &[RatioLine],
+    second_ratio_lines: &[RatioLine],
+    rotation: usize,
+) -> f64 {
+    assert_eq!(
+        first_ratio_lines.len(),
+        second_ratio_lines.len(),
+        "ratio line counts must match"
+    );
+
+    if first_ratio_lines.is_empty() {
+        return 0.0;
+    }
+
+    let line_count = first_ratio_lines.len();
+    let rotation = rotation % line_count;
+    let mut total_similarity = 0.0;
+
+    for (line_index, line1) in first_ratio_lines.iter().enumerate() {
+        let rotated_index = (line_index + line_count - rotation) % line_count;
+        let similarity = compare_lines(line1, &second_ratio_lines[rotated_index]);
+        if trace_debug_enabled() {
+            println!(
+                "trace.compare_with line_index={} rotated_index={} line_similarity={:.8}",
+                line_index, rotated_index, similarity,
+            );
+        }
+        total_similarity += similarity;
+    }
+
+    let similarity = total_similarity / line_count as f64;
+    if trace_debug_enabled() {
+        println!(
+            "trace.compare_with average_similarity={:.8} line_count={}",
+            similarity, line_count,
         );
     }
     similarity

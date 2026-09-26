@@ -3,11 +3,9 @@ use crate::math::Rectangle as MathRectangle;
 use crate::mosaics::AnonymizedMosaic;
 use crate::mosaics::WrappedRelativeMosaic;
 use crate::slices::Color;
-use crate::slices::{ColoredRectangle, Rectangle, RelativeRectangle, WrappedRelativeRectangle};
+use crate::slices::{ColoredRectangle, Rectangle};
 use crate::traced_mosaics::TracedRelativeMosaic;
 use crate::traces::TraceParams;
-
-use rs_math3d::Vec3d;
 
 #[derive(Clone, PartialEq)]
 pub struct TileParams {
@@ -67,8 +65,7 @@ pub fn deduce_bucketed_mosaics(
     bucket_delta: f64,
     trace_params: TraceParams,
 ) -> BucketedMosaics {
-    let rectangles = calculate_rectangles_of_bucketed_mosaics(tile_params);
-    let mut bucketed_mosaics = BucketedMosaics::new(rectangles, bucket_delta);
+    let mut bucketed_mosaics = BucketedMosaics::new(tile_params, bucket_delta);
     let absolute_rectangle = MathRectangle::new(
         surrounding_rectangle.get_top_left(),
         surrounding_rectangle.get_bottom_right(),
@@ -159,37 +156,13 @@ fn are_mosaics_similar(
     result >= target_similarity
 }
 
-pub fn calculate_rectangles_of_bucketed_mosaics(
-    tile_params: TileParams,
-) -> Vec<WrappedRelativeRectangle> {
-    let mut rectangles = Vec::new();
-    // Rectangle width/height are inclusive (+1), so identical points represent a unit scale.
-    let unit_scale_reference = Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.0, 0.0, 0.0));
-    let mut y = 0.0;
-    while y < 1.0 {
-        let mut x = 0.0;
-        while x < 1.0 {
-            let rectangle = Rectangle::new_from_dims(
-                Vec3d::new(x, y, 0.0),
-                tile_params.relative_tile_x.min(1.0 - x),
-                tile_params.relative_tile_y.min(1.0 - y),
-            );
-            rectangles.push(WrappedRelativeRectangle::new(
-                RelativeRectangle::new_from_rectangles(rectangle, unit_scale_reference.clone()),
-            ));
-            x += tile_params.relative_tile_x;
-        }
-        y += tile_params.relative_tile_y;
-    }
-    rectangles
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::math::{CoordinatedPoint, WrappedCoordinateSystem};
     use crate::mosaics::{Results, WrappedMosaic};
     use crate::slices::{AnnotatedSlice, Slice, SliceLine, SliceMatrix, WrappedRgbImage};
+    use rs_math3d::Vec3d;
     use image::{ImageBuffer, Rgb};
 
     const EPSILON: f64 = 1e-8;
@@ -262,13 +235,6 @@ mod tests {
     #[should_panic(expected = "relative_tile_y must be <= 1.0")]
     fn tile_params_reject_too_large_y() {
         let _ = TileParams::new(0.5, 1.5);
-    }
-
-    #[test]
-    fn calculate_rectangles_of_bucketed_mosaics_returns_grid_count() {
-        let rectangles = calculate_rectangles_of_bucketed_mosaics(TileParams::new(0.5, 0.5));
-
-        assert_eq!(rectangles.len(), 4);
     }
 
     #[test]
