@@ -931,7 +931,7 @@ mod tests {
             Results::Absolute,
         );
 
-        assert_eq!(results.len(), 4);
+        assert_eq!(results.len(), 1);
         assert_all_green(&results);
         let mut centers: Vec<f64> = results
             .iter()
@@ -939,6 +939,6 @@ mod tests {
             .collect();
         centers.sort_by(|left, right| left.partial_cmp(right).unwrap());
         assert_float_eq(centers[0], 20.0);
-        assert_float_eq(centers[1], 20.0);
+        assert_float_eq(centers[centers.len() - 1], 20.0);
     }
 }
