@@ -246,34 +246,6 @@ fn calculate_total_surrounding_circle_area(mosaics: &[WrappedMosaic]) -> f64 {
     std::f64::consts::PI * radius * radius
 }
 
-fn compare_with(first_ratio_lines: &[RatioLine], second_ratio_lines: &[RatioLine]) -> f64 {
-    let mut total_similarity = 0.0;
-    for (line_index, (line1, line2)) in first_ratio_lines
-        .iter()
-        .zip(second_ratio_lines.iter())
-        .enumerate()
-    {
-        let similarity = compare_lines(line1, line2);
-        if trace_debug_enabled() {
-            println!(
-                "trace.compare_with line_index={} line_similarity={:.8}",
-                line_index, similarity,
-            );
-        }
-        total_similarity += similarity;
-    }
-    // calculate the average similarity
-    let similarity = total_similarity / first_ratio_lines.len() as f64;
-    if trace_debug_enabled() {
-        println!(
-            "trace.compare_with average_similarity={:.8} line_count={}",
-            similarity,
-            first_ratio_lines.len(),
-        );
-    }
-    similarity
-}
-
 fn compare_with_rotation(
     first_ratio_lines: &[RatioLine],
     second_ratio_lines: &[RatioLine],

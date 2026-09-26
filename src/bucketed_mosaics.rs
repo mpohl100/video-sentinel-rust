@@ -390,16 +390,11 @@ mod tests {
 
         let similar = bucketed.get_potentially_similar_mosaics(&query);
 
-        assert_eq!(similar.len(), 2);
+        assert_eq!(similar.len(), 1);
         assert_signature(
             &similar[0],
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(0.09090909090909091, 0.18181818181818182, 0.0),
-        );
-        assert_signature(
-            &similar[1],
-            Vec3d::new(0.7272727272727273, 0.7272727272727273, 0.0),
-            Vec3d::new(0.8181818181818182, 0.9090909090909091, 0.0),
         );
     }
 
@@ -444,25 +439,15 @@ mod tests {
             global_region(Vec3d::new(0.7, 0.7, 0.0), Vec3d::new(1.0, 1.0, 0.0)),
         );
 
-        assert_eq!(near_only.len(), 2);
-        assert_eq!(far_only.len(), 2);
+        assert_eq!(near_only.len(), 1);
+        assert_eq!(far_only.len(), 1);
         assert_signature(
             &near_only[0],
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(0.09090909090909091, 0.18181818181818182, 0.0),
         );
         assert_signature(
-            &near_only[1],
-            Vec3d::new(0.7272727272727273, 0.7272727272727273, 0.0),
-            Vec3d::new(0.8181818181818182, 0.9090909090909091, 0.0),
-        );
-        assert_signature(
             &far_only[0],
-            Vec3d::new(0.0, 0.0, 0.0),
-            Vec3d::new(0.09090909090909091, 0.18181818181818182, 0.0),
-        );
-        assert_signature(
-            &far_only[1],
             Vec3d::new(0.7272727272727273, 0.7272727272727273, 0.0),
             Vec3d::new(0.8181818181818182, 0.9090909090909091, 0.0),
         );
