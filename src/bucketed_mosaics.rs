@@ -152,7 +152,7 @@ impl BucketedMosaics {
         self.sections
             .iter()
             .filter(|section| section.region.overlaps(&bounding_box))
-            .collect()  
+            .collect()
     }
 
     fn calculate_regions(tile_params: TileParams) -> Vec<WrappedRelativeRectangle> {
