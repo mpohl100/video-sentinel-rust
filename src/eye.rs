@@ -90,7 +90,7 @@ pub fn deduce_rectangles(
         surrounding_rectangle.get_top_left(),
         surrounding_rectangle.get_bottom_right(),
     );
-    for (i, next_mosaic) in next_mosaics.into_iter().enumerate() {
+    for next_mosaic in next_mosaics.into_iter() {
         let wrapped_next_mosaic =
             WrappedRelativeMosaic::new(next_mosaic.get_mosaic(), absolute_rectangle.clone());
         let traced_next_mosaic =
@@ -98,7 +98,7 @@ pub fn deduce_rectangles(
         let potentially_similar_mosaics =
             previous_bucketed_mosaics.get_potentially_similar_mosaics(&traced_next_mosaic);
         let mut current_color = Color::Red;
-        for (j, previous_mosaic) in potentially_similar_mosaics.into_iter().enumerate() {
+        for previous_mosaic in potentially_similar_mosaics.into_iter() {
             if are_mosaics_similar(
                 &previous_mosaic,
                 &traced_next_mosaic,
