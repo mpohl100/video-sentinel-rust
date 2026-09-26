@@ -89,7 +89,8 @@ impl BucketedMosaics {
         &self,
         mosaic: &TracedRelativeMosaic,
     ) -> Vec<TracedRelativeMosaic> {
-        let mut mosaics_by_center_of_mass: HashMap<(i64, i64), TracedRelativeMosaic> = HashMap::new();
+        let mut mosaics_by_center_of_mass: HashMap<(i64, i64), TracedRelativeMosaic> =
+            HashMap::new();
         for section in self.get_overlapping_sections(Rectangle::new_from_math_rectangle(
             mosaic
                 .get_relative_mosaic()
@@ -98,7 +99,10 @@ impl BucketedMosaics {
         )) {
             for candidate in section.get_potentially_similar_mosaics(mosaic) {
                 let center_of_mass = candidate.get_relative_mosaic().get_center_of_mass();
-                let key_tuple = ( (center_of_mass.get_x() * 1000000.0) as i64, (center_of_mass.get_y() * 1000000.0) as i64);
+                let key_tuple = (
+                    (center_of_mass.get_x() * 1000000.0) as i64,
+                    (center_of_mass.get_y() * 1000000.0) as i64,
+                );
                 mosaics_by_center_of_mass.insert(key_tuple, candidate);
             }
         }
@@ -109,11 +113,15 @@ impl BucketedMosaics {
         &self,
         mosaic: &TracedRelativeMosaic,
     ) -> Vec<TracedRelativeMosaic> {
-        let mut mosaics_by_center_of_mass: HashMap<(i64, i64), TracedRelativeMosaic> = HashMap::new();
+        let mut mosaics_by_center_of_mass: HashMap<(i64, i64), TracedRelativeMosaic> =
+            HashMap::new();
         for section in &self.sections {
             for candidate in section.get_potentially_similar_mosaics(mosaic) {
                 let center_of_mass = candidate.get_relative_mosaic().get_center_of_mass();
-                let key_tuple = ( (center_of_mass.get_x() * 1000000.0) as i64, (center_of_mass.get_y() * 1000000.0) as i64);
+                let key_tuple = (
+                    (center_of_mass.get_x() * 1000000.0) as i64,
+                    (center_of_mass.get_y() * 1000000.0) as i64,
+                );
                 mosaics_by_center_of_mass.insert(key_tuple, candidate);
             }
         }
@@ -125,11 +133,15 @@ impl BucketedMosaics {
         mosaic: &TracedRelativeMosaic,
         region: WrappedRelativeRectangle,
     ) -> Vec<TracedRelativeMosaic> {
-        let mut mosaics_by_center_of_mass: HashMap<(i64, i64), TracedRelativeMosaic> = HashMap::new();
+        let mut mosaics_by_center_of_mass: HashMap<(i64, i64), TracedRelativeMosaic> =
+            HashMap::new();
         for section in self.get_overlapping_sections(region.to_rectangle()) {
             for candidate in section.get_potentially_similar_mosaics(mosaic) {
                 let center_of_mass = candidate.get_relative_mosaic().get_center_of_mass();
-                let key_tuple = ( (center_of_mass.get_x() * 1000000.0) as i64, (center_of_mass.get_y() * 1000000.0) as i64);
+                let key_tuple = (
+                    (center_of_mass.get_x() * 1000000.0) as i64,
+                    (center_of_mass.get_y() * 1000000.0) as i64,
+                );
                 mosaics_by_center_of_mass.insert(key_tuple, candidate);
             }
         }
@@ -141,11 +153,16 @@ impl BucketedMosaics {
             "Getting overlapping sections for bounding box: {:?}",
             bounding_box.get_area()
         );
-        let sections: Vec<_> = self.sections
+        let sections: Vec<_> = self
+            .sections
             .iter()
             .filter(|section| section.region.overlaps(&bounding_box))
             .collect();
-        println!("Found {} overlapping sections for bounding box: {:?}", sections.len(), bounding_box.get_area());
+        println!(
+            "Found {} overlapping sections for bounding box: {:?}",
+            sections.len(),
+            bounding_box.get_area()
+        );
         sections
     }
 
@@ -156,8 +173,16 @@ impl BucketedMosaics {
         for i in 0..(num_steps_x as usize) {
             for j in 0..(num_steps_y as usize) {
                 let region = WrappedRelativeRectangle::new(RelativeRectangle::new(
-                    Vector3::new(tile_params.relative_tile_x() * (i as f64), tile_params.relative_tile_y() * (j as f64), 0.0),
-                    Vector3::new(tile_params.relative_tile_x(), tile_params.relative_tile_y(), 0.0),
+                    Vector3::new(
+                        tile_params.relative_tile_x() * (i as f64),
+                        tile_params.relative_tile_y() * (j as f64),
+                        0.0,
+                    ),
+                    Vector3::new(
+                        tile_params.relative_tile_x(),
+                        tile_params.relative_tile_y(),
+                        0.0,
+                    ),
                 ));
                 regions.push(region);
             }
@@ -353,10 +378,7 @@ mod tests {
 
     #[test]
     fn bucketed_mosaics_new_creates_one_section_per_region() {
-        let bucketed = BucketedMosaics::new(
-            TileParams::new(0.5, 0.5),
-            0.5,
-        );
+        let bucketed = BucketedMosaics::new(TileParams::new(0.5, 0.5), 0.5);
 
         assert_eq!(bucketed.sections.len(), 4);
     }
@@ -364,10 +386,7 @@ mod tests {
     #[test]
     fn add_mosaic_places_one_mosaic_into_each_overlapping_section() {
         let mosaic = relative_mosaic(&[(0, &[(0.0, 0.0)]), (1, &[(0.0, 0.0)])]);
-        let mut bucketed = BucketedMosaics::new(
-            TileParams::new(0.5, 0.5),
-            0.5,
-        );
+        let mut bucketed = BucketedMosaics::new(TileParams::new(0.5, 0.5), 0.5);
 
         bucketed.add_mosaic(mosaic);
 
@@ -380,10 +399,7 @@ mod tests {
     fn get_potentially_similar_mosaics_reads_only_overlapping_sections() {
         let query = relative_mosaic(&[(0, &[(0.0, 0.0)]), (1, &[(0.0, 0.0)])]);
         let far = relative_mosaic(&[(8, &[(8.0, 8.0)]), (9, &[(8.0, 8.0)])]);
-        let mut bucketed = BucketedMosaics::new(
-            TileParams::new(0.5, 0.5),
-            0.5,
-        );
+        let mut bucketed = BucketedMosaics::new(TileParams::new(0.5, 0.5), 0.5);
 
         bucketed.add_mosaic(query.clone());
         bucketed.add_mosaic(far);
@@ -401,10 +417,7 @@ mod tests {
     #[test]
     fn get_all_similar_mosaics_deduplicates_results_across_overlapping_sections() {
         let query = relative_mosaic(&[(0, &[(0.0, 0.0)]), (1, &[(0.0, 0.0)])]);
-        let mut bucketed = BucketedMosaics::new(
-            TileParams::new(0.5, 0.5),
-            0.5,
-        );
+        let mut bucketed = BucketedMosaics::new(TileParams::new(0.5, 0.5), 0.5);
 
         bucketed.add_mosaic(query.clone());
 
@@ -422,10 +435,7 @@ mod tests {
     fn get_similar_mosaics_from_rectangle_filters_sections_by_requested_region() {
         let query = relative_mosaic(&[(0, &[(0.0, 0.0)]), (1, &[(0.0, 0.0)])]);
         let far = relative_mosaic(&[(8, &[(8.0, 8.0)]), (9, &[(8.0, 8.0)])]);
-        let mut bucketed = BucketedMosaics::new(
-            TileParams::new(0.5, 0.5),
-            0.5,
-        );
+        let mut bucketed = BucketedMosaics::new(TileParams::new(0.5, 0.5), 0.5);
 
         bucketed.add_mosaic(query.clone());
         bucketed.add_mosaic(far);
@@ -455,10 +465,7 @@ mod tests {
 
     #[test]
     fn get_overlapping_sections_returns_only_regions_that_overlap_bounding_box() {
-        let bucketed = BucketedMosaics::new(
-            TileParams::new(0.5, 0.5),
-            0.5,
-        );
+        let bucketed = BucketedMosaics::new(TileParams::new(0.5, 0.5), 0.5);
         let query_box = Rectangle::new(Vec3d::new(0.5, 0.0, 0.0), Vec3d::new(2.5, 0.15, 0.0));
 
         let overlapping_sections = bucketed.get_overlapping_sections(query_box);
