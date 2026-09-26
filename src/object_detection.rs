@@ -285,7 +285,6 @@ fn combine_boxes(boxes: Vec<Rectangle>) -> Rectangle {
 mod tests {
     use super::*;
     use crate::bucketed_mosaics::BucketedMosaics;
-    use crate::eye::calculate_rectangles_of_bucketed_mosaics;
     use crate::math::Rectangle as MathRectangle;
     use crate::mosaics::deduce_mosaics;
     use crate::slices::{BasicParams, WrappedRgbImage, calculate_slices, find_connected_slices};
@@ -513,9 +512,8 @@ mod tests {
         tile_params: TileParams,
         bucket_delta: f64,
     ) -> BucketedMosaics {
-        let regions = calculate_rectangles_of_bucketed_mosaics(tile_params.clone());
         let mosaics = deduce_all_mosaics(image);
-        let mut bucketed = BucketedMosaics::new(regions, bucket_delta);
+        let mut bucketed = BucketedMosaics::new(tile_params, bucket_delta);
         for mosaic in mosaics {
             bucketed.add_mosaic(mosaic);
         }

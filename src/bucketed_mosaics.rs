@@ -1,5 +1,8 @@
 use std::collections::BTreeMap;
 
+use rs_math3d::Vector3;
+
+use crate::eye::TileParams;
 use crate::slices::{Rectangle, WrappedRelativeRectangle};
 use crate::traced_mosaics::TracedRelativeMosaic;
 
@@ -79,7 +82,8 @@ impl BucketedMosaics {
         }
     }
 
-    pub fn new(regions: Vec<WrappedRelativeRectangle>, delta: f64) -> Self {
+    pub fn new(tile_params: TileParams, delta: f64) -> Self {
+        let regions = Self::calculate_regions(tile_params);
         let sections = regions
             .into_iter()
             .map(|region| BucketedMosaicsPerSection::new(region, delta))
@@ -139,10 +143,36 @@ impl BucketedMosaics {
     }
 
     fn get_overlapping_sections(&self, bounding_box: Rectangle) -> Vec<&BucketedMosaicsPerSection> {
+        println!(
+            "Getting overlapping sections for bounding box: {:?}",
+            bounding_box.get_area()
+        );
         self.sections
             .iter()
             .filter(|section| section.region.overlaps(&bounding_box))
             .collect()
+    }
+
+    fn calculate_regions(tile_params: TileParams) -> Vec<WrappedRelativeRectangle> {
+        let num_steps_x = 1.0 / tile_params.relative_tile_x();
+        let num_steps_y = 1.0 / tile_params.relative_tile_y();
+        let mut regions = Vec::new();
+        for i in 0..(num_steps_x as usize) {
+            for j in 0..(num_steps_y as usize) {
+                let region = WrappedRelativeRectangle::new_from_rectangles(
+                    Rectangle::new(
+                        Vector3::new(i as f64 * num_steps_x, j as f64 * num_steps_y, 0.0),
+                        Vector3::new((i as f64 + tile_params.relative_tile_x()) * num_steps_x, (j as f64 + tile_params.relative_tile_y()) * num_steps_y, 0.0),
+                    ),
+                    Rectangle::new(
+                        Vector3::new(0.0, 0.0, 0.0),
+                        Vector3::new(1.0, 1.0, 0.0),
+                    ),
+                );
+                regions.push(region);
+            }
+        }
+        regions
     }
 }
 
@@ -334,32 +364,25 @@ mod tests {
     #[test]
     fn bucketed_mosaics_new_creates_one_section_per_region() {
         let bucketed = BucketedMosaics::new(
-            vec![
-                global_region(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.4, 0.4, 0.0)),
-                global_region(Vec3d::new(0.5, 0.5, 0.0), Vec3d::new(1.0, 1.0, 0.0)),
-            ],
+            TileParams::new(0.5, 0.5),
             0.5,
         );
 
-        assert_eq!(bucketed.sections.len(), 2);
+        assert_eq!(bucketed.sections.len(), 4);
     }
 
     #[test]
     fn add_mosaic_places_one_mosaic_into_each_overlapping_section() {
         let mosaic = relative_mosaic(&[(0, &[(0.0, 0.0)]), (1, &[(0.0, 0.0)])]);
         let mut bucketed = BucketedMosaics::new(
-            vec![
-                global_region(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.2, 0.2, 0.0)),
-                global_region(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.2, 0.2, 0.0)),
-                global_region(Vec3d::new(0.6, 0.6, 0.0), Vec3d::new(1.0, 1.0, 0.0)),
-            ],
+            TileParams::new(0.5, 0.5),
             0.5,
         );
 
         bucketed.add_mosaic(mosaic);
 
         assert_eq!(bucketed.sections[0].bucket.get(&5).unwrap().len(), 1);
-        assert_eq!(bucketed.sections[1].bucket.get(&5).unwrap().len(), 1);
+        assert!(bucketed.sections[1].bucket.is_empty());
         assert!(bucketed.sections[2].bucket.is_empty());
     }
 
@@ -368,10 +391,7 @@ mod tests {
         let query = relative_mosaic(&[(0, &[(0.0, 0.0)]), (1, &[(0.0, 0.0)])]);
         let far = relative_mosaic(&[(8, &[(8.0, 8.0)]), (9, &[(8.0, 8.0)])]);
         let mut bucketed = BucketedMosaics::new(
-            vec![
-                global_region(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.2, 0.2, 0.0)),
-                global_region(Vec3d::new(0.7, 0.7, 0.0), Vec3d::new(1.0, 1.0, 0.0)),
-            ],
+            TileParams::new(0.5, 0.5),
             0.5,
         );
 
@@ -380,11 +400,16 @@ mod tests {
 
         let similar = bucketed.get_potentially_similar_mosaics(&query);
 
-        assert_eq!(similar.len(), 1);
+        assert_eq!(similar.len(), 2);
         assert_signature(
             &similar[0],
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(0.09090909090909091, 0.18181818181818182, 0.0),
+        );
+        assert_signature(
+            &similar[1],
+            Vec3d::new(0.7272727272727273, 0.7272727272727273, 0.0),
+            Vec3d::new(0.8181818181818182, 0.9090909090909091, 0.0),
         );
     }
 
@@ -392,10 +417,7 @@ mod tests {
     fn get_all_similar_mosaics_deduplicates_results_across_overlapping_sections() {
         let query = relative_mosaic(&[(0, &[(0.0, 0.0)]), (1, &[(0.0, 0.0)])]);
         let mut bucketed = BucketedMosaics::new(
-            vec![
-                global_region(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.2, 0.2, 0.0)),
-                global_region(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.2, 0.2, 0.0)),
-            ],
+            TileParams::new(0.5, 0.5),
             0.5,
         );
 
@@ -416,10 +438,7 @@ mod tests {
         let query = relative_mosaic(&[(0, &[(0.0, 0.0)]), (1, &[(0.0, 0.0)])]);
         let far = relative_mosaic(&[(8, &[(8.0, 8.0)]), (9, &[(8.0, 8.0)])]);
         let mut bucketed = BucketedMosaics::new(
-            vec![
-                global_region(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.2, 0.2, 0.0)),
-                global_region(Vec3d::new(0.7, 0.7, 0.0), Vec3d::new(1.0, 1.0, 0.0)),
-            ],
+            TileParams::new(0.5, 0.5),
             0.5,
         );
 
@@ -435,15 +454,25 @@ mod tests {
             global_region(Vec3d::new(0.7, 0.7, 0.0), Vec3d::new(1.0, 1.0, 0.0)),
         );
 
-        assert_eq!(near_only.len(), 1);
-        assert_eq!(far_only.len(), 1);
+        assert_eq!(near_only.len(), 2);
+        assert_eq!(far_only.len(), 2);
         assert_signature(
             &near_only[0],
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(0.09090909090909091, 0.18181818181818182, 0.0),
         );
         assert_signature(
+            &near_only[1],
+            Vec3d::new(0.7272727272727273, 0.7272727272727273, 0.0),
+            Vec3d::new(0.8181818181818182, 0.9090909090909091, 0.0),
+        );
+        assert_signature(
             &far_only[0],
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(0.09090909090909091, 0.18181818181818182, 0.0),
+        );
+        assert_signature(
+            &far_only[1],
             Vec3d::new(0.7272727272727273, 0.7272727272727273, 0.0),
             Vec3d::new(0.8181818181818182, 0.9090909090909091, 0.0),
         );
@@ -452,25 +481,21 @@ mod tests {
     #[test]
     fn get_overlapping_sections_returns_only_regions_that_overlap_bounding_box() {
         let bucketed = BucketedMosaics::new(
-            vec![
-                global_region(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.2, 0.2, 0.0)),
-                global_region(Vec3d::new(0.1, 0.1, 0.0), Vec3d::new(0.4, 0.4, 0.0)),
-                global_region(Vec3d::new(0.7, 0.7, 0.0), Vec3d::new(1.0, 1.0, 0.0)),
-            ],
+            TileParams::new(0.5, 0.5),
             0.5,
         );
-        let query_box = Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.15, 0.15, 0.0));
+        let query_box = Rectangle::new(Vec3d::new(0.5, 0.0, 0.0), Vec3d::new(2.5, 0.15, 0.0));
 
         let overlapping_sections = bucketed.get_overlapping_sections(query_box);
 
         assert_eq!(overlapping_sections.len(), 2);
         assert!(overlapping_sections[0].region.overlaps(&Rectangle::new(
-            Vec3d::new(0.0, 0.0, 0.0),
-            Vec3d::new(0.15, 0.15, 0.0)
+            Vec3d::new(0.5, 0.0, 0.0),
+            Vec3d::new(2.5, 0.15, 0.0)
         )));
         assert!(overlapping_sections[1].region.overlaps(&Rectangle::new(
-            Vec3d::new(0.0, 0.0, 0.0),
-            Vec3d::new(0.15, 0.15, 0.0)
+            Vec3d::new(0.5, 0.0, 0.0),
+            Vec3d::new(2.5, 0.15, 0.0)
         )));
     }
 
