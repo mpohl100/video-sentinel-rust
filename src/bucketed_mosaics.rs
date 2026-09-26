@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use rs_math3d::Vector3;
 
 use crate::eye::TileParams;
+use crate::mosaics;
 use crate::slices::{Rectangle, WrappedRelativeRectangle};
 use crate::traced_mosaics::TracedRelativeMosaic;
 use std::collections::HashMap;
@@ -108,13 +109,15 @@ impl BucketedMosaics {
         &self,
         mosaic: &TracedRelativeMosaic,
     ) -> Vec<TracedRelativeMosaic> {
-        let mut similar_mosaics: Vec<TracedRelativeMosaic> = Vec::new();
+        let mut mosaics_by_center_of_mass: HashMap<(i64, i64), TracedRelativeMosaic> = HashMap::new();
         for section in &self.sections {
             for candidate in section.get_potentially_similar_mosaics(mosaic) {
-                Self::push_unique(&mut similar_mosaics, candidate);
+                let center_of_mass = candidate.get_relative_mosaic().get_center_of_mass();
+                let key_tuple = ( (center_of_mass.get_x() * 1000000.0) as i64, (center_of_mass.get_y() * 1000000.0) as i64);
+                mosaics_by_center_of_mass.insert(key_tuple, candidate);
             }
         }
-        similar_mosaics
+        mosaics_by_center_of_mass.into_values().collect()
     }
 
     pub fn get_similar_mosaics_from_rectangle(
@@ -122,13 +125,15 @@ impl BucketedMosaics {
         mosaic: &TracedRelativeMosaic,
         region: WrappedRelativeRectangle,
     ) -> Vec<TracedRelativeMosaic> {
-        let mut similar_mosaics: Vec<TracedRelativeMosaic> = Vec::new();
+        let mut mosaics_by_center_of_mass: HashMap<(i64, i64), TracedRelativeMosaic> = HashMap::new();
         for section in self.get_overlapping_sections(region.to_rectangle()) {
             for candidate in section.get_potentially_similar_mosaics(mosaic) {
-                Self::push_unique(&mut similar_mosaics, candidate);
+                let center_of_mass = candidate.get_relative_mosaic().get_center_of_mass();
+                let key_tuple = ( (center_of_mass.get_x() * 1000000.0) as i64, (center_of_mass.get_y() * 1000000.0) as i64);
+                mosaics_by_center_of_mass.insert(key_tuple, candidate);
             }
         }
-        similar_mosaics
+        mosaics_by_center_of_mass.into_values().collect()
     }
 
     fn get_overlapping_sections(&self, bounding_box: Rectangle) -> Vec<&BucketedMosaicsPerSection> {
