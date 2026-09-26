@@ -98,10 +98,17 @@ pub fn deduce_rectangles(
             TracedRelativeMosaic::new(wrapped_next_mosaic.clone(), eye_params.trace_params.clone());
         let potentially_similar_mosaics =
             previous_bucketed_mosaics.get_potentially_similar_mosaics(&traced_next_mosaic);
-        println!("Found {} potentially similar mosaics for next mosaic number: {:?}", potentially_similar_mosaics.len(), i);
+        println!(
+            "Found {} potentially similar mosaics for next mosaic number: {:?}",
+            potentially_similar_mosaics.len(),
+            i
+        );
         let mut current_color = Color::Red;
         for (j, previous_mosaic) in potentially_similar_mosaics.into_iter().enumerate() {
-            println!("Comparing next mosaic number: {:?} with previous mosaic number: {:?}", i, j);
+            println!(
+                "Comparing next mosaic number: {:?} with previous mosaic number: {:?}",
+                i, j
+            );
             if are_mosaics_similar(
                 &previous_mosaic,
                 &traced_next_mosaic,
@@ -134,7 +141,10 @@ pub fn deduce_rectangles(
             vec![next_mosaic],
         ));
     }
-    println!("Finished processing all next mosaics. Total results: {}", results.len());
+    println!(
+        "Finished processing all next mosaics. Total results: {}",
+        results.len()
+    );
     results
 }
 
@@ -162,8 +172,8 @@ mod tests {
     use crate::math::{CoordinatedPoint, WrappedCoordinateSystem};
     use crate::mosaics::{Results, WrappedMosaic};
     use crate::slices::{AnnotatedSlice, Slice, SliceLine, SliceMatrix, WrappedRgbImage};
-    use rs_math3d::Vec3d;
     use image::{ImageBuffer, Rgb};
+    use rs_math3d::Vec3d;
 
     const EPSILON: f64 = 1e-8;
 
