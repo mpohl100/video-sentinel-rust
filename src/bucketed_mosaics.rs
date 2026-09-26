@@ -149,21 +149,10 @@ impl BucketedMosaics {
     }
 
     fn get_overlapping_sections(&self, bounding_box: Rectangle) -> Vec<&BucketedMosaicsPerSection> {
-        println!(
-            "Getting overlapping sections for bounding box: {:?}",
-            bounding_box.get_area()
-        );
-        let sections: Vec<_> = self
-            .sections
+        self.sections
             .iter()
             .filter(|section| section.region.overlaps(&bounding_box))
-            .collect();
-        println!(
-            "Found {} overlapping sections for bounding box: {:?}",
-            sections.len(),
-            bounding_box.get_area()
-        );
-        sections
+            .collect()  
     }
 
     fn calculate_regions(tile_params: TileParams) -> Vec<WrappedRelativeRectangle> {
