@@ -761,15 +761,14 @@ fn calculate_ordinary_mosaics(
     let connected_slices = find_connected_slices(&mut slices.clone());
     deduce_mosaics(
         connected_slices.clone(),
-        TraceParams::new(18, 0.2),
         crate::math::Rectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right()),
     )
     .into_iter()
-    .map(|traced_relative_mosaic| {
+    .map(|wrapped_relative_mosaic| {
         AnonymizedMosaic::new(
             results,
-            traced_relative_mosaic.get_relative_mosaic().get_mosaic(),
-            Some(traced_relative_mosaic.get_relative_mosaic()),
+            wrapped_relative_mosaic.get_mosaic(),
+            Some(wrapped_relative_mosaic),
         )
     })
     .collect()

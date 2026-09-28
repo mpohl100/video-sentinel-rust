@@ -486,7 +486,10 @@ mod tests {
             MathRectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right());
         let slices = calculate_slices(image.clone(), rectangle, basic_params());
         let connected_slices = find_connected_slices(&mut slices.clone());
-        deduce_mosaics(connected_slices, trace_params, math_rectangle)
+        deduce_mosaics(connected_slices, math_rectangle)
+            .into_iter()
+            .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params.clone()))
+            .collect()
     }
 
     fn deduce_mosaic_at_position(
