@@ -346,7 +346,11 @@ fn deduce_all_mosaics(image: WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
         surrounding_rectangle.get_top_left(),
         surrounding_rectangle.get_bottom_right(),
     );
-    deduce_mosaics(connected_slices, TraceParams::new(36, 0.2), math_rectangle)
+    let trace_params = TraceParams::new(36, 0.2);
+    deduce_mosaics(connected_slices, math_rectangle)
+        .into_iter()
+        .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params.clone()))
+        .collect()
 }
 
 fn deduce_mosaic_at_position(
@@ -371,7 +375,10 @@ fn reference_object_from_slice_matrices(
 ) -> ReferenceObject {
     ReferenceObject::new(
         id.to_string(),
-        deduce_mosaics(slice_matrices, trace_params, math_rectangle),
+        deduce_mosaics(slice_matrices, math_rectangle)
+            .into_iter()
+            .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params.clone()))
+            .collect(),
     )
 }
 
