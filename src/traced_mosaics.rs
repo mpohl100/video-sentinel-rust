@@ -53,7 +53,7 @@ impl TracedRelativeMosaic {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::{AnonymizedCoordinateSystem, CoordinatedPoint, CoordinateSystem};
+    use crate::math::{AnonymizedCoordinateSystem, CoordinateSystem, CoordinatedPoint};
     use crate::slices::{AnnotatedSlice, Slice, SliceLine, SliceMatrix, WrappedRgbImage};
     use image::{ImageBuffer, Rgb};
     use rs_math3d::Vec3d;
