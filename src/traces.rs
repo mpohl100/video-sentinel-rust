@@ -598,7 +598,7 @@ fn deduce_slices_from_mosaic(
             //     coordinated_rectangle_global.get_bottom_right().y,
             //     coordinated_rectangle_global.get_bottom_right().z,
             // );
-            let line_coordinate_system = coordinated_regioned_angle
+            let mut line_coordinate_system = coordinated_regioned_angle
                 .get_coordinate_system()
                 .duplicate();
             // let line_coordinate_system_origin = line_coordinate_system.to_global(CoordinatedPoint::new(
