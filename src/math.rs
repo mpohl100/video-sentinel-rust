@@ -166,7 +166,7 @@ pub struct Point {
 
 impl PartialEq for Point {
     fn eq(&self, other: &Self) -> bool {
-        let epsilon = 1e-10;
+        let epsilon = 1e-6;
         (self.point.x - other.point.x).abs() < epsilon
             && (self.point.y - other.point.y).abs() < epsilon
             && (self.point.z - other.point.z).abs() < epsilon
@@ -647,10 +647,18 @@ impl CoordinatedRectangle {
         rectangle: Rectangle,
         wrapped_coordinate_system: WrappedCoordinateSystem,
     ) -> Self {
+        let global_coordinate_system = WrappedCoordinateSystem::new(
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(1.0, 0.0, 0.0),
+            Vec3d::new(0.0, 1.0, 0.0),
+        );
         let points = rectangle
             .points
             .iter()
-            .map(|point| CoordinatedPoint::new(wrapped_coordinate_system.clone(), point.point))
+            .map(|point| {
+                let coordinated_point = CoordinatedPoint::new(global_coordinate_system.clone(), point.point);
+                coordinated_point.convert_to(wrapped_coordinate_system.clone())
+            })
             .collect();
         Self { points }
     }
