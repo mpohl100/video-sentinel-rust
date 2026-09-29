@@ -43,8 +43,12 @@ impl Slice {
         ));
         let global_start = start.convert_to(global_coordinate_system.clone());
         let global_end = end.convert_to(global_coordinate_system.clone());
+        let adjusted_end = CoordinatedPoint::new(
+            global_coordinate_system.clone(),
+            Vec3d::new(global_end.get_local_point().x, global_start.get_local_point().y + 1.0, 0.0),
+        );
         Self {
-            global_rectangle: CoordinatedRectangle::new(global_start, global_end),
+            global_rectangle: CoordinatedRectangle::new(global_start, adjusted_end),
         }
     }
 
