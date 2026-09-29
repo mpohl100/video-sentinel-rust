@@ -599,6 +599,10 @@ impl CoordinatedPoint {
         }
     }
 
+    pub fn get_coordinate_system(&self) -> AnonymizedCoordinateSystem {
+        self.coordinate_system.clone()
+    }
+
     pub fn to_global_point(&self) -> CoordinatedPoint {
         let global_coordinate_system = AnonymizedCoordinateSystem::new_direct(CoordinateSystem {
             origin: Vec3d::new(0.0, 0.0, 0.0),
@@ -884,6 +888,22 @@ impl CoordinatedRectangle {
         let global_rectangle = self.to_global_rectangle();
         let global_point = point.coordinate_system.clone().to_global(point);
         global_rectangle.contains_point(global_point.get_local_point())
+    }
+
+    pub fn get_top_left(&self) -> CoordinatedPoint {
+        self.points[0].clone()
+    }
+    
+    pub fn get_top_right(&self) -> CoordinatedPoint {
+        self.points[1].clone()
+    }
+    
+    pub fn get_bottom_left(&self) -> CoordinatedPoint {
+        self.points[2].clone()
+    }
+
+    pub fn get_bottom_right(&self) -> CoordinatedPoint {
+        self.points[3].clone()
     }
 }
 
