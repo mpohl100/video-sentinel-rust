@@ -1,12 +1,10 @@
+use crate::math::CoordinateSystem;
 use crate::{
-    math::CoordinatedCircle,
-    math::CoordinatedPoint,
-    math::CoordinatedRectangle,
-    math::Rectangle,
-    math::WrappedCoordinateSystem,
-    slices::Rectangle as SliceRectangle,
-    slices::RelativeRectangle,
-    slices::{CachedData, SliceMatrix},
+    math::{
+        AnonymizedCoordinateSystem, CoordinatedCircle, CoordinatedPoint, CoordinatedRectangle,
+        Rectangle,
+    },
+    slices::{CachedData, Rectangle as SliceRectangle, RelativeRectangle, SliceMatrix},
 };
 
 use rs_math3d::Vec3d;
@@ -184,11 +182,11 @@ impl RelativeMosaic {
         if self.cached_relative_data.is_some() {
             return;
         }
-        let relative_coordinate_system = WrappedCoordinateSystem::new(
+        let relative_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
-        );
+        ));
         let top_left = self.absolute_rectangle.get_top_left();
         let bottom_right = self.absolute_rectangle.get_bottom_right();
         let width = bottom_right.x - top_left.x;
@@ -256,7 +254,7 @@ impl RelativeMosaic {
 
     fn map_to_relative_point(
         point: CoordinatedPoint,
-        relative_coordinate_system: &WrappedCoordinateSystem,
+        relative_coordinate_system: &AnonymizedCoordinateSystem,
         top_left: Vec3d,
         width: f64,
         height: f64,
@@ -274,7 +272,7 @@ impl RelativeMosaic {
 
     fn get_relative_bounding_box(
         &self,
-        relative_coordinate_system: WrappedCoordinateSystem,
+        relative_coordinate_system: AnonymizedCoordinateSystem,
     ) -> CoordinatedRectangle {
         let bounding_box = SliceRectangle::new_from_math_rectangle(
             self.mosaic.get_bounding_box().to_global_rectangle(),
@@ -492,7 +490,7 @@ pub fn deduce_mosaics(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::{CoordinatedPoint, WrappedCoordinateSystem};
+    use crate::math::{AnonymizedCoordinateSystem, CoordinatedPoint};
     use crate::slices::{AnnotatedSlice, Slice, SliceLine, WrappedRgbImage};
     use image::{ImageBuffer, Rgb};
 
@@ -511,12 +509,12 @@ mod tests {
         assert_float_eq(actual.z, expected.z);
     }
 
-    fn global_coordinate_system() -> WrappedCoordinateSystem {
-        WrappedCoordinateSystem::new(
+    fn global_coordinate_system() -> AnonymizedCoordinateSystem {
+        AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
-        )
+        ))
     }
 
     fn point(x: f64, y: f64) -> CoordinatedPoint {

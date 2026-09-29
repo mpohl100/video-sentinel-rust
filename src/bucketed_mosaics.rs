@@ -183,7 +183,9 @@ impl BucketedMosaics {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::Rectangle as MathRectangle;
+    use crate::math::AnonymizedCoordinateSystem;
+use crate::math::CoordinateSystem;
+use crate::math::Rectangle as MathRectangle;
     use crate::mosaics::WrappedMosaic;
     use crate::mosaics::WrappedRelativeMosaic;
     use crate::slices::{
@@ -221,22 +223,19 @@ mod tests {
     }
 
     fn annotated_slice(x1: f64, y: f64, x2: f64, line_number: usize) -> AnnotatedSlice {
+        let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(1.0, 0.0, 0.0),
+            Vec3d::new(0.0, 1.0, 0.0),
+        ));
         AnnotatedSlice::new(
             Slice::new(
                 crate::math::CoordinatedPoint::new(
-                    crate::math::WrappedCoordinateSystem::new(
-                        Vec3d::new(0.0, 0.0, 0.0),
-                        Vec3d::new(1.0, 0.0, 0.0),
-                        Vec3d::new(0.0, 1.0, 0.0),
-                    ),
+                    global_coordinate_system.clone(),
                     Vec3d::new(x1, y, 0.0),
                 ),
                 crate::math::CoordinatedPoint::new(
-                    crate::math::WrappedCoordinateSystem::new(
-                        Vec3d::new(0.0, 0.0, 0.0),
-                        Vec3d::new(1.0, 0.0, 0.0),
-                        Vec3d::new(0.0, 1.0, 0.0),
-                    ),
+                    global_coordinate_system,
                     Vec3d::new(x2, y, 0.0),
                 ),
             ),

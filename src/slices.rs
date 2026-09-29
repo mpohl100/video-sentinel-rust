@@ -8,10 +8,11 @@ use image::{ImageBuffer, Rgb};
 
 use std::sync::{Arc, Mutex};
 
+use crate::math::AnonymizedCoordinateSystem;
+use crate::math::CoordinateSystem;
 use crate::math::CoordinatedPoint;
 use crate::math::CoordinatedRectangle;
 use crate::math::Rectangle as OtherRectangle;
-use crate::math::WrappedCoordinateSystem;
 use crate::mosaics::AnonymizedMosaic;
 
 #[derive(Clone)]
@@ -22,11 +23,11 @@ pub struct Slice {
 
 impl PartialEq for Slice {
     fn eq(&self, other: &Self) -> bool {
-        let global_coordinate_system = WrappedCoordinateSystem::new(
+        let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
-        );
+        ));
         let self_start_global = self.start.convert_to(global_coordinate_system.clone());
         let self_end_global = self.end.convert_to(global_coordinate_system.clone());
         let other_start_global = other.start.convert_to(global_coordinate_system.clone());
@@ -53,18 +54,18 @@ impl Slice {
     }
 
     pub fn convert_to_global(&self) -> Slice {
-        let global_coordinate_system = WrappedCoordinateSystem::new(
+        let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
-        );
+        ));
         Slice {
             start: self.start.convert_to(global_coordinate_system.clone()),
             end: self.end.convert_to(global_coordinate_system.clone()),
         }
     }
 
-    pub fn convert_to(&self, coordinate_system: WrappedCoordinateSystem) -> Slice {
+    pub fn convert_to(&self, coordinate_system: AnonymizedCoordinateSystem) -> Slice {
         Slice {
             start: self.start.convert_to(coordinate_system.clone()),
             end: self.end.convert_to(coordinate_system.clone()),
@@ -447,11 +448,11 @@ impl SliceMatrix {
                 }
             }
         }
-        let global_coordinate_system = WrappedCoordinateSystem::new(
+        let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
-        );
+        ));
         let tl_coordinated = CoordinatedPoint::new(global_coordinate_system.clone(), tl);
         let br_coordinated = CoordinatedPoint::new(global_coordinate_system.clone(), br);
         let bounding_box =
@@ -487,11 +488,11 @@ impl SliceMatrix {
     }
 
     pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
-        let global_coordinate_system = WrappedCoordinateSystem::new(
+        let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
-        );
+        ));
         let global_point = point.convert_to(global_coordinate_system.clone());
         let y_coordinate = global_point.get_y().floor();
         let first_line_number = self.lines.first().unwrap().line_number as f64;
@@ -1005,11 +1006,11 @@ pub fn calculate_slices(
             image::imageops::grayscale(&*image)
         };
         let mut current_slice = None;
-        let global_coordinate_system = WrappedCoordinateSystem::new(
+        let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
-        );
+        ));
         for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
             for x in rectangle.top_left.x as usize + 2..rectangle.bottom_right.x as usize - 2 {
@@ -1059,11 +1060,11 @@ pub fn calculate_slices(
                     && gradient_1 <= params.gradient_threshold as u16
                     && gradient_2 <= params.gradient_threshold as u16
                 {
-                    let global_coordinate_system = WrappedCoordinateSystem::new(
+                    let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
                         Vec3d::new(0.0, 0.0, 0.0),
                         Vec3d::new(1.0, 0.0, 0.0),
                         Vec3d::new(0.0, 1.0, 0.0),
-                    );
+                    ));
                     if current_slice.is_none() {
                         current_slice = Some(AnnotatedSlice {
                             slice: Slice {
@@ -1226,31 +1227,31 @@ mod tests {
         assert_float_eq(actual.z, expected.z);
     }
 
-    fn global_coordinate_system() -> WrappedCoordinateSystem {
-        WrappedCoordinateSystem::new(
+    fn global_coordinate_system() -> AnonymizedCoordinateSystem {
+        AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
-        )
+        ))
     }
 
-    fn translated_coordinate_system() -> WrappedCoordinateSystem {
-        WrappedCoordinateSystem::new(
+    fn translated_coordinate_system() -> AnonymizedCoordinateSystem {
+        AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(10.0, -5.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
-        )
+        ))
     }
 
-    fn rotated_coordinate_system() -> WrappedCoordinateSystem {
-        WrappedCoordinateSystem::new(
+    fn rotated_coordinate_system() -> AnonymizedCoordinateSystem {
+        AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(1.0, 2.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
             Vec3d::new(-1.0, 0.0, 0.0),
-        )
+        ))
     }
 
-    fn point_in(cs: WrappedCoordinateSystem, x: f64, y: f64) -> CoordinatedPoint {
+    fn point_in(cs: AnonymizedCoordinateSystem, x: f64, y: f64) -> CoordinatedPoint {
         CoordinatedPoint::new(cs, Vec3d::new(x, y, 0.0))
     }
 

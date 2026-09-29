@@ -2,7 +2,8 @@ use crate::eye::EyeParams;
 use crate::eye::TileParams;
 use crate::eye::deduce_bucketed_mosaics;
 use crate::eye::deduce_rectangles;
-use crate::math::WrappedCoordinateSystem;
+use crate::math::AnonymizedCoordinateSystem;
+use crate::math::CoordinateSystem;
 use crate::mosaics::AnonymizedMosaic;
 use crate::mosaics::Results;
 use crate::mosaics::WrappedRelativeMosaic;
@@ -787,11 +788,11 @@ fn deduce_enriched_mosaic(
 ) -> EnrichedMosaic {
     let mosaic = anonymized_mosaic.get_mosaic();
     let slice_matrix = mosaic.get_slice_matrix();
-    let global_coordinate_system = WrappedCoordinateSystem::new(
+    let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
         Vec3d::new(0.0, 0.0, 0.0),
         Vec3d::new(1.0, 0.0, 0.0),
         Vec3d::new(0.0, 1.0, 0.0),
-    );
+    ));
     let slice_matrix_output = slice_matrix
         .get_slice_lines()
         .into_iter()
