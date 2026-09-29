@@ -495,10 +495,9 @@ impl AnonymizedCoordinateSystem {
         ))
     }
 
-    pub fn rotate(&self, angle: RegionedAngle) {
+    pub fn rotate(&mut self, angle: RegionedAngle) {
         match self {
             AnonymizedCoordinateSystem::Direct(cs) => {
-                let mut cs = cs.clone();
                 cs.rotate(angle);
             }
             AnonymizedCoordinateSystem::Indirect(wrapped_cs) => {
@@ -1325,7 +1324,7 @@ mod tests {
     fn wrapped_coordinate_system_methods_cover_round_trips_angles_and_alignment() {
         let translated = translated_coordinate_system();
         let point = CoordinatedPoint::new(translated.clone(), Vec3d::new(2.0, 3.0, 0.0));
-        let global = global_coordinate_system();
+        let mut global = global_coordinate_system();
         let rotated = AnonymizedCoordinateSystem::Indirect(WrappedCoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
