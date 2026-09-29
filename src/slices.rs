@@ -15,6 +15,27 @@ use crate::math::CoordinatedRectangle;
 use crate::math::Rectangle as OtherRectangle;
 use crate::mosaics::AnonymizedMosaic;
 
+
+#[derive(Clone)]
+struct PreliminarySlice {
+    start: CoordinatedPoint,
+    end: CoordinatedPoint,
+}
+
+impl PreliminarySlice {
+    pub fn new(start: CoordinatedPoint, end: CoordinatedPoint) -> Self {
+        Self { start, end }
+    }
+
+    pub fn get_start(&self) -> CoordinatedPoint {
+        self.start.clone()
+    }
+
+    pub fn get_end(&self) -> CoordinatedPoint {
+        self.end.clone()
+    }
+}
+
 #[derive(Clone)]
 pub struct Slice {
     global_rectangle: CoordinatedRectangle,
@@ -93,6 +114,21 @@ impl Slice {
                     .convert_to(coordinate_system.clone()),
             ),
         }
+    }
+}
+
+struct PreliminaryAnnotatedSlice {
+    slice: PreliminarySlice,
+    line_number: usize,
+}
+
+impl PreliminaryAnnotatedSlice {
+    pub fn new(slice: PreliminarySlice, line_number: usize) -> Self {
+        Self { slice, line_number }
+    }
+
+    pub fn get_slice(&self) -> PreliminarySlice {
+        self.slice.clone()
     }
 }
 
@@ -551,8 +587,7 @@ impl SliceMatrix {
         );
         let point_rectangle = CoordinatedRectangle::new(point_rectangle_tl, point_rectangle_br);
         for slice in line.get_slices() {
-            let global_rectangle = slice.slice.get_global_rectangle();
-            if point_rectangle.overlaps(&global_rectangle) {
+            if point_rectangle.overlaps(&slice.slice.get_global_rectangle()) {
                 return true;
             }
         }
@@ -930,7 +965,7 @@ fn compute_smoothed_gradient(gray_image: &image::GrayImage, x: usize, y: usize) 
 
         let grad_x = grad_cl_cr + grad_tl_br * sqrt2 + grad_bl_tr * sqrt2;
         let grad_y = -grad_bc_tc + grad_tl_br * sqrt2 - grad_bl_tr * sqrt2;
-        let grad_total = grad_x.hypot(grad_y);
+        let grad_total = (grad_x * grad_x + grad_y * grad_y).sqrt();
 
         grad_total as u16
     };
@@ -999,9 +1034,13 @@ fn compute_smoothed_gradient_channel(
     (sum / 9) as u16
 }
 
-fn emplace_current_slice(current_slice: &mut Option<AnnotatedSlice>, current_line: &mut SliceLine) {
+fn emplace_current_slice(current_slice: &mut Option<PreliminaryAnnotatedSlice>, current_line: &mut SliceLine) {
     if let Some(slice) = current_slice.take() {
-        current_line.add(slice);
+        let annotated_slice = AnnotatedSlice::new(
+            Slice::new(slice.get_slice().get_start(), slice.get_slice().get_end()),
+            current_line.get_line_number(),
+        );
+        current_line.add(annotated_slice);
     }
 }
 
@@ -1041,8 +1080,8 @@ pub fn calculate_slices(
 
                 if gradient <= params.gradient_threshold as u16 {
                     if current_slice.is_none() {
-                        current_slice = Some(AnnotatedSlice::new(
-                            Slice::new(
+                        current_slice = Some(PreliminaryAnnotatedSlice::new(
+                            PreliminarySlice::new(
                                 CoordinatedPoint::new(
                                     global_coordinate_system.clone(),
                                     Vec3d::new(x as f64, y as f64, 0.0),
@@ -1056,8 +1095,8 @@ pub fn calculate_slices(
                         ));
                     } else {
                         if let Some(slice) = &mut current_slice {
-                            *slice = AnnotatedSlice::new(
-                                Slice::new(
+                            *slice = PreliminaryAnnotatedSlice::new(
+                                PreliminarySlice::new(
                                     slice.slice.get_start(),
                                     CoordinatedPoint::new(
                                         slice.slice.get_end().get_coordinate_system().clone(),
@@ -1096,8 +1135,8 @@ pub fn calculate_slices(
                             Vec3d::new(0.0, 1.0, 0.0),
                         ));
                     if current_slice.is_none() {
-                        current_slice = Some(AnnotatedSlice::new(
-                            Slice::new(
+                        current_slice = Some(PreliminaryAnnotatedSlice::new(
+                            PreliminarySlice::new(
                                 CoordinatedPoint::new(
                                     global_coordinate_system.clone(),
                                     Vec3d::new(x as f64, y as f64, 0.0),
@@ -1111,8 +1150,8 @@ pub fn calculate_slices(
                         ));
                     } else {
                         if let Some(slice) = &mut current_slice {
-                            *slice = AnnotatedSlice::new(
-                                Slice::new(
+                            *slice = PreliminaryAnnotatedSlice::new(
+                                PreliminarySlice::new(
                                     slice.slice.get_start(),
                                     CoordinatedPoint::new(
                                         global_coordinate_system.clone(),
@@ -1297,6 +1336,10 @@ mod tests {
 
     fn slice(x1: f64, y: f64, x2: f64) -> Slice {
         Slice::new(point(x1, y), point(x2, y))
+    }
+
+    fn preliminary_annotated_slice(x1: f64, y: f64, x2: f64, line_number: usize) -> PreliminaryAnnotatedSlice {
+        PreliminaryAnnotatedSlice::new(PreliminarySlice::new(point(x1, y), point(x2, y)), line_number)
     }
 
     fn annotated_slice(x1: f64, y: f64, x2: f64, line_number: usize) -> AnnotatedSlice {
@@ -1669,7 +1712,7 @@ mod tests {
 
     #[test]
     fn emplace_current_slice_moves_pending_slice_once() {
-        let mut current_slice = Some(annotated_slice(2.0, 6.0, 4.0, 6));
+        let mut current_slice = Some(preliminary_annotated_slice(2.0, 6.0, 4.0, 6));
         let mut line = SliceLine::new(6, Vec::new());
 
         emplace_current_slice(&mut current_slice, &mut line);
