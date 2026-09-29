@@ -52,6 +52,10 @@ impl Slice {
         }
     }
 
+    pub fn get_global_rectangle(&self) -> CoordinatedRectangle {
+        self.global_rectangle.clone()
+    }
+
     pub fn get_start(&self) -> CoordinatedPoint {
         self.global_rectangle.get_top_left()
     }
@@ -547,17 +551,7 @@ impl SliceMatrix {
         );
         let point_rectangle = CoordinatedRectangle::new(point_rectangle_tl, point_rectangle_br);
         for slice in line.get_slices() {
-            let slice_start = slice.get_slice().get_start();
-            let slice_end = slice.get_slice().get_end();
-            let global_start = slice_start.convert_to(global_coordinate_system.clone());
-            let global_end = slice_end.convert_to(global_coordinate_system.clone());
-            let global_rectangle_tl = global_start.clone();
-            let global_rectangle_br = CoordinatedPoint::new(
-                global_coordinate_system.clone(),
-                Vec3d::new(global_end.get_x(), global_end.get_y() + 1.0, 0.0),
-            );
-            let global_rectangle =
-                CoordinatedRectangle::new(global_rectangle_tl, global_rectangle_br);
+            let global_rectangle = slice.slice.get_global_rectangle();
             if point_rectangle.overlaps(&global_rectangle) {
                 return true;
             }
