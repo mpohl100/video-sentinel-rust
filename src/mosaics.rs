@@ -485,9 +485,7 @@ pub fn deduce_mosaics(
     slice_matrices
         .into_iter()
         .map(WrappedMosaic::new)
-        .map(|mosaic| {
-            WrappedRelativeMosaic::new(mosaic, surrounding_rectangle.clone())
-        })
+        .map(|mosaic| WrappedRelativeMosaic::new(mosaic, surrounding_rectangle.clone()))
         .collect()
 }
 

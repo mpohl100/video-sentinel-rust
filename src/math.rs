@@ -656,7 +656,8 @@ impl CoordinatedRectangle {
             .points
             .iter()
             .map(|point| {
-                let coordinated_point = CoordinatedPoint::new(global_coordinate_system.clone(), point.point);
+                let coordinated_point =
+                    CoordinatedPoint::new(global_coordinate_system.clone(), point.point);
                 coordinated_point.convert_to(wrapped_coordinate_system.clone())
             })
             .collect();
