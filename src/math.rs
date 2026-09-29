@@ -445,9 +445,8 @@ impl WrappedCoordinateSystem {
     }
 
     pub fn get_angle_between(&self, other: &AnonymizedCoordinateSystem) -> RegionedAngle {
-        let self_x_axis = match &self.coordinate_system.lock().unwrap().clone() {
-            CoordinateSystem { x_axis, .. } => *x_axis,
-        };
+        let CoordinateSystem { x_axis, .. } = &self.coordinate_system.lock().unwrap().clone();
+        let self_x_axis = *x_axis;
         let other_x_axis = match other {
             AnonymizedCoordinateSystem::Direct(cs) => cs.x_axis,
             AnonymizedCoordinateSystem::Indirect(wrapped_cs) => {
@@ -571,7 +570,9 @@ impl AnonymizedCoordinateSystem {
     pub fn align_x_axis_with(&mut self, other: AnonymizedCoordinateSystem) {
         match self {
             AnonymizedCoordinateSystem::Direct(cs) => cs.align_x_axis_with(&other),
-            AnonymizedCoordinateSystem::Indirect(wrapped_cs) => wrapped_cs.align_x_axis_with(&other),
+            AnonymizedCoordinateSystem::Indirect(wrapped_cs) => {
+                wrapped_cs.align_x_axis_with(&other)
+            }
         }
     }
 }
@@ -893,11 +894,11 @@ impl CoordinatedRectangle {
     pub fn get_top_left(&self) -> CoordinatedPoint {
         self.points[0].clone()
     }
-    
+
     pub fn get_top_right(&self) -> CoordinatedPoint {
         self.points[1].clone()
     }
-    
+
     pub fn get_bottom_left(&self) -> CoordinatedPoint {
         self.points[2].clone()
     }
@@ -990,7 +991,7 @@ impl CoordinatedCircle {
             ));
         let intersection_points = intersection_points_raw
             .iter()
-            .map(|p| CoordinatedPoint::new(global_coordinate_system.clone(), p.clone()))
+            .map(|p| CoordinatedPoint::new(global_coordinate_system.clone(), *p))
             .collect::<Vec<_>>();
         if intersection_points.len() == 2 {
             let target_coordinate_system = line.start.coordinate_system.clone();
@@ -1375,23 +1376,33 @@ mod tests {
                 .get_local_point(),
             Vec3d::new(2.0, 3.0, 0.0),
         );
-        assert_float_eq(global.get_angle_between(rotated.clone()).angle_degrees, 90.0);
-        assert_float_eq(rotated.get_angle_between(global.clone()).angle_degrees, -90.0);
+        assert_float_eq(
+            global.get_angle_between(rotated.clone()).angle_degrees,
+            90.0,
+        );
+        assert_float_eq(
+            rotated.get_angle_between(global.clone()).angle_degrees,
+            -90.0,
+        );
 
         global.rotate(RegionedAngle::new(90.0, -180.0, 180.0));
 
         assert_vec_eq(
-            global.to_global(CoordinatedPoint::new(
-                global.clone(),
-                Vec3d::new(1.0, 0.0, 0.0),
-            )).get_local_point(),
+            global
+                .to_global(CoordinatedPoint::new(
+                    global.clone(),
+                    Vec3d::new(1.0, 0.0, 0.0),
+                ))
+                .get_local_point(),
             Vec3d::new(0.0, -1.0, 0.0),
         );
         assert_vec_eq(
-            duplicate.to_global(CoordinatedPoint::new(
-                duplicate.clone(),
-                Vec3d::new(1.0, 0.0, 0.0),
-            )).get_local_point(),
+            duplicate
+                .to_global(CoordinatedPoint::new(
+                    duplicate.clone(),
+                    Vec3d::new(1.0, 0.0, 0.0),
+                ))
+                .get_local_point(),
             Vec3d::new(1.0, 0.0, 0.0),
         );
 
@@ -1527,10 +1538,8 @@ mod tests {
     #[test]
     fn coordinated_point_convert_to_same_global_system_is_no_op() {
         let global_coordinate_system = global_coordinate_system();
-        let point = CoordinatedPoint::new(
-            global_coordinate_system.clone(),
-            Vec3d::new(2.0, 3.0, 0.0),
-        );
+        let point =
+            CoordinatedPoint::new(global_coordinate_system.clone(), Vec3d::new(2.0, 3.0, 0.0));
 
         let converted = point.convert_to(global_coordinate_system);
 

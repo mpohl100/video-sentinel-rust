@@ -184,8 +184,8 @@ impl BucketedMosaics {
 mod tests {
     use super::*;
     use crate::math::AnonymizedCoordinateSystem;
-use crate::math::CoordinateSystem;
-use crate::math::Rectangle as MathRectangle;
+    use crate::math::CoordinateSystem;
+    use crate::math::Rectangle as MathRectangle;
     use crate::mosaics::WrappedMosaic;
     use crate::mosaics::WrappedRelativeMosaic;
     use crate::slices::{

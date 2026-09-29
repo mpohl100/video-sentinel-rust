@@ -15,7 +15,6 @@ use crate::math::CoordinatedRectangle;
 use crate::math::Rectangle as OtherRectangle;
 use crate::mosaics::AnonymizedMosaic;
 
-
 #[derive(Clone)]
 struct PreliminarySlice {
     start: CoordinatedPoint,
@@ -66,7 +65,11 @@ impl Slice {
         let global_end = end.convert_to(global_coordinate_system.clone());
         let adjusted_end = CoordinatedPoint::new(
             global_coordinate_system.clone(),
-            Vec3d::new(global_end.get_local_point().x, global_start.get_local_point().y + 1.0, 0.0),
+            Vec3d::new(
+                global_end.get_local_point().x,
+                global_start.get_local_point().y + 1.0,
+                0.0,
+            ),
         );
         Self {
             global_rectangle: CoordinatedRectangle::new(global_start, adjusted_end),
@@ -1034,7 +1037,10 @@ fn compute_smoothed_gradient_channel(
     (sum / 9) as u16
 }
 
-fn emplace_current_slice(current_slice: &mut Option<PreliminaryAnnotatedSlice>, current_line: &mut SliceLine) {
+fn emplace_current_slice(
+    current_slice: &mut Option<PreliminaryAnnotatedSlice>,
+    current_line: &mut SliceLine,
+) {
     if let Some(slice) = current_slice.take() {
         let annotated_slice = AnnotatedSlice::new(
             Slice::new(slice.get_slice().get_start(), slice.get_slice().get_end()),
@@ -1338,8 +1344,16 @@ mod tests {
         Slice::new(point(x1, y), point(x2, y))
     }
 
-    fn preliminary_annotated_slice(x1: f64, y: f64, x2: f64, line_number: usize) -> PreliminaryAnnotatedSlice {
-        PreliminaryAnnotatedSlice::new(PreliminarySlice::new(point(x1, y), point(x2, y)), line_number)
+    fn preliminary_annotated_slice(
+        x1: f64,
+        y: f64,
+        x2: f64,
+        line_number: usize,
+    ) -> PreliminaryAnnotatedSlice {
+        PreliminaryAnnotatedSlice::new(
+            PreliminarySlice::new(point(x1, y), point(x2, y)),
+            line_number,
+        )
     }
 
     fn annotated_slice(x1: f64, y: f64, x2: f64, line_number: usize) -> AnnotatedSlice {
