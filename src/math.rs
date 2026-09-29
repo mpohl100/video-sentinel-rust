@@ -551,18 +551,11 @@ impl AnonymizedCoordinateSystem {
     }
 
     pub fn from_global(&self, global_point: CoordinatedPoint) -> CoordinatedPoint {
-        let global_coordinate_system = AnonymizedCoordinateSystem::new_direct(CoordinateSystem {
-            origin: Vec3d::new(0.0, 0.0, 0.0),
-            x_axis: Vec3d::new(1.0, 0.0, 0.0),
-            y_axis: Vec3d::new(0.0, 1.0, 0.0),
-        });
-        let converted_point = global_point.convert_to(global_coordinate_system);
+        let global_coordinates = global_point.get_local_point();
         match self {
-            AnonymizedCoordinateSystem::Direct(cs) => {
-                cs.convert_from_global(converted_point.get_local_point())
-            }
+            AnonymizedCoordinateSystem::Direct(cs) => cs.convert_from_global(global_coordinates),
             AnonymizedCoordinateSystem::Indirect(wrapped_cs) => {
-                wrapped_cs.from_global(converted_point.get_local_point())
+                wrapped_cs.from_global(global_coordinates)
             }
         }
     }
@@ -1510,6 +1503,19 @@ mod tests {
         let intersection = intersection.unwrap();
         assert_global_point_eq(intersection.get_start(), Vec3d::new(0.0, 2.0, 0.0));
         assert_global_point_eq(intersection.get_end(), Vec3d::new(4.0, 2.0, 0.0));
+    }
+
+    #[test]
+    fn coordinated_point_convert_to_same_global_system_is_no_op() {
+        let global_coordinate_system = global_coordinate_system();
+        let point = CoordinatedPoint::new(
+            global_coordinate_system.clone(),
+            Vec3d::new(2.0, 3.0, 0.0),
+        );
+
+        let converted = point.convert_to(global_coordinate_system);
+
+        assert_vec_eq(converted.get_local_point(), Vec3d::new(2.0, 3.0, 0.0));
     }
 
     #[test]
