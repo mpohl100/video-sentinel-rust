@@ -381,8 +381,8 @@ struct TaggedRatio {
 
 fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
     // convert the following code to rust
-    let mut overlaps: Vec<TaggedRatio> = Vec::new();
-    let mut interesting_points: Vec<f64> = Vec::new();
+    let mut overlaps: Vec<TaggedRatio> = Vec::with_capacity(16);
+    let mut interesting_points: Vec<f64> = Vec::with_capacity(16);
     interesting_points.push(0.0);
     interesting_points.push(1.0);
     for polar_slice in &line1.slices {
@@ -492,7 +492,7 @@ fn deduce_slices_from_mosaic(
     //     params.close_slice_threshold()
     // );
 
-    let mut slices = Vec::new();
+    let mut slices = Vec::with_capacity(20);
     // for every x in the range of -radius to radius with a step of 0.5, find the intersections with the mosaic and create slices
     let step = 0.5;
     // println!("  local step = {:.8}", step);
