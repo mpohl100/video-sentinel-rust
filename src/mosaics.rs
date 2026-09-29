@@ -1,5 +1,3 @@
-use crate::traced_mosaics::TracedRelativeMosaic;
-use crate::traces::TraceParams;
 use crate::{
     math::CoordinatedCircle,
     math::CoordinatedPoint,
