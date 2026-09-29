@@ -159,7 +159,8 @@ fn are_mosaics_similar(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::{CoordinatedPoint, WrappedCoordinateSystem};
+    use crate::math::CoordinateSystem;
+    use crate::math::{AnonymizedCoordinateSystem, CoordinatedPoint};
     use crate::mosaics::{Results, WrappedMosaic};
     use crate::slices::{AnnotatedSlice, Slice, SliceLine, SliceMatrix, WrappedRgbImage};
     use image::{ImageBuffer, Rgb};
@@ -174,12 +175,12 @@ mod tests {
         );
     }
 
-    fn global_coordinate_system() -> WrappedCoordinateSystem {
-        WrappedCoordinateSystem::new(
+    fn global_coordinate_system() -> AnonymizedCoordinateSystem {
+        AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
-        )
+        ))
     }
 
     fn point(x: f64, y: f64) -> CoordinatedPoint {

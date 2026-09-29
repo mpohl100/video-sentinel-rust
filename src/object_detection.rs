@@ -1,5 +1,4 @@
 use core::panic;
-
 use rs_math3d::Vec3d;
 
 use crate::bucketed_mosaics::BucketedMosaics;
@@ -285,6 +284,8 @@ fn combine_boxes(boxes: Vec<Rectangle>) -> Rectangle {
 mod tests {
     use super::*;
     use crate::bucketed_mosaics::BucketedMosaics;
+    use crate::math::AnonymizedCoordinateSystem;
+    use crate::math::CoordinateSystem;
     use crate::math::Rectangle as MathRectangle;
     use crate::mosaics::deduce_mosaics;
     use crate::slices::{BasicParams, WrappedRgbImage, calculate_slices, find_connected_slices};
@@ -496,16 +497,14 @@ mod tests {
         image: WrappedRgbImage,
         position: Vec3d,
     ) -> Option<TracedRelativeMosaic> {
+        let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(1.0, 0.0, 0.0),
+            Vec3d::new(0.0, 1.0, 0.0),
+        ));
         deduce_all_mosaics(image).into_iter().find(|mosaic| {
             mosaic.get_relative_mosaic().get_mosaic().contains_point(
-                crate::math::CoordinatedPoint::new(
-                    crate::math::WrappedCoordinateSystem::new(
-                        Vec3d::new(0.0, 0.0, 0.0),
-                        Vec3d::new(1.0, 0.0, 0.0),
-                        Vec3d::new(0.0, 1.0, 0.0),
-                    ),
-                    position,
-                ),
+                crate::math::CoordinatedPoint::new(global_coordinate_system.clone(), position),
             )
         })
     }

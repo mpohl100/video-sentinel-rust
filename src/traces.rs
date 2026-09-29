@@ -1,3 +1,5 @@
+use crate::math::AnonymizedCoordinateSystem;
+use crate::math::CoordinateSystem;
 use crate::math::CoordinatedLine;
 use crate::math::CoordinatedPoint;
 use crate::math::CoordinatedRectangle;
@@ -5,7 +7,6 @@ use crate::math::CoordinatedRegionedAngle;
 use crate::math::PolarCoordinates;
 use crate::math::Rectangle;
 use crate::math::RegionedAngle;
-use crate::math::WrappedCoordinateSystem;
 use crate::mosaics::WrappedMosaic;
 
 use rs_math3d::Vec3d;
@@ -85,21 +86,21 @@ pub struct Trace {
 
 impl Trace {
     pub fn new_from_mosaic(mosaic: WrappedMosaic, params: TraceParams) -> Self {
-        let global_coordinate_system = WrappedCoordinateSystem::new(
+        let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
-        );
+        ));
         let ratio_lines = (0..params.num_skeleton)
             .map(|i| {
-                let coordinate_system = WrappedCoordinateSystem::new(
+                let coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
                     mosaic
                         .get_center_of_mass()
                         .convert_to(global_coordinate_system.clone())
                         .get_local_point(),
                     Vec3d::new(1.0, 0.0, 0.0),
                     Vec3d::new(0.0, 1.0, 0.0),
-                );
+                ));
                 let coordinated_regioned_angle = CoordinatedRegionedAngle::new(
                     coordinate_system,
                     RegionedAngle::new(
@@ -127,20 +128,20 @@ impl Trace {
     }
 
     pub fn new_from_mosaics(mosaics: Vec<WrappedMosaic>, params: TraceParams) -> Self {
-        let global_coordinate_system = WrappedCoordinateSystem::new(
+        let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
-        );
+        ));
         let center_of_mass =
             calculate_center_of_mass(&mosaics).convert_to(global_coordinate_system.clone());
         let ratio_lines = (0..params.num_skeleton)
             .map(|i| {
-                let coordinate_system = WrappedCoordinateSystem::new(
+                let coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
                     center_of_mass.clone().get_local_point(),
                     Vec3d::new(1.0, 0.0, 0.0),
                     Vec3d::new(0.0, 1.0, 0.0),
-                );
+                ));
                 let coordinated_regioned_angle = CoordinatedRegionedAngle::new(
                     coordinate_system,
                     RegionedAngle::new(
@@ -502,11 +503,11 @@ fn deduce_slices_from_mosaic(
     while x <= 1.15 * radius {
         // println!("loop iteration {iteration}: begin");
         // println!("  local x = {:.8}", x);
-        let global_coordinate_system = WrappedCoordinateSystem::new(
+        let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
-        );
+        ));
         // let global_origin = global_coordinate_system.to_global(CoordinatedPoint::new(
         //     global_coordinate_system.clone(),
         //     Vec3d::new(0.0, 0.0, 0.0),
@@ -854,13 +855,13 @@ fn combine_close_slices(slices: Vec<Option<PolarSlice>>) -> Vec<PolarSlice> {
 fn calculate_center_of_mass(mosaics: &[WrappedMosaic]) -> CoordinatedPoint {
     let mut total_mass = 0.0;
     let mut center_of_mass = Vec3d::new(0.0, 0.0, 0.0);
+    let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
+        Vec3d::new(0.0, 0.0, 0.0),
+        Vec3d::new(1.0, 0.0, 0.0),
+        Vec3d::new(0.0, 1.0, 0.0),
+    ));
     for mosaic in mosaics {
         let mass = mosaic.get_area();
-        let global_coordinate_system = WrappedCoordinateSystem::new(
-            Vec3d::new(0.0, 0.0, 0.0),
-            Vec3d::new(1.0, 0.0, 0.0),
-            Vec3d::new(0.0, 1.0, 0.0),
-        );
         let mosaic_center = mosaic
             .get_center_of_mass()
             .convert_to(global_coordinate_system.clone());
@@ -874,11 +875,6 @@ fn calculate_center_of_mass(mosaics: &[WrappedMosaic]) -> CoordinatedPoint {
         center_of_mass.y /= total_mass;
         center_of_mass.z /= total_mass;
     }
-    let global_coordinate_system = WrappedCoordinateSystem::new(
-        Vec3d::new(0.0, 0.0, 0.0),
-        Vec3d::new(1.0, 0.0, 0.0),
-        Vec3d::new(0.0, 1.0, 0.0),
-    );
     CoordinatedPoint::new(global_coordinate_system, center_of_mass)
 }
 
@@ -920,12 +916,12 @@ mod tests {
         );
     }
 
-    fn global_coordinate_system() -> WrappedCoordinateSystem {
-        WrappedCoordinateSystem::new(
+    fn global_coordinate_system() -> AnonymizedCoordinateSystem {
+        AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
-        )
+        ))
     }
 
     fn point(x: f64, y: f64) -> CoordinatedPoint {
@@ -1281,11 +1277,11 @@ mod tests {
     #[test]
     fn deduce_slices_from_mosaic_produces_ordered_finite_slices() {
         let mosaic = square_mosaic();
-        let coordinate_system = WrappedCoordinateSystem::new(
+        let coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             mosaic.get_center_of_mass().get_local_point(),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
-        );
+        ));
 
         let slices = deduce_slices_from_mosaic(
             vec![mosaic.clone()],

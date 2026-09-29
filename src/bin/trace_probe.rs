@@ -4,7 +4,9 @@ use imageproc::point::Point;
 use rs_math3d::Vec3d;
 use std::env;
 
-use video_sentinel::math::{CoordinatedPoint, Rectangle as MathRectangle, WrappedCoordinateSystem};
+use video_sentinel::math::{
+    AnonymizedCoordinateSystem, CoordinateSystem, CoordinatedPoint, Rectangle as MathRectangle,
+};
 use video_sentinel::mosaics::{WrappedMosaic, deduce_mosaics};
 use video_sentinel::object_detection::ReferenceObject;
 use video_sentinel::slices::{
@@ -263,12 +265,12 @@ fn basic_params() -> BasicParams {
     BasicParams::new(false, 15)
 }
 
-fn global_coordinate_system() -> WrappedCoordinateSystem {
-    WrappedCoordinateSystem::new(
+fn global_coordinate_system() -> AnonymizedCoordinateSystem {
+    AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
         Vec3d::new(0.0, 0.0, 0.0),
         Vec3d::new(1.0, 0.0, 0.0),
         Vec3d::new(0.0, 1.0, 0.0),
-    )
+    ))
 }
 
 fn coordinated_point(x: f64, y: f64) -> CoordinatedPoint {
