@@ -353,23 +353,16 @@ fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
             );
         }
     }
-    let similar_overlaps: Vec<TaggedRatio> = overlaps
-        .clone()
-        .into_iter()
+    let similar_overlap: f64 = overlaps
+        .iter()
         .filter(|tr| tr.left_tag == Tag::Filled && tr.right_tag == Tag::Filled)
-        .collect();
-    let mut similar_overlap = 0.0;
-    for item in similar_overlaps.iter() {
-        similar_overlap += item.ratio.to - item.ratio.from;
-    }
-    let different_overlaps: Vec<TaggedRatio> = overlaps
-        .into_iter()
+        .map(|tagged_ratio| tagged_ratio.ratio.to - tagged_ratio.ratio.from)
+        .sum();
+    let different_overlap: f64 = overlaps
+        .iter()
         .filter(|tr| tr.left_tag != tr.right_tag)
-        .collect();
-    let mut different_overlap = 0.0;
-    for item in different_overlaps {
-        different_overlap += item.ratio.to - item.ratio.from;
-    }
+        .map(|tagged_ratio| tagged_ratio.ratio.to - tagged_ratio.ratio.from)
+        .sum();
     if similar_overlap.abs() < 1e-6 {
         if trace_debug_enabled() {
             println!(
