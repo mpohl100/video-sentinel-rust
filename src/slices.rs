@@ -573,21 +573,18 @@ impl SliceMatrix {
             return false;
         }
         let line = &self.lines[(y_coordinate - first_line_number) as usize];
-        let point_rectangle_tl = Point::new(
-            Vec3d::new(
-                global_point.get_x().floor(),
-                global_point.get_y().floor(),
-                0.0,
-            ),
-        );
-        let point_rectangle_br = Point::new(
-            Vec3d::new(
-                (global_point.get_x() + 1.0).floor(),
-                (global_point.get_y() + 1.0).floor(),
-                0.0,
-            ),
-        );
-        let point_rectangle = MathRectangle::new(point_rectangle_tl.point, point_rectangle_br.point);
+        let point_rectangle_tl = Point::new(Vec3d::new(
+            global_point.get_x().floor(),
+            global_point.get_y().floor(),
+            0.0,
+        ));
+        let point_rectangle_br = Point::new(Vec3d::new(
+            (global_point.get_x() + 1.0).floor(),
+            (global_point.get_y() + 1.0).floor(),
+            0.0,
+        ));
+        let point_rectangle =
+            MathRectangle::new(point_rectangle_tl.point, point_rectangle_br.point);
         for slice in line.get_slices() {
             if point_rectangle.overlaps(&slice.slice.get_global_rectangle().get_local_rectangle()) {
                 return true;
