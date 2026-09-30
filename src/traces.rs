@@ -720,7 +720,7 @@ fn deduce_slices_from_mosaic(
             //     x_line_end_global.get_z(),
             // );
             let x_axis_line = CoordinatedLine::new(x_line_start, x_line_end);
-            let x_axis_global_line = x_axis_line.convert_to(global_coordinate_system).get_line();
+            let x_axis_global_line = x_axis_line.to_global_line();
             // println!("  local x_axis_line created");
             let clipped_line = rectangle.get_intersection_line(x_axis_global_line);
             // println!("  local clipped_line.is_some = {}", clipped_line.is_some());
@@ -742,8 +742,21 @@ fn deduce_slices_from_mosaic(
                 //     clipped_line_end_global.get_y(),
                 //     clipped_line_end_global.get_z(),
                 // );
+                let global_clipped_line = CoordinatedLine::new(
+                    CoordinatedPoint::new(
+                        global_coordinate_system.clone(),
+                        clipped_line.get_start().point,
+                    ),
+                    CoordinatedPoint::new(
+                        global_coordinate_system.clone(),
+                        clipped_line.get_end().point,
+                    ),
+                );
+                let converted_clipped_line =
+                    global_clipped_line.convert_to(line_coordinate_system.clone());
+
                 let polar_start = PolarCoordinates::new(
-                    clipped_line.get_start().get_x() / radius,
+                    converted_clipped_line.get_start().get_x() / radius,
                     coordinated_regioned_angle.clone(),
                 );
                 // println!(
@@ -752,7 +765,7 @@ fn deduce_slices_from_mosaic(
                 //     polar_start.get_angle().get_angle_degrees(),
                 // );
                 let polar_end = PolarCoordinates::new(
-                    clipped_line.get_end().get_x() / radius,
+                    converted_clipped_line.get_end().get_x() / radius,
                     coordinated_regioned_angle.clone(),
                 );
                 // println!(
@@ -769,8 +782,8 @@ fn deduce_slices_from_mosaic(
                 //     "  local clipped_line.end.y.abs = {:.12}",
                 //     clipped_line.get_end().get_y().abs(),
                 // );
-                assert!(clipped_line.get_start().get_y().abs() < 1e-4);
-                assert!(clipped_line.get_end().get_y().abs() < 1e-4);
+                assert!(converted_clipped_line.get_start().get_y().abs() < 1e-4);
+                assert!(converted_clipped_line.get_end().get_y().abs() < 1e-4);
 
                 let slice = PolarSlice::new(polar_start, polar_end);
                 // let created_slice_start_cartesian = slice.get_start().to_cartesian();
