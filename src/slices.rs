@@ -1033,6 +1033,46 @@ fn compute_smoothed_gradient_channel(
     sum / 9.0
 }
 
+fn convert_to_hsv(image: &WrappedRgbImage) -> WrappedRgbImage {
+    let image = image.image.lock().unwrap();
+    let (width, height) = image.dimensions();
+    let mut hsv_image = ImageBuffer::new(width, height);
+
+    for (x, y, pixel) in image.enumerate_pixels() {
+        let red = pixel[0] as f64 / 255.0;
+        let green = pixel[1] as f64 / 255.0;
+        let blue = pixel[2] as f64 / 255.0;
+
+        let max = red.max(green.max(blue));
+        let min = red.min(green.min(blue));
+        let delta = max - min;
+
+        let hue = if delta == 0.0 {
+            0.0
+        } else if max == red {
+            60.0 * ((green - blue) / delta).rem_euclid(6.0)
+        } else if max == green {
+            60.0 * (((blue - red) / delta) + 2.0)
+        } else {
+            60.0 * (((red - green) / delta) + 4.0)
+        };
+        let saturation = if max == 0.0 { 0.0 } else { delta / max };
+        let value = max;
+
+        hsv_image.put_pixel(
+            x,
+            y,
+            Rgb([
+                ((hue / 360.0) * 255.0).round() as u8,
+                (saturation * 255.0).round() as u8,
+                (value * 255.0).round() as u8,
+            ]),
+        );
+    }
+
+    WrappedRgbImage::new(hsv_image)
+}
+
 fn emplace_current_slice(
     current_slice: &mut Option<PreliminaryAnnotatedSlice>,
     current_line: &mut SliceLine,
@@ -1121,19 +1161,16 @@ pub fn calculate_slices(
         }
         slice_matrix
     } else {
+        let hsv_image = convert_to_hsv(&image);
         let mut current_slice = None;
         let gradient_threshold = params.gradient_threshold as f64;
         let threshold_squared = gradient_threshold * gradient_threshold;
         for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
             for x in rectangle.top_left.x as usize + 2..rectangle.bottom_right.x as usize - 2 {
-                let gradient_0 = compute_smoothed_gradient_channel(&image, x, y, 0);
-                let gradient_1 = compute_smoothed_gradient_channel(&image, x, y, 1);
-                let gradient_2 = compute_smoothed_gradient_channel(&image, x, y, 2);
+                let gradient_0 = compute_smoothed_gradient_channel(&hsv_image, x, y, 0);
 
                 if gradient_0 <= threshold_squared
-                    && gradient_1 <= threshold_squared
-                    && gradient_2 <= threshold_squared
                 {
                     let global_coordinate_system =
                         AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
@@ -1706,6 +1743,24 @@ mod tests {
 
         assert_vec_eq(mirrored, Vec3d::new(-1.0, 4.0, 0.0));
         assert_vec_eq(rotated, Vec3d::new(-1.0, -2.0, 0.0));
+    }
+
+    #[test]
+    fn convert_to_hsv_maps_primary_and_neutral_colors() {
+        let mut image = ImageBuffer::new(5, 1);
+        image.put_pixel(0, 0, Rgb([255, 0, 0]));
+        image.put_pixel(1, 0, Rgb([0, 255, 0]));
+        image.put_pixel(2, 0, Rgb([0, 0, 255]));
+        image.put_pixel(3, 0, Rgb([255, 255, 255]));
+        image.put_pixel(4, 0, Rgb([0, 0, 0]));
+
+        let hsv = convert_to_hsv(&WrappedRgbImage::new(image));
+
+        assert_eq!(hsv.get_pixel(0, 0), Rgb([0, 255, 255]));
+        assert_eq!(hsv.get_pixel(1, 0), Rgb([85, 255, 255]));
+        assert_eq!(hsv.get_pixel(2, 0), Rgb([170, 255, 255]));
+        assert_eq!(hsv.get_pixel(3, 0), Rgb([0, 0, 255]));
+        assert_eq!(hsv.get_pixel(4, 0), Rgb([0, 0, 0]));
     }
 
     #[test]

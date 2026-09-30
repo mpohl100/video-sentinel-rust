@@ -420,9 +420,6 @@ fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> SmallVec<[TaggedRatio; 
     for i in 0..interesting_points.len() - 1 {
         let from = interesting_points[i];
         let to = interesting_points[i + 1];
-        if from == to {
-            continue; // skip zero-length intervals
-        }
         let current_midpoint = (from + to) / 2.0;
         let pred = |polar_ratio: &PolarSlice| {
             polar_ratio.get_start().get_radius() <= current_midpoint
@@ -430,14 +427,14 @@ fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> SmallVec<[TaggedRatio; 
         };
         let lit = line1.slices.iter().find(|&ratio| pred(ratio));
         let rit = line2.slices.iter().find(|&ratio| pred(ratio));
-        let mut left_tag = Tag::Empty;
-        let mut right_tag = Tag::Empty;
-        if lit.is_some() {
-            left_tag = Tag::Filled;
-        }
-        if rit.is_some() {
-            right_tag = Tag::Filled;
-        }
+        let left_tag = match lit {
+            Some(_) => Tag::Filled,
+            None => Tag::Empty,
+        };
+        let right_tag = match rit {
+            Some(_) => Tag::Filled,
+            None => Tag::Empty,
+        };
         overlaps.push(TaggedRatio {
             ratio: Ratio { from, to },
             left_tag,
