@@ -4,6 +4,7 @@ use rs_math3d::Vector;
 use rs_math3d::{FloatVector, Vec3d, Vector3};
 
 use crate::math::CoordinatedCircle;
+use crate::math::Point;
 use image::{ImageBuffer, Rgb};
 
 use std::sync::{Arc, Mutex};
@@ -12,7 +13,7 @@ use crate::math::AnonymizedCoordinateSystem;
 use crate::math::CoordinateSystem;
 use crate::math::CoordinatedPoint;
 use crate::math::CoordinatedRectangle;
-use crate::math::Rectangle as OtherRectangle;
+use crate::math::Rectangle as MathRectangle;
 use crate::mosaics::AnonymizedMosaic;
 
 #[derive(Clone)]
@@ -572,25 +573,23 @@ impl SliceMatrix {
             return false;
         }
         let line = &self.lines[(y_coordinate - first_line_number) as usize];
-        let point_rectangle_tl = CoordinatedPoint::new(
-            global_coordinate_system.clone(),
+        let point_rectangle_tl = Point::new(
             Vec3d::new(
                 global_point.get_x().floor(),
                 global_point.get_y().floor(),
                 0.0,
             ),
         );
-        let point_rectangle_br = CoordinatedPoint::new(
-            global_coordinate_system.clone(),
+        let point_rectangle_br = Point::new(
             Vec3d::new(
                 (global_point.get_x() + 1.0).floor(),
                 (global_point.get_y() + 1.0).floor(),
                 0.0,
             ),
         );
-        let point_rectangle = CoordinatedRectangle::new(point_rectangle_tl, point_rectangle_br);
+        let point_rectangle = MathRectangle::new(point_rectangle_tl.point, point_rectangle_br.point);
         for slice in line.get_slices() {
-            if point_rectangle.overlaps(&slice.slice.get_global_rectangle()) {
+            if point_rectangle.overlaps(&slice.slice.get_global_rectangle().get_local_rectangle()) {
                 return true;
             }
         }
@@ -766,7 +765,7 @@ impl Rectangle {
         }
     }
 
-    pub fn new_from_math_rectangle(rectangle: OtherRectangle) -> Self {
+    pub fn new_from_math_rectangle(rectangle: MathRectangle) -> Self {
         Self {
             top_left: rectangle.get_top_left(),
             bottom_right: rectangle.get_bottom_right(),
@@ -1613,7 +1612,7 @@ mod tests {
     #[test]
     fn rectangle_and_relative_rectangle_methods_cover_current_inclusive_geometry() {
         let math_rectangle =
-            OtherRectangle::new(Vec3d::new(2.0, 3.0, 0.0), Vec3d::new(6.0, 8.0, 0.0));
+            MathRectangle::new(Vec3d::new(2.0, 3.0, 0.0), Vec3d::new(6.0, 8.0, 0.0));
         let rectangle = Rectangle::new(Vec3d::new(1.0, 2.0, 0.0), Vec3d::new(4.0, 5.0, 0.0));
         let from_math = Rectangle::new_from_math_rectangle(math_rectangle);
         let from_dims = Rectangle::new_from_dims(Vec3d::new(10.0, 20.0, 0.0), 3.0, 4.0);
