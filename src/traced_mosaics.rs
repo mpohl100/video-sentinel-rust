@@ -1,16 +1,16 @@
 use crate::mosaics::WrappedMosaic;
 use crate::mosaics::WrappedRelativeMosaic;
-use crate::traces::{Trace, TraceParams};
+use crate::traces::{Trace, TraceParams, WrappedTrace};
 
 #[derive(Clone)]
 pub struct TracedMosaic {
     mosaics: WrappedMosaic,
-    trace: Trace,
+    trace: WrappedTrace,
 }
 
 impl TracedMosaic {
     pub fn new(mosaic: WrappedMosaic, trace_params: TraceParams) -> Self {
-        let trace = Trace::new_from_mosaic(mosaic.clone(), trace_params);
+        let trace = WrappedTrace::new(Trace::new_from_mosaic(mosaic.clone(), trace_params));
         TracedMosaic {
             mosaics: mosaic,
             trace,
@@ -21,7 +21,7 @@ impl TracedMosaic {
         &self.mosaics
     }
 
-    pub fn get_trace(&self) -> &Trace {
+    pub fn get_trace(&self) -> &WrappedTrace {
         &self.trace
     }
 }
@@ -29,12 +29,15 @@ impl TracedMosaic {
 #[derive(Clone)]
 pub struct TracedRelativeMosaic {
     relative_mosaic: WrappedRelativeMosaic,
-    trace: Trace,
+    trace: WrappedTrace,
 }
 
 impl TracedRelativeMosaic {
     pub fn new(relative_mosaic: WrappedRelativeMosaic, trace_params: TraceParams) -> Self {
-        let trace = Trace::new_from_mosaic(relative_mosaic.get_mosaic().clone(), trace_params);
+        let trace = WrappedTrace::new(Trace::new_from_mosaic(
+            relative_mosaic.get_mosaic().clone(),
+            trace_params,
+        ));
         TracedRelativeMosaic {
             relative_mosaic,
             trace,
@@ -45,7 +48,7 @@ impl TracedRelativeMosaic {
         self.relative_mosaic.clone()
     }
 
-    pub fn get_trace(&self) -> &Trace {
+    pub fn get_trace(&self) -> &WrappedTrace {
         &self.trace
     }
 }
@@ -110,7 +113,7 @@ mod tests {
     fn traced_mosaic_new_builds_trace_and_exposes_original_mosaic() {
         let mosaic = sample_mosaic();
         let trace_params = TraceParams::new(12, 0.2);
-        let direct_trace = Trace::new_from_mosaic(mosaic.clone(), trace_params.clone());
+        let direct_trace = WrappedTrace::new(Trace::new_from_mosaic(mosaic.clone(), trace_params.clone()));
         let traced_mosaic = TracedMosaic::new(mosaic.clone(), trace_params);
         let similarity = traced_mosaic.get_trace().compare_with(1.0, &direct_trace);
 
