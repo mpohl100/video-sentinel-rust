@@ -14,7 +14,7 @@ use video_sentinel::slices::{
     calculate_slices, find_connected_slices,
 };
 use video_sentinel::traced_mosaics::TracedRelativeMosaic;
-use video_sentinel::traces::{Trace, TraceParams, set_trace_debug};
+use video_sentinel::traces::{WrappedTrace, Trace, TraceParams, set_trace_debug};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ReferenceBuildMode {
@@ -681,14 +681,14 @@ fn print_reference_object_image_similarities(build_mode: ReferenceBuildMode) {
         println!("reference: {reference_name}");
         println!("reference shape: {shape_description}");
 
-        let reference_trace = Trace::new_from_mosaics(
+        let reference_trace = WrappedTrace::new(Trace::new_from_mosaics(
             reference_object
                 .get_mosaics(usize::MAX)
                 .into_iter()
                 .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
                 .collect(),
             params.clone(),
-        );
+        ));
 
         for (mosaic_index, mosaic) in scene_mosaics.iter().enumerate() {
             let mosaic_trace = mosaic.get_trace();

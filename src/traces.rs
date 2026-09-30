@@ -11,6 +11,7 @@ use crate::mosaics::WrappedMosaic;
 
 use rs_math3d::Vec3d;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 static TRACE_DEBUG: AtomicBool = AtomicBool::new(false);
 
@@ -234,6 +235,29 @@ impl Trace {
         }
 
         output
+    }
+}
+
+#[derive(Clone)]
+pub struct WrappedTrace {
+    trace: Arc<Mutex<Trace>>,
+}
+
+impl WrappedTrace {
+    pub fn new(trace: Trace) -> Self {
+        Self {
+            trace: Arc::new(Mutex::new(trace)),
+        }
+    }
+
+    pub fn compare_with(&self, target_similarity: f64, other: &WrappedTrace) -> f64 {
+        // If both point to the same return 1.0
+        if Arc::ptr_eq(&self.trace, &other.trace) {
+            return 1.0;
+        }
+        let self_trace = self.trace.lock().unwrap();
+        let other_trace = other.trace.lock().unwrap();
+        self_trace.compare_with(target_similarity,&other_trace)
     }
 }
 

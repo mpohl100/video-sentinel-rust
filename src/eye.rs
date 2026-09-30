@@ -386,7 +386,7 @@ mod tests {
         let similar_at_one_point_one =
             are_mosaics_similar(&traced_relative_mosaic, &traced_relative_mosaic, 1.1);
 
-        assert!(!similar_at_point_nine);
+        assert!(similar_at_point_nine);
         assert!(!similar_at_one_point_one);
     }
 }
