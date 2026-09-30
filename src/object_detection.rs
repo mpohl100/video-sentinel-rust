@@ -470,7 +470,11 @@ mod tests {
         shapes_data
     }
 
-    fn basic_params() -> BasicParams {
+    fn basic_params_grayscale() -> BasicParams {
+        BasicParams::new(true, 15)
+    }
+
+    fn basic_params_color() -> BasicParams {
         BasicParams::new(false, 15)
     }
 
@@ -481,11 +485,11 @@ mod tests {
     }
 
     fn deduce_all_mosaics(image: WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
-        let trace_params = TraceParams::new(12, 0.2);
+        let trace_params = TraceParams::new(36, 0.2);
         let rectangle = surrounding_rectangle(&image);
         let math_rectangle =
             MathRectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right());
-        let slices = calculate_slices(image.clone(), rectangle, basic_params());
+        let slices = calculate_slices(image.clone(), rectangle, basic_params_grayscale());
         let connected_slices = find_connected_slices(&mut slices.clone());
         deduce_mosaics(connected_slices, math_rectangle)
             .into_iter()
@@ -841,7 +845,7 @@ mod tests {
             Results::Absolute,
         );
 
-        assert_eq!(results.len(), 2);
+        assert_eq!(results.len(), 3);
         assert_all_green(&results);
         for result in &results {
             let center_y = extract_center_y(&result.get_rectangle());
