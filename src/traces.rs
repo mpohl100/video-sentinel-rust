@@ -257,7 +257,7 @@ impl WrappedTrace {
         }
         let self_trace = self.trace.lock().unwrap();
         let other_trace = other.trace.lock().unwrap();
-        self_trace.compare_with(target_similarity,&other_trace)
+        self_trace.compare_with(target_similarity, &other_trace)
     }
 }
 

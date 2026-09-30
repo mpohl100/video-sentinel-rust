@@ -113,7 +113,8 @@ mod tests {
     fn traced_mosaic_new_builds_trace_and_exposes_original_mosaic() {
         let mosaic = sample_mosaic();
         let trace_params = TraceParams::new(12, 0.2);
-        let direct_trace = WrappedTrace::new(Trace::new_from_mosaic(mosaic.clone(), trace_params.clone()));
+        let direct_trace =
+            WrappedTrace::new(Trace::new_from_mosaic(mosaic.clone(), trace_params.clone()));
         let traced_mosaic = TracedMosaic::new(mosaic.clone(), trace_params);
         let similarity = traced_mosaic.get_trace().compare_with(1.0, &direct_trace);
 

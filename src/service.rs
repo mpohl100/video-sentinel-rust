@@ -800,7 +800,7 @@ fn deduce_enriched_mosaic(
             line_number: slice_line.get_line_number(),
             slices: slice_line
                 .get_slices()
-                .into_iter()
+                .iter()
                 .map(|slice| Slice {
                     start: Point {
                         x: slice
