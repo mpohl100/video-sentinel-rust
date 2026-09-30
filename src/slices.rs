@@ -972,7 +972,7 @@ fn compute_smoothed_gradient_squared(gray_image: &image::GrayImage, x: usize, y:
 
         let grad_x = grad_cl_cr + grad_tl_br * sqrt2 + grad_bl_tr * sqrt2;
         let grad_y = -grad_bc_tc + grad_tl_br * sqrt2 - grad_bl_tr * sqrt2;
-        
+
         grad_x * grad_x + grad_y * grad_y
     };
 
@@ -1019,7 +1019,7 @@ fn compute_smoothed_gradient_channel(
 
         let grad_x = grad_cl_cr + grad_tl_br * sqrt2 + grad_bl_tr * sqrt2;
         let grad_y = -grad_bc_tc + grad_tl_br * sqrt2 - grad_bl_tr * sqrt2;
-        
+
         grad_x * grad_x + grad_y * grad_y
     };
 
