@@ -252,6 +252,14 @@ impl SliceLine {
         }
     }
 
+    pub fn add_unchecked(&mut self, slice: AnnotatedSlice) {
+        assert!(
+            slice.line_number == self.line_number,
+            "Slice line number does not match SliceLine's line number"
+        );
+        self.slices.push(slice);
+    }
+
     pub fn add(&mut self, slice: AnnotatedSlice) {
         assert!(
             slice.line_number == self.line_number,
@@ -1042,7 +1050,8 @@ fn emplace_current_slice(
             Slice::new(slice.get_slice().get_start(), slice.get_slice().get_end()),
             current_line.get_line_number(),
         );
-        current_line.add(annotated_slice);
+        // the slices will be sorted and unique by construction here
+        current_line.add_unchecked(annotated_slice);
     }
 }
 
