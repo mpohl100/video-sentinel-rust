@@ -173,6 +173,12 @@ impl PartialEq for Point {
     }
 }
 
+impl Point {
+    pub fn new(point: Vec3d) -> Self {
+        Self { point }
+    }
+}
+
 #[derive(Clone, PartialEq)]
 pub struct Rectangle {
     points: Vec<Point>,
@@ -799,6 +805,12 @@ impl CoordinatedRectangle {
                 .map(|point| point.convert_to(coordinate_system.clone()))
                 .collect(),
         }
+    }
+
+    pub fn get_local_rectangle(&self) -> Rectangle {
+        let tl = self.points[0].get_local_point();
+        let br = self.points[1].get_local_point();
+        Rectangle::new(tl, br)
     }
 
     pub fn to_global_rectangle(&self) -> Rectangle {
