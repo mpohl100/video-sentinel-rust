@@ -282,8 +282,8 @@ impl SliceLine {
         self.line_number
     }
 
-    pub fn get_slices(&self) -> Vec<AnnotatedSlice> {
-        self.slices.clone()
+    pub fn get_slices(&self) -> &[AnnotatedSlice] {
+        &self.slices
     }
 }
 
