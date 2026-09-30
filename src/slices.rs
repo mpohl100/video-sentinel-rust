@@ -77,8 +77,8 @@ impl Slice {
         }
     }
 
-    pub fn get_global_rectangle(&self) -> CoordinatedRectangle {
-        self.global_rectangle.clone()
+    pub fn get_global_rectangle(&self) -> &CoordinatedRectangle {
+        &self.global_rectangle
     }
 
     pub fn get_start(&self) -> CoordinatedPoint {
