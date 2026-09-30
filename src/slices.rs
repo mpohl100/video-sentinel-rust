@@ -951,20 +951,20 @@ impl ColoredRectangle {
     }
 }
 
-fn compute_smoothed_gradient_squared(gray_image: &image::GrayImage, x: usize, y: usize) -> i64 {
-    let compute_gradient = |x_in: usize, y_in: usize| -> i64 {
+fn compute_smoothed_gradient_squared(gray_image: &image::GrayImage, x: usize, y: usize) -> f64 {
+    let compute_gradient = |x_in: usize, y_in: usize| -> f64 {
         let x = x_in as u32;
         let y = y_in as u32;
-        let tl = gray_image.get_pixel(x - 1, y - 1)[0] as f32;
-        let tc = gray_image.get_pixel(x, y - 1)[0] as f32;
-        let tr = gray_image.get_pixel(x + 1, y - 1)[0] as f32;
-        let cl = gray_image.get_pixel(x - 1, y)[0] as f32;
-        let cr = gray_image.get_pixel(x + 1, y)[0] as f32;
-        let bl = gray_image.get_pixel(x - 1, y + 1)[0] as f32;
-        let bc = gray_image.get_pixel(x, y + 1)[0] as f32;
-        let br = gray_image.get_pixel(x + 1, y + 1)[0] as f32;
+        let tl = gray_image.get_pixel(x - 1, y - 1)[0] as f64;
+        let tc = gray_image.get_pixel(x, y - 1)[0] as f64;
+        let tr = gray_image.get_pixel(x + 1, y - 1)[0] as f64;
+        let cl = gray_image.get_pixel(x - 1, y)[0] as f64;
+        let cr = gray_image.get_pixel(x + 1, y)[0] as f64;
+        let bl = gray_image.get_pixel(x - 1, y + 1)[0] as f64;
+        let bc = gray_image.get_pixel(x, y + 1)[0] as f64;
+        let br = gray_image.get_pixel(x + 1, y + 1)[0] as f64;
 
-        let sqrt2 = std::f32::consts::FRAC_1_SQRT_2;
+        let sqrt2 = std::f64::consts::FRAC_1_SQRT_2;
         let grad_tl_br = br - tl;
         let grad_cl_cr = cr - cl;
         let grad_bl_tr = tr - bl;
@@ -974,7 +974,7 @@ fn compute_smoothed_gradient_squared(gray_image: &image::GrayImage, x: usize, y:
         let grad_y = -grad_bc_tc + grad_tl_br * sqrt2 - grad_bl_tr * sqrt2;
         let grad_total = grad_x * grad_x + grad_y * grad_y;
 
-        grad_total as i64
+        grad_total
     };
 
     let gradients = [
@@ -989,8 +989,8 @@ fn compute_smoothed_gradient_squared(gray_image: &image::GrayImage, x: usize, y:
         compute_gradient(x + 1, y + 1),
     ];
 
-    let sum: i64 = gradients.iter().sum();
-    sum / 9
+    let sum: f64 = gradients.iter().sum();
+    sum / 9.0
 }
 
 fn compute_smoothed_gradient_channel(
@@ -998,21 +998,21 @@ fn compute_smoothed_gradient_channel(
     x: usize,
     y: usize,
     channel: usize,
-) -> i64 {
-    let compute_gradient = |x_in: usize, y_in: usize| -> i64 {
+) -> f64 {
+    let compute_gradient = |x_in: usize, y_in: usize| -> f64 {
         let x = x_in as u32;
         let y = y_in as u32;
         let image = image.image.lock().unwrap();
-        let tl = image.get_pixel(x - 1, y - 1)[channel] as f32;
-        let tc = image.get_pixel(x, y - 1)[channel] as f32;
-        let tr = image.get_pixel(x + 1, y - 1)[channel] as f32;
-        let cl = image.get_pixel(x - 1, y)[channel] as f32;
-        let cr = image.get_pixel(x + 1, y)[channel] as f32;
-        let bl = image.get_pixel(x - 1, y + 1)[channel] as f32;
-        let bc = image.get_pixel(x, y + 1)[channel] as f32;
-        let br = image.get_pixel(x + 1, y + 1)[channel] as f32;
+        let tl = image.get_pixel(x - 1, y - 1)[channel] as f64;
+        let tc = image.get_pixel(x, y - 1)[channel] as f64;
+        let tr = image.get_pixel(x + 1, y - 1)[channel] as f64;
+        let cl = image.get_pixel(x - 1, y)[channel] as f64;
+        let cr = image.get_pixel(x + 1, y)[channel] as f64;
+        let bl = image.get_pixel(x - 1, y + 1)[channel] as f64;
+        let bc = image.get_pixel(x, y + 1)[channel] as f64;
+        let br = image.get_pixel(x + 1, y + 1)[channel] as f64;
 
-        let sqrt2 = std::f32::consts::FRAC_1_SQRT_2;
+        let sqrt2 = std::f64::consts::FRAC_1_SQRT_2;
         let grad_tl_br = br - tl;
         let grad_cl_cr = cr - cl;
         let grad_bl_tr = tr - bl;
@@ -1022,7 +1022,7 @@ fn compute_smoothed_gradient_channel(
         let grad_y = -grad_bc_tc + grad_tl_br * sqrt2 - grad_bl_tr * sqrt2;
         let grad_total = grad_x * grad_x + grad_y * grad_y;
 
-        grad_total as i64
+        grad_total
     };
 
     let gradients = [
@@ -1037,8 +1037,8 @@ fn compute_smoothed_gradient_channel(
         compute_gradient(x + 1, y + 1),
     ];
 
-    let sum: i64 = gradients.iter().sum();
-    sum / 9
+    let sum: f64 = gradients.iter().sum();
+    sum / 9.0
 }
 
 fn emplace_current_slice(
@@ -1085,8 +1085,9 @@ pub fn calculate_slices(
             Vec3d::new(0.0, 1.0, 0.0),
         ));
 
+        let gradient_threshold = params.gradient_threshold as f64;
         let threshold_squared =
-            (params.gradient_threshold as i64) * (params.gradient_threshold as i64);
+            gradient_threshold * gradient_threshold;
         for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
             for x in rectangle.top_left.x as usize + 2..rectangle.bottom_right.x as usize - 2 {
@@ -1130,8 +1131,8 @@ pub fn calculate_slices(
         slice_matrix
     } else {
         let mut current_slice = None;
-        let threshold_squared =
-            (params.gradient_threshold as i64) * (params.gradient_threshold as i64);
+        let gradient_threshold = params.gradient_threshold as f64;
+        let threshold_squared = gradient_threshold * gradient_threshold;
         for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
             for x in rectangle.top_left.x as usize + 2..rectangle.bottom_right.x as usize - 2 {
@@ -1727,10 +1728,10 @@ mod tests {
         }
         let wrapped = WrappedRgbImage::new(color);
 
-        assert_eq!(compute_smoothed_gradient_squared(&gray, 3, 3), 0);
-        assert!(compute_smoothed_gradient_channel(&wrapped, 3, 3, 0) > 0);
-        assert_eq!(compute_smoothed_gradient_channel(&wrapped, 3, 3, 1), 0);
-        assert_eq!(compute_smoothed_gradient_channel(&wrapped, 3, 3, 2), 0);
+        assert_eq!(compute_smoothed_gradient_squared(&gray, 3, 3), 0.0);
+        assert!(compute_smoothed_gradient_channel(&wrapped, 3, 3, 0) > 0.0);
+        assert_eq!(compute_smoothed_gradient_channel(&wrapped, 3, 3, 1), 0.0);
+        assert_eq!(compute_smoothed_gradient_channel(&wrapped, 3, 3, 2), 0.0);
     }
 
     #[test]
