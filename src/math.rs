@@ -605,11 +605,12 @@ impl CoordinatedPoint {
     }
 
     pub fn to_global_point(&self) -> CoordinatedPoint {
-        let global_coordinate_system = AnonymizedCoordinateSystem::new_direct(CoordinateSystem::new(
-            Vec3d::new(0.0, 0.0, 0.0),
-            Vec3d::new(1.0, 0.0, 0.0),
-            Vec3d::new(0.0, 1.0, 0.0),
-        ));
+        let global_coordinate_system =
+            AnonymizedCoordinateSystem::new_direct(CoordinateSystem::new(
+                Vec3d::new(0.0, 0.0, 0.0),
+                Vec3d::new(1.0, 0.0, 0.0),
+                Vec3d::new(0.0, 1.0, 0.0),
+            ));
         self.convert_to(global_coordinate_system)
     }
 
@@ -718,11 +719,12 @@ impl CoordinatedLine {
     pub fn get_intersection_point(&self, other: CoordinatedLine) -> Option<CoordinatedPoint> {
         let global_line1 = self.to_global_line();
         let global_line2 = other.to_global_line();
-        let global_coordinate_system = AnonymizedCoordinateSystem::new_direct(CoordinateSystem::new(
-            Vec3d::new(0.0, 0.0, 0.0),
-            Vec3d::new(1.0, 0.0, 0.0),
-            Vec3d::new(0.0, 1.0, 0.0),
-        ));
+        let global_coordinate_system =
+            AnonymizedCoordinateSystem::new_direct(CoordinateSystem::new(
+                Vec3d::new(0.0, 0.0, 0.0),
+                Vec3d::new(1.0, 0.0, 0.0),
+                Vec3d::new(0.0, 1.0, 0.0),
+            ));
         if global_line1.intersects(&global_line2) {
             // For simplicity, we will return the midpoint of the intersection as the intersection point
             let intersection_point = global_line1.get_intersection_point(&global_line2);
