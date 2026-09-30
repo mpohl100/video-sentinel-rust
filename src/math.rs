@@ -883,27 +883,25 @@ impl CoordinatedRectangle {
     }
 
     pub fn get_top_right(&self) -> CoordinatedPoint {
-        let top_right = CoordinatedPoint::new(
+        CoordinatedPoint::new(
             self.points[0].coordinate_system.clone(),
             Vec3d::new(
                 self.points[1].local_coordinates.x,
                 self.points[0].local_coordinates.y,
                 0.0,
             ),
-        );
-        top_right
+        )
     }
 
     pub fn get_bottom_left(&self) -> CoordinatedPoint {
-        let bottom_left = CoordinatedPoint::new(
+        CoordinatedPoint::new(
             self.points[0].coordinate_system.clone(),
             Vec3d::new(
                 self.points[0].local_coordinates.x,
                 self.points[1].local_coordinates.y,
                 0.0,
             ),
-        );
-        bottom_left
+        )
     }
 
     pub fn get_bottom_right(&self) -> CoordinatedPoint {
