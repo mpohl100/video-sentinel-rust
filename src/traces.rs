@@ -720,7 +720,7 @@ fn deduce_slices_from_mosaic(
             //     x_line_end_global.get_z(),
             // );
             let x_axis_line = CoordinatedLine::new(x_line_start, x_line_end);
-            let x_axis_global_line = x_axis_line.get_line();
+            let x_axis_global_line = x_axis_line.convert_to(global_coordinate_system).get_line();
             // println!("  local x_axis_line created");
             let clipped_line = rectangle.get_intersection_line(x_axis_global_line);
             // println!("  local clipped_line.is_some = {}", clipped_line.is_some());
