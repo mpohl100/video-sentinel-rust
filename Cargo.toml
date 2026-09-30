@@ -24,3 +24,6 @@ path = "src/main.rs"
 [[bin]]
 name = "video-sentinel-service"
 path = "src/service_main.rs"
+
+[profile.release]
+debug = 2
