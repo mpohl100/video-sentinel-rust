@@ -986,7 +986,7 @@ fn compute_smoothed_gradient_squared(gray_image: &image::GrayImage, x: usize, y:
     ];
 
     let sum: i64 = gradients.iter().sum();
-    (sum / 9) as i64
+    sum / 9
 }
 
 fn compute_smoothed_gradient_channel(
@@ -1034,7 +1034,7 @@ fn compute_smoothed_gradient_channel(
     ];
 
     let sum: i64 = gradients.iter().sum();
-    (sum / 9) as i64
+    sum / 9
 }
 
 fn emplace_current_slice(
@@ -1080,7 +1080,8 @@ pub fn calculate_slices(
             Vec3d::new(0.0, 1.0, 0.0),
         ));
 
-        let threshold_squared = (params.gradient_threshold as i64) * (params.gradient_threshold as i64);
+        let threshold_squared =
+            (params.gradient_threshold as i64) * (params.gradient_threshold as i64);
         for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
             for x in rectangle.top_left.x as usize + 2..rectangle.bottom_right.x as usize - 2 {
@@ -1124,7 +1125,8 @@ pub fn calculate_slices(
         slice_matrix
     } else {
         let mut current_slice = None;
-        let threshold_squared = (params.gradient_threshold as i64) * (params.gradient_threshold as i64);
+        let threshold_squared =
+            (params.gradient_threshold as i64) * (params.gradient_threshold as i64);
         for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
             for x in rectangle.top_left.x as usize + 2..rectangle.bottom_right.x as usize - 2 {
