@@ -972,9 +972,8 @@ fn compute_smoothed_gradient_squared(gray_image: &image::GrayImage, x: usize, y:
 
         let grad_x = grad_cl_cr + grad_tl_br * sqrt2 + grad_bl_tr * sqrt2;
         let grad_y = -grad_bc_tc + grad_tl_br * sqrt2 - grad_bl_tr * sqrt2;
-        let grad_total = grad_x * grad_x + grad_y * grad_y;
-
-        grad_total
+        
+        grad_x * grad_x + grad_y * grad_y
     };
 
     let gradients = [
@@ -1020,9 +1019,8 @@ fn compute_smoothed_gradient_channel(
 
         let grad_x = grad_cl_cr + grad_tl_br * sqrt2 + grad_bl_tr * sqrt2;
         let grad_y = -grad_bc_tc + grad_tl_br * sqrt2 - grad_bl_tr * sqrt2;
-        let grad_total = grad_x * grad_x + grad_y * grad_y;
-
-        grad_total
+        
+        grad_x * grad_x + grad_y * grad_y
     };
 
     let gradients = [
@@ -1086,8 +1084,7 @@ pub fn calculate_slices(
         ));
 
         let gradient_threshold = params.gradient_threshold as f64;
-        let threshold_squared =
-            gradient_threshold * gradient_threshold;
+        let threshold_squared = gradient_threshold * gradient_threshold;
         for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
             for x in rectangle.top_left.x as usize + 2..rectangle.bottom_right.x as usize - 2 {
