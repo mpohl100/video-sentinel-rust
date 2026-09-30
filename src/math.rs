@@ -180,15 +180,11 @@ pub struct Rectangle {
 
 impl Rectangle {
     pub fn new(top_left: Vec3d, bottom_right: Vec3d) -> Self {
-        let top_right = Vec3d::new(bottom_right.x, top_left.y, 0.0);
-        let bottom_left = Vec3d::new(top_left.x, bottom_right.y, 0.0);
         let points = vec![
             Point { point: top_left },
-            Point { point: top_right },
             Point {
                 point: bottom_right,
             },
-            Point { point: bottom_left },
         ];
         Self { points }
     }
@@ -204,13 +200,13 @@ impl Rectangle {
 
     pub fn get_area(&self) -> f64 {
         let width = (self.points[1].point.x - self.points[0].point.x).abs();
-        let height = (self.points[2].point.y - self.points[0].point.y).abs();
+        let height = (self.points[1].point.y - self.points[0].point.y).abs();
         width * height
     }
 
     pub fn get_center(&self) -> Vec3d {
         let center_x = (self.points[0].point.x + self.points[1].point.x) / 2.0;
-        let center_y = (self.points[0].point.y + self.points[2].point.y) / 2.0;
+        let center_y = (self.points[0].point.y + self.points[1].point.y) / 2.0;
         Vec3d::new(center_x, center_y, 0.0)
     }
 
@@ -219,7 +215,7 @@ impl Rectangle {
     }
 
     pub fn get_bottom_right(&self) -> Vec3d {
-        self.points[2].point
+        self.points[1].point
     }
 
     pub fn get_width(&self) -> f64 {
@@ -227,14 +223,19 @@ impl Rectangle {
     }
 
     pub fn get_height(&self) -> f64 {
-        (self.points[2].point.y - self.points[0].point.y).abs()
+        (self.points[1].point.y - self.points[0].point.y).abs()
     }
 
     pub fn get_lines(&self) -> Vec<Line> {
-        let line1 = Line::new(self.points[0].point, self.points[1].point);
-        let line2 = Line::new(self.points[1].point, self.points[2].point);
-        let line3 = Line::new(self.points[2].point, self.points[3].point);
-        let line4 = Line::new(self.points[3].point, self.points[0].point);
+        let top_left = self.get_top_left();
+        let bottom_right = self.get_bottom_right();
+        let top_right = Vec3d::new(bottom_right.x, top_left.y, 0.0);
+        let bottom_left = Vec3d::new(top_left.x, bottom_right.y, 0.0);
+
+        let line1 = Line::new(top_left, top_right);
+        let line2 = Line::new(top_right, bottom_right);
+        let line3 = Line::new(bottom_right, bottom_left);
+        let line4 = Line::new(bottom_left, top_left);
         vec![line1, line2, line3, line4]
     }
 
@@ -761,23 +762,7 @@ pub struct CoordinatedRectangle {
 
 impl CoordinatedRectangle {
     pub fn new(top_left: CoordinatedPoint, bottom_right: CoordinatedPoint) -> Self {
-        let top_right = CoordinatedPoint::new(
-            top_left.coordinate_system.clone(),
-            Vec3d::new(
-                bottom_right.local_coordinates.x,
-                top_left.local_coordinates.y,
-                0.0,
-            ),
-        );
-        let bottom_left = CoordinatedPoint::new(
-            top_left.coordinate_system.clone(),
-            Vec3d::new(
-                top_left.local_coordinates.x,
-                bottom_right.local_coordinates.y,
-                0.0,
-            ),
-        );
-        let points = vec![top_left, top_right, bottom_right, bottom_left];
+        let points = vec![top_left, bottom_right];
         Self { points }
     }
 
@@ -818,7 +803,7 @@ impl CoordinatedRectangle {
 
     pub fn to_global_rectangle(&self) -> Rectangle {
         let tl = self.points[0].to_global_point().get_local_point();
-        let br = self.points[2].to_global_point().get_local_point();
+        let br = self.points[1].to_global_point().get_local_point();
         Rectangle::new(tl, br)
     }
 
@@ -898,15 +883,31 @@ impl CoordinatedRectangle {
     }
 
     pub fn get_top_right(&self) -> CoordinatedPoint {
-        self.points[1].clone()
+        let top_right = CoordinatedPoint::new(
+            self.points[0].coordinate_system.clone(),
+            Vec3d::new(
+                self.points[1].local_coordinates.x,
+                self.points[0].local_coordinates.y,
+                0.0,
+            ),
+        );
+        top_right
     }
 
     pub fn get_bottom_left(&self) -> CoordinatedPoint {
-        self.points[2].clone()
+        let bottom_left = CoordinatedPoint::new(
+            self.points[0].coordinate_system.clone(),
+            Vec3d::new(
+                self.points[0].local_coordinates.x,
+                self.points[1].local_coordinates.y,
+                0.0,
+            ),
+        );
+        bottom_left
     }
 
     pub fn get_bottom_right(&self) -> CoordinatedPoint {
-        self.points[3].clone()
+        self.points[1].clone()
     }
 }
 
@@ -1250,12 +1251,12 @@ mod tests {
     #[test]
     fn rectangle_and_expansion_methods_cover_dimensions_and_intersections() {
         let rectangle = Rectangle::new(Vec3d::new(1.0, 2.0, 0.0), Vec3d::new(5.0, 8.0, 0.0));
-        let from_lines = Rectangle::new(rectangle.points[0].point, rectangle.points[2].point);
+        let from_lines = Rectangle::new(rectangle.points[0].point, rectangle.points[1].point);
         let overlapping = Rectangle::new(Vec3d::new(4.0, 4.0, 0.0), Vec3d::new(7.0, 10.0, 0.0));
         let disjoint = Rectangle::new(Vec3d::new(6.0, 9.0, 0.0), Vec3d::new(8.0, 12.0, 0.0));
         let expanded = expand_rectangle(&rectangle, 1.5);
 
-        assert_eq!(rectangle.points.len(), 4);
+        assert_eq!(rectangle.points.len(), 2);
         assert!(from_lines == rectangle);
         assert_float_eq(rectangle.get_area(), 24.0);
         assert_vec_eq(rectangle.get_center(), Vec3d::new(3.0, 5.0, 0.0));
