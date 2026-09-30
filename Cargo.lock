@@ -3102,6 +3102,7 @@ dependencies = [
  "imageproc",
  "rcgen",
  "rs-math3d",
+ "smallvec",
  "tokio",
  "video-rs",
 ]
