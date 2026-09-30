@@ -2,7 +2,6 @@ use crate::math::AnonymizedCoordinateSystem;
 use crate::math::CoordinateSystem;
 use crate::math::CoordinatedLine;
 use crate::math::CoordinatedPoint;
-use crate::math::CoordinatedRectangle;
 use crate::math::CoordinatedRegionedAngle;
 use crate::math::PolarCoordinates;
 use crate::math::Rectangle;
@@ -613,10 +612,6 @@ fn deduce_slices_from_mosaic(
             //     br.y,
             //     br.z,
             // );
-            let coordinated_rectangle = CoordinatedRectangle::new_from_rectangle(
-                rectangle,
-                global_coordinate_system.clone(),
-            );
             // let coordinated_rectangle_global = coordinated_rectangle.to_global_rectangle();
             // println!(
             //     "  local coordinated_rectangle global_top_left=({:.8}, {:.8}, {:.8}) global_bottom_right=({:.8}, {:.8}, {:.8})",
@@ -725,8 +720,9 @@ fn deduce_slices_from_mosaic(
             //     x_line_end_global.get_z(),
             // );
             let x_axis_line = CoordinatedLine::new(x_line_start, x_line_end);
+            let x_axis_global_line = x_axis_line.get_line();
             // println!("  local x_axis_line created");
-            let clipped_line = coordinated_rectangle.get_intersection_line(x_axis_line);
+            let clipped_line = rectangle.get_intersection_line(x_axis_global_line);
             // println!("  local clipped_line.is_some = {}", clipped_line.is_some());
             if let Some(clipped_line) = clipped_line {
                 // let clipped_line_start_global =
