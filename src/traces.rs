@@ -9,6 +9,7 @@ use crate::math::RegionedAngle;
 use crate::mosaics::WrappedMosaic;
 
 use rs_math3d::Vec3d;
+use smallvec::SmallVec;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -401,10 +402,10 @@ struct TaggedRatio {
     right_tag: Tag,
 }
 
-fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> Vec<TaggedRatio> {
+fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> SmallVec<[TaggedRatio; 16]> {
     // convert the following code to rust
-    let mut overlaps: Vec<TaggedRatio> = Vec::with_capacity(16);
-    let mut interesting_points: Vec<f64> = Vec::with_capacity(16);
+    let mut overlaps: SmallVec<[TaggedRatio; 16]> = SmallVec::with_capacity(16);
+    let mut interesting_points: SmallVec<[f64; 16]> = SmallVec::with_capacity(16);
     interesting_points.push(0.0);
     interesting_points.push(1.0);
     for polar_slice in &line1.slices {
