@@ -41,7 +41,7 @@ impl Line {
         (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u)
     }
 
-    pub fn get_intersection_point(&self, other: &Line) -> Vec3d {
+    pub fn get_intersection_point(&self, other: &Line) -> Point {
         let p = self.start;
         let r = self.end - self.start;
         let q = other.start;
@@ -52,11 +52,11 @@ impl Line {
 
         if r_cross_s.length() < 1e-6 {
             // Lines are parallel, return the midpoint of the overlapping segment as the intersection point
-            return (self.start + self.end) / 2.0;
+            return Point::new((self.start + self.end) / 2.0);
         }
 
         let t = Vector3::<f64>::cross(&q_minus_p, &s).z / r_cross_s.z;
-        p + r * t
+        Point::new(p + r * t)
     }
 
     pub fn angle_between(&self, other: &Line) -> RegionedAngle {
@@ -79,6 +79,14 @@ impl Line {
             min_degrees: -180.0,
             max_degrees: 180.0,
         }
+    }
+
+    pub fn get_start(&self) -> Point {
+        Point::new(self.start)
+    }
+
+    pub fn get_end(&self) -> Point {
+        Point::new(self.end)
     }
 }
 
@@ -177,6 +185,14 @@ impl Point {
     pub fn new(point: Vec3d) -> Self {
         Self { point }
     }
+
+    pub fn get_x(&self) -> f64 {
+        self.point.x
+    }
+
+    pub fn get_y(&self) -> f64 {
+        self.point.y
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -193,6 +209,47 @@ impl Rectangle {
             },
         ];
         Self { points }
+    }
+
+
+    pub fn get_intersection_line(&self, line: Line) -> Option<Line> {
+        let mut intersection_points = Vec::new();
+        for rect_line in &self.get_lines() {
+            if rect_line.intersects(&line) {
+                let intersection_point = rect_line.get_intersection_point(&line);
+                intersection_points.push(intersection_point);
+            }
+        }
+        // make sure the intersection points are unique
+        intersection_points.sort_by(|a, b| {
+            a.get_x()
+                .partial_cmp(&b.get_x())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        intersection_points.dedup_by(|a, b| {
+            (a.get_x() - b.get_x()).abs() < 1e-8 && (a.get_y() - b.get_y()).abs() < 1e-8
+        });
+        assert!(intersection_points.len() <= 2);
+        if intersection_points.len() == 2 {
+            Some(Line::new(
+                intersection_points[0].point,
+                intersection_points[1].point,
+            ))
+        } else if intersection_points.len() == 1 {
+            // return the one line of [input_line.begin, intersection_point] or [input_line.end, intersection_point] depending on which one is inside the coordinated rectangle
+            let input_line_begin = line.start.clone();
+            let input_line_end = line.end.clone();
+            let intersection_point = intersection_points[0].clone();
+            if self.contains_point(input_line_begin.clone()) {
+                Some(Line::new(input_line_begin, intersection_point.point))
+            } else if self.contains_point(input_line_end.clone()) {
+                Some(Line::new(input_line_end, intersection_point.point))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 
     pub fn contains_point(&self, point: Vec3d) -> bool {
@@ -717,6 +774,10 @@ impl CoordinatedLine {
         }
     }
 
+    pub fn get_line(&self) -> Line {
+        self.to_global_line()
+    }
+
     pub fn to_global_line(&self) -> Line {
         let global_start = self.start.coordinate_system.to_global(self.start.clone());
         let global_end = self.end.coordinate_system.to_global(self.end.clone());
@@ -736,7 +797,7 @@ impl CoordinatedLine {
             // For simplicity, we will return the midpoint of the intersection as the intersection point
             let intersection_point = global_line1.get_intersection_point(&global_line2);
             let global_intersection_point =
-                CoordinatedPoint::new(global_coordinate_system.clone(), intersection_point);
+                CoordinatedPoint::new(global_coordinate_system.clone(), intersection_point.point);
             let target_coordinate_system = self.start.coordinate_system.clone();
             let intersection_point =
                 target_coordinate_system.from_global(global_intersection_point);
@@ -840,54 +901,15 @@ impl CoordinatedRectangle {
                 Vec3d::new(1.0, 0.0, 0.0),
                 Vec3d::new(0.0, 1.0, 0.0),
             ));
-        let mut intersection_points = Vec::new();
-        for rect_line in &global_rectangle.get_lines() {
-            if rect_line.intersects(&global_line) {
-                let intersection_point = rect_line.get_intersection_point(&global_line);
-                let global_intersection_point =
-                    CoordinatedPoint::new(global_coordinate_system.clone(), intersection_point);
-                let target_coordinate_system = line.start.coordinate_system.clone();
-                let intersection_point =
-                    target_coordinate_system.from_global(global_intersection_point);
-                intersection_points.push(intersection_point);
+        match global_rectangle.get_intersection_line(global_line) {
+            Some(intersection_line) => {
+                return Some(CoordinatedLine::new(
+                    CoordinatedPoint::new(global_coordinate_system.clone(), intersection_line.start),
+                    CoordinatedPoint::new(global_coordinate_system.clone(), intersection_line.end),
+                ));
             }
+            None => None,
         }
-        // make sure the intersection points are unique
-        intersection_points.sort_by(|a, b| {
-            a.get_x()
-                .partial_cmp(&b.get_x())
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        intersection_points.dedup_by(|a, b| {
-            (a.get_x() - b.get_x()).abs() < 1e-8 && (a.get_y() - b.get_y()).abs() < 1e-8
-        });
-        assert!(intersection_points.len() <= 2);
-        if intersection_points.len() == 2 {
-            Some(CoordinatedLine::new(
-                intersection_points[0].clone(),
-                intersection_points[1].clone(),
-            ))
-        } else if intersection_points.len() == 1 {
-            // return the one line of [input_line.begin, intersection_point] or [input_line.end, intersection_point] depending on which one is inside the coordinated rectangle
-            let input_line_begin = line.start.clone();
-            let input_line_end = line.end.clone();
-            let intersection_point = intersection_points[0].clone();
-            if self.contains_point(input_line_begin.clone()) {
-                Some(CoordinatedLine::new(input_line_begin, intersection_point))
-            } else if self.contains_point(input_line_end.clone()) {
-                Some(CoordinatedLine::new(input_line_end, intersection_point))
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-
-    fn contains_point(&self, point: CoordinatedPoint) -> bool {
-        let global_rectangle = self.to_global_rectangle();
-        let global_point = point.coordinate_system.clone().to_global(point);
-        global_rectangle.contains_point(global_point.get_local_point())
     }
 
     pub fn get_top_left(&self) -> CoordinatedPoint {
@@ -1216,11 +1238,11 @@ mod tests {
         assert!(!horizontal.intersects(&parallel));
         assert!(!horizontal.intersects(&disjoint));
         assert_vec_eq(
-            line.get_intersection_point(&crossing),
+            line.get_intersection_point(&crossing).point,
             Vec3d::new(1.0, 1.0, 0.0),
         );
         assert_vec_eq(
-            horizontal.get_intersection_point(&parallel),
+            horizontal.get_intersection_point(&parallel).point,
             Vec3d::new(1.0, 0.0, 0.0),
         );
         assert_float_eq(horizontal.angle_between(&vertical).angle_degrees, 90.0);
