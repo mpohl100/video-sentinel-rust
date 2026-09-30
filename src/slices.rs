@@ -504,6 +504,7 @@ impl SliceMatrix {
         let mut tl = Vec3d::new(f64::INFINITY, f64::INFINITY, 0.0);
         let mut br = Vec3d::new(f64::NEG_INFINITY, f64::NEG_INFINITY, 0.0);
         let mut colors = Vec::new();
+        let image = self.image.image.lock().unwrap();
         for line in &self.lines {
             for slice in &line.slices {
                 masses.push((slice.get_mass(), slice.get_midpoint()));
@@ -515,12 +516,7 @@ impl SliceMatrix {
                 br.y = br.y.max(right_point.get_y());
                 for x in left_point.get_x() as u32..=right_point.get_x() as u32 {
                     colors.push(
-                        *self
-                            .image
-                            .image
-                            .lock()
-                            .unwrap()
-                            .get_pixel(x, left_point.get_y() as u32),
+                        *image.get_pixel(x, left_point.get_y() as u32),
                     );
                 }
             }
