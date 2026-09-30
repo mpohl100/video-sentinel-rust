@@ -168,16 +168,25 @@ impl Trace {
 
     pub fn compare_with(&self, target_similarity: f64, other: &Trace) -> f64 {
         let mut highest_similarity = 0.0;
+        let first_factor = self.total_mass / self.total_surrounding_circle_area;
+        let second_factor = other.total_mass / other.total_surrounding_circle_area;
+        let closeness =
+            (first_factor.min(second_factor) / first_factor.max(second_factor)).max(0.0);
+
         for i in 0..self.ratio_lines.len() {
             let similarity = compare_with_rotation(&self.ratio_lines, &other.ratio_lines, i);
+            let adjusted_similarity = similarity * closeness;
             if trace_debug_enabled() {
                 println!(
                     "trace.compare_with rotation={} similarity={:.8} highest_before={:.8} target={:.8}",
                     i, similarity, highest_similarity, target_similarity,
                 );
             }
-            if similarity > highest_similarity {
-                highest_similarity = similarity;
+            if adjusted_similarity > highest_similarity {
+                highest_similarity = adjusted_similarity;
+            }
+            if highest_similarity >= target_similarity {
+                break;
             }
         }
         if trace_debug_enabled() {
@@ -186,11 +195,7 @@ impl Trace {
                 highest_similarity,
             );
         }
-        let first_factor = self.total_mass / self.total_surrounding_circle_area;
-        let second_factor = other.total_mass / other.total_surrounding_circle_area;
-        let closeness =
-            (first_factor.min(second_factor) / first_factor.max(second_factor)).max(0.0);
-        highest_similarity * closeness
+        highest_similarity
     }
 
     pub fn dump_details(&self) -> String {
