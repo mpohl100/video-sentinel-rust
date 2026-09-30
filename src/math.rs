@@ -521,21 +521,21 @@ impl AnonymizedCoordinateSystem {
             AnonymizedCoordinateSystem::Direct(cs) => {
                 let point = cs.to_global(point);
                 let global_coordinate_system =
-                    AnonymizedCoordinateSystem::new_direct(CoordinateSystem {
-                        origin: Vec3d::new(0.0, 0.0, 0.0),
-                        x_axis: Vec3d::new(1.0, 0.0, 0.0),
-                        y_axis: Vec3d::new(0.0, 1.0, 0.0),
-                    });
+                    AnonymizedCoordinateSystem::new_direct(CoordinateSystem::new(
+                        Vec3d::new(0.0, 0.0, 0.0),
+                        Vec3d::new(1.0, 0.0, 0.0),
+                        Vec3d::new(0.0, 1.0, 0.0),
+                    ));
                 CoordinatedPoint::new(global_coordinate_system, point)
             }
             AnonymizedCoordinateSystem::Indirect(wrapped_cs) => {
                 let point = wrapped_cs.to_global(point);
                 let global_coordinate_system =
-                    AnonymizedCoordinateSystem::new_direct(CoordinateSystem {
-                        origin: Vec3d::new(0.0, 0.0, 0.0),
-                        x_axis: Vec3d::new(1.0, 0.0, 0.0),
-                        y_axis: Vec3d::new(0.0, 1.0, 0.0),
-                    });
+                    AnonymizedCoordinateSystem::new_direct(CoordinateSystem::new(
+                        Vec3d::new(0.0, 0.0, 0.0),
+                        Vec3d::new(1.0, 0.0, 0.0),
+                        Vec3d::new(0.0, 1.0, 0.0),
+                    ));
                 CoordinatedPoint::new(global_coordinate_system, point)
             }
         }
@@ -605,11 +605,11 @@ impl CoordinatedPoint {
     }
 
     pub fn to_global_point(&self) -> CoordinatedPoint {
-        let global_coordinate_system = AnonymizedCoordinateSystem::new_direct(CoordinateSystem {
-            origin: Vec3d::new(0.0, 0.0, 0.0),
-            x_axis: Vec3d::new(1.0, 0.0, 0.0),
-            y_axis: Vec3d::new(0.0, 1.0, 0.0),
-        });
+        let global_coordinate_system = AnonymizedCoordinateSystem::new_direct(CoordinateSystem::new(
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(1.0, 0.0, 0.0),
+            Vec3d::new(0.0, 1.0, 0.0),
+        ));
         self.convert_to(global_coordinate_system)
     }
 
@@ -636,11 +636,11 @@ impl CoordinatedPoint {
             .get_local_point();
         let local_coordinates = coordinate_system
             .from_global(CoordinatedPoint::new(
-                AnonymizedCoordinateSystem::new_direct(CoordinateSystem {
-                    origin: Vec3d::new(0.0, 0.0, 0.0),
-                    x_axis: Vec3d::new(1.0, 0.0, 0.0),
-                    y_axis: Vec3d::new(0.0, 1.0, 0.0),
-                }),
+                AnonymizedCoordinateSystem::new_direct(CoordinateSystem::new(
+                    Vec3d::new(0.0, 0.0, 0.0),
+                    Vec3d::new(1.0, 0.0, 0.0),
+                    Vec3d::new(0.0, 1.0, 0.0),
+                )),
                 global_point,
             ))
             .get_local_point();
@@ -718,11 +718,11 @@ impl CoordinatedLine {
     pub fn get_intersection_point(&self, other: CoordinatedLine) -> Option<CoordinatedPoint> {
         let global_line1 = self.to_global_line();
         let global_line2 = other.to_global_line();
-        let global_coordinate_system = AnonymizedCoordinateSystem::new_direct(CoordinateSystem {
-            origin: Vec3d::new(0.0, 0.0, 0.0),
-            x_axis: Vec3d::new(1.0, 0.0, 0.0),
-            y_axis: Vec3d::new(0.0, 1.0, 0.0),
-        });
+        let global_coordinate_system = AnonymizedCoordinateSystem::new_direct(CoordinateSystem::new(
+            Vec3d::new(0.0, 0.0, 0.0),
+            Vec3d::new(1.0, 0.0, 0.0),
+            Vec3d::new(0.0, 1.0, 0.0),
+        ));
         if global_line1.intersects(&global_line2) {
             // For simplicity, we will return the midpoint of the intersection as the intersection point
             let intersection_point = global_line1.get_intersection_point(&global_line2);
