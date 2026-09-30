@@ -14,7 +14,7 @@ use video_sentinel::slices::{
     calculate_slices, find_connected_slices,
 };
 use video_sentinel::traced_mosaics::TracedRelativeMosaic;
-use video_sentinel::traces::{WrappedTrace, Trace, TraceParams, set_trace_debug};
+use video_sentinel::traces::{Trace, TraceParams, WrappedTrace, set_trace_debug};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ReferenceBuildMode {
