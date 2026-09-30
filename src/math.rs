@@ -211,7 +211,6 @@ impl Rectangle {
         Self { points }
     }
 
-
     pub fn get_intersection_line(&self, line: Line) -> Option<Line> {
         let mut intersection_points = Vec::new();
         for rect_line in &self.get_lines() {
@@ -237,12 +236,12 @@ impl Rectangle {
             ))
         } else if intersection_points.len() == 1 {
             // return the one line of [input_line.begin, intersection_point] or [input_line.end, intersection_point] depending on which one is inside the coordinated rectangle
-            let input_line_begin = line.start.clone();
-            let input_line_end = line.end.clone();
+            let input_line_begin = line.start;
+            let input_line_end = line.end;
             let intersection_point = intersection_points[0].clone();
-            if self.contains_point(input_line_begin.clone()) {
+            if self.contains_point(input_line_begin) {
                 Some(Line::new(input_line_begin, intersection_point.point))
-            } else if self.contains_point(input_line_end.clone()) {
+            } else if self.contains_point(input_line_end) {
                 Some(Line::new(input_line_end, intersection_point.point))
             } else {
                 None
@@ -901,15 +900,17 @@ impl CoordinatedRectangle {
                 Vec3d::new(1.0, 0.0, 0.0),
                 Vec3d::new(0.0, 1.0, 0.0),
             ));
-        match global_rectangle.get_intersection_line(global_line) {
-            Some(intersection_line) => {
-                return Some(CoordinatedLine::new(
-                    CoordinatedPoint::new(global_coordinate_system.clone(), intersection_line.start),
+        global_rectangle
+            .get_intersection_line(global_line)
+            .map(|intersection_line| {
+                CoordinatedLine::new(
+                    CoordinatedPoint::new(
+                        global_coordinate_system.clone(),
+                        intersection_line.start,
+                    ),
                     CoordinatedPoint::new(global_coordinate_system.clone(), intersection_line.end),
-                ));
-            }
-            None => None,
-        }
+                )
+            })
     }
 
     pub fn get_top_left(&self) -> CoordinatedPoint {
