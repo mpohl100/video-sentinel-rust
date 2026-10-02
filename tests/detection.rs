@@ -188,8 +188,8 @@ fn generate_shape_data() -> ShapesData {
     shapes_data
 }
 
-fn basic_params() -> BasicParams {
-    BasicParams::new(false, 15)
+fn basic_params(do_grayscale: bool) -> BasicParams {
+    BasicParams::new(do_grayscale, 15)
 }
 
 fn surrounding_rectangle(image: &WrappedRgbImage) -> Rectangle {
@@ -198,11 +198,11 @@ fn surrounding_rectangle(image: &WrappedRgbImage) -> Rectangle {
     Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(width, height, 0.0))
 }
 
-fn deduce_all_mosaics(image: WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
+fn deduce_all_mosaics(image: WrappedRgbImage, do_grayscale: bool) -> Vec<TracedRelativeMosaic> {
     let trace_params = TraceParams::new(12, 0.2);
     let rectangle = surrounding_rectangle(&image);
     let math_rectangle = MathRectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right());
-    let slices = calculate_slices(image.clone(), rectangle, basic_params());
+    let slices = calculate_slices(image.clone(), rectangle, basic_params(do_grayscale));
     let connected_slices = find_connected_slices(&mut slices.clone());
     deduce_mosaics(connected_slices, math_rectangle)
         .into_iter()
@@ -213,6 +213,7 @@ fn deduce_all_mosaics(image: WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
 fn deduce_mosaic_at_position(
     image: WrappedRgbImage,
     position: Vec3d,
+    do_grayscale: bool,
 ) -> Option<TracedRelativeMosaic> {
     let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
         Vec3d::new(0.0, 0.0, 0.0),
@@ -220,24 +221,27 @@ fn deduce_mosaic_at_position(
         Vec3d::new(0.0, 1.0, 0.0),
     ));
 
-    deduce_all_mosaics(image).into_iter().find(|mosaic| {
-        mosaic
-            .get_relative_mosaic()
-            .get_mosaic()
-            .contains_point(CoordinatedPoint::new(
-                global_coordinate_system.clone(),
-                position,
-            ))
-    })
+    deduce_all_mosaics(image, do_grayscale)
+        .into_iter()
+        .find(|mosaic| {
+            mosaic
+                .get_relative_mosaic()
+                .get_mosaic()
+                .contains_point(CoordinatedPoint::new(
+                    global_coordinate_system.clone(),
+                    position,
+                ))
+        })
 }
 
 fn build_bucketed_mosaics(
     image: WrappedRgbImage,
     tile_params: TileParams,
     bucket_delta: f64,
+    do_grayscale: bool,
 ) -> BucketedMosaics {
     let mut bucketed = BucketedMosaics::new(tile_params, bucket_delta);
-    for mosaic in deduce_all_mosaics(image) {
+    for mosaic in deduce_all_mosaics(image, do_grayscale) {
         bucketed.add_mosaic(mosaic);
     }
     bucketed
@@ -268,14 +272,15 @@ fn single_reference_object_from_image(
     image: WrappedRgbImage,
     position: Vec3d,
     id: &str,
+    do_grayscale: bool,
 ) -> ReferenceObject {
     ReferenceObject::new(
         id.to_string(),
-        vec![deduce_mosaic_at_position(image, position).unwrap()],
+        vec![deduce_mosaic_at_position(image, position, do_grayscale).unwrap()],
     )
 }
 
-fn trace_cpp_square_reference_object() -> ReferenceObject {
+fn trace_cpp_square_reference_object(do_grayscale: bool) -> ReferenceObject {
     let reference_image = create_test_image_with_shapes(
         &ShapesData {
             rectangles: vec![ColoredTestRectangle {
@@ -290,10 +295,15 @@ fn trace_cpp_square_reference_object() -> ReferenceObject {
         50,
     );
 
-    single_reference_object_from_image(reference_image, Vec3d::new(20.0, 20.0, 0.0), "square")
+    single_reference_object_from_image(
+        reference_image,
+        Vec3d::new(20.0, 20.0, 0.0),
+        "square",
+        do_grayscale,
+    )
 }
 
-fn trace_cpp_circle_reference_object() -> ReferenceObject {
+fn trace_cpp_circle_reference_object(do_grayscale: bool) -> ReferenceObject {
     let reference_image = create_test_image_with_shapes(
         &ShapesData {
             rectangles: Vec::new(),
@@ -307,10 +317,15 @@ fn trace_cpp_circle_reference_object() -> ReferenceObject {
         50,
     );
 
-    single_reference_object_from_image(reference_image, Vec3d::new(25.0, 25.0, 0.0), "circle")
+    single_reference_object_from_image(
+        reference_image,
+        Vec3d::new(25.0, 25.0, 0.0),
+        "circle",
+        do_grayscale,
+    )
 }
 
-fn trace_cpp_rectangle_reference_object() -> ReferenceObject {
+fn trace_cpp_rectangle_reference_object(do_grayscale: bool) -> ReferenceObject {
     let reference_image = create_test_image_with_shapes(
         &ShapesData {
             rectangles: vec![ColoredTestRectangle {
@@ -325,14 +340,19 @@ fn trace_cpp_rectangle_reference_object() -> ReferenceObject {
         50,
     );
 
-    single_reference_object_from_image(reference_image, Vec3d::new(20.0, 20.0, 0.0), "rectangle")
+    single_reference_object_from_image(
+        reference_image,
+        Vec3d::new(20.0, 20.0, 0.0),
+        "rectangle",
+        do_grayscale,
+    )
 }
 
-#[test]
-fn detect_objects_finds_square_results_from_trace_cpp_scene() {
+fn assert_detect_objects_finds_square_results_from_trace_cpp_scene(do_grayscale: bool) {
     let scene = create_test_image_with_shapes(&generate_shape_data(), 300, 300);
-    let reference = trace_cpp_square_reference_object();
-    let bucketed = build_bucketed_mosaics(scene.clone(), TileParams::new(0.2, 0.2), 0.5);
+    let reference = trace_cpp_square_reference_object(do_grayscale);
+    let bucketed =
+        build_bucketed_mosaics(scene.clone(), TileParams::new(0.2, 0.2), 0.5, do_grayscale);
     let results = detect_objects(
         reference,
         &bucketed,
@@ -349,11 +369,11 @@ fn detect_objects_finds_square_results_from_trace_cpp_scene() {
     }
 }
 
-#[test]
-fn detect_objects_finds_circle_results_from_trace_cpp_scene() {
+fn assert_detect_objects_finds_circle_results_from_trace_cpp_scene(do_grayscale: bool) {
     let scene = create_test_image_with_shapes(&generate_shape_data(), 300, 300);
-    let reference = trace_cpp_circle_reference_object();
-    let bucketed = build_bucketed_mosaics(scene.clone(), TileParams::new(0.2, 0.2), 0.5);
+    let reference = trace_cpp_circle_reference_object(do_grayscale);
+    let bucketed =
+        build_bucketed_mosaics(scene.clone(), TileParams::new(0.2, 0.2), 0.5, do_grayscale);
     let results = detect_objects(
         reference,
         &bucketed,
@@ -370,11 +390,11 @@ fn detect_objects_finds_circle_results_from_trace_cpp_scene() {
     }
 }
 
-#[test]
-fn detect_objects_finds_rectangle_results_from_trace_cpp_scene() {
+fn assert_detect_objects_finds_rectangle_results_from_trace_cpp_scene(do_grayscale: bool) {
     let scene = create_test_image_with_shapes(&generate_shape_data(), 300, 300);
-    let reference = trace_cpp_rectangle_reference_object();
-    let bucketed = build_bucketed_mosaics(scene.clone(), TileParams::new(0.2, 0.2), 0.5);
+    let reference = trace_cpp_rectangle_reference_object(do_grayscale);
+    let bucketed =
+        build_bucketed_mosaics(scene.clone(), TileParams::new(0.2, 0.2), 0.5, do_grayscale);
     let results = detect_objects(
         reference,
         &bucketed,
@@ -383,7 +403,7 @@ fn detect_objects_finds_rectangle_results_from_trace_cpp_scene() {
         Results::Absolute,
     );
 
-    assert_eq!(results.len(), 2);
+    assert_eq!(results.len(), if do_grayscale { 3 } else { 2 });
     assert_all_green(&results);
     for result in &results {
         let center_y = extract_center_y(&result.get_rectangle());
@@ -391,8 +411,7 @@ fn detect_objects_finds_rectangle_results_from_trace_cpp_scene() {
     }
 }
 
-#[test]
-fn detect_objects_with_two_reference_mosaics_respects_relative_layout() {
+fn assert_detect_objects_with_two_reference_mosaics_respects_relative_layout(do_grayscale: bool) {
     let reference_image = create_test_image_with_shapes(
         &ShapesData {
             rectangles: vec![
@@ -417,9 +436,14 @@ fn detect_objects_with_two_reference_mosaics_respects_relative_layout() {
     let reference = ReferenceObject::new(
         "pair".to_string(),
         vec![
-            deduce_mosaic_at_position(reference_image.clone(), Vec3d::new(20.0, 20.0, 0.0))
+            deduce_mosaic_at_position(
+                reference_image.clone(),
+                Vec3d::new(20.0, 20.0, 0.0),
+                do_grayscale,
+            )
+            .unwrap(),
+            deduce_mosaic_at_position(reference_image, Vec3d::new(60.0, 20.0, 0.0), do_grayscale)
                 .unwrap(),
-            deduce_mosaic_at_position(reference_image, Vec3d::new(60.0, 20.0, 0.0)).unwrap(),
         ],
     );
     let scene = create_test_image_with_shapes(
@@ -461,7 +485,12 @@ fn detect_objects_with_two_reference_mosaics_respects_relative_layout() {
         180,
         100,
     );
-    let bucketed = build_bucketed_mosaics(scene.clone(), TileParams::new(0.25, 0.25), 0.5);
+    let bucketed = build_bucketed_mosaics(
+        scene.clone(),
+        TileParams::new(0.25, 0.25),
+        0.5,
+        do_grayscale,
+    );
     let results = detect_objects(
         reference,
         &bucketed,
@@ -485,3 +514,53 @@ fn detect_objects_with_two_reference_mosaics_respects_relative_layout() {
     assert_float_eq(centers[0], 20.0);
     assert_float_eq(centers[centers.len() - 1], 20.0);
 }
+
+macro_rules! grayscale_theory {
+    ($test_name:ident, $assertion:ident, $do_grayscale:expr) => {
+        #[test]
+        fn $test_name() {
+            $assertion($do_grayscale);
+        }
+    };
+}
+
+grayscale_theory!(
+    detect_objects_finds_square_results_from_trace_cpp_scene_without_grayscale,
+    assert_detect_objects_finds_square_results_from_trace_cpp_scene,
+    false
+);
+grayscale_theory!(
+    detect_objects_finds_square_results_from_trace_cpp_scene_with_grayscale,
+    assert_detect_objects_finds_square_results_from_trace_cpp_scene,
+    true
+);
+grayscale_theory!(
+    detect_objects_finds_circle_results_from_trace_cpp_scene_without_grayscale,
+    assert_detect_objects_finds_circle_results_from_trace_cpp_scene,
+    false
+);
+grayscale_theory!(
+    detect_objects_finds_circle_results_from_trace_cpp_scene_with_grayscale,
+    assert_detect_objects_finds_circle_results_from_trace_cpp_scene,
+    true
+);
+grayscale_theory!(
+    detect_objects_finds_rectangle_results_from_trace_cpp_scene_without_grayscale,
+    assert_detect_objects_finds_rectangle_results_from_trace_cpp_scene,
+    false
+);
+grayscale_theory!(
+    detect_objects_finds_rectangle_results_from_trace_cpp_scene_with_grayscale,
+    assert_detect_objects_finds_rectangle_results_from_trace_cpp_scene,
+    true
+);
+grayscale_theory!(
+    detect_objects_with_two_reference_mosaics_respects_relative_layout_without_grayscale,
+    assert_detect_objects_with_two_reference_mosaics_respects_relative_layout,
+    false
+);
+grayscale_theory!(
+    detect_objects_with_two_reference_mosaics_respects_relative_layout_with_grayscale,
+    assert_detect_objects_with_two_reference_mosaics_respects_relative_layout,
+    true
+);
