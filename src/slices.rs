@@ -10,7 +10,8 @@ use opencv::imgcodecs;
 use opencv::imgproc;
 use opencv::prelude::*;
 
-use std::sync::{Arc, Mutex};
+use std::marker::PhantomData;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::math::AnonymizedCoordinateSystem;
 use crate::math::CoordinateSystem;
@@ -293,6 +294,51 @@ impl SliceLine {
 #[derive(Clone)]
 pub struct WrappedRgbImage {
     image: Arc<Mutex<Mat>>,
+}
+
+struct GrayPixelReader<'a> {
+    data: *const u8,
+    row_stride: usize,
+    _mat: PhantomData<&'a Mat>,
+}
+
+impl<'a> GrayPixelReader<'a> {
+    fn new(image: &'a Mat) -> Result<Self, opencv::Error> {
+        Ok(Self {
+            data: image.data(),
+            row_stride: image.step1(0)?,
+            _mat: PhantomData,
+        })
+    }
+
+    #[inline]
+    unsafe fn value_unchecked(&self, x: usize, y: usize) -> f64 {
+        unsafe { *self.data.add(y * self.row_stride + x) as f64 }
+    }
+}
+
+struct RgbPixelReader<'a> {
+    _guard: MutexGuard<'a, Mat>,
+    data: *const u8,
+    row_stride: usize,
+}
+
+impl<'a> RgbPixelReader<'a> {
+    fn new(image: &'a WrappedRgbImage) -> Result<Self, opencv::Error> {
+        let guard = image.image.lock().unwrap();
+        let data = guard.data();
+        let row_stride = guard.step1(0)?;
+        Ok(Self {
+            _guard: guard,
+            data,
+            row_stride,
+        })
+    }
+
+    #[inline]
+    unsafe fn channel_unchecked(&self, x: usize, y: usize, channel: usize) -> f64 {
+        unsafe { *self.data.add(y * self.row_stride + x * 3 + channel) as f64 }
+    }
 }
 
 fn point_in_polygon(point: (f64, f64), polygon: &[(i32, i32)]) -> bool {
@@ -1113,22 +1159,16 @@ impl ColoredRectangle {
     }
 }
 
-fn gray_value(gray_image: &Mat, x: usize, y: usize) -> f64 {
-    *gray_image
-        .at_2d::<u8>(y as i32, x as i32)
-        .expect("failed to read grayscale pixel") as f64
-}
-
-fn compute_smoothed_gradient_squared(gray_image: &Mat, x: usize, y: usize) -> f64 {
-    let compute_gradient = |x_in: usize, y_in: usize| -> f64 {
-        let tl = gray_value(gray_image, x_in - 1, y_in - 1);
-        let tc = gray_value(gray_image, x_in, y_in - 1);
-        let tr = gray_value(gray_image, x_in + 1, y_in - 1);
-        let cl = gray_value(gray_image, x_in - 1, y_in);
-        let cr = gray_value(gray_image, x_in + 1, y_in);
-        let bl = gray_value(gray_image, x_in - 1, y_in + 1);
-        let bc = gray_value(gray_image, x_in, y_in + 1);
-        let br = gray_value(gray_image, x_in + 1, y_in + 1);
+fn compute_smoothed_gradient_squared(gray_image: &GrayPixelReader<'_>, x: usize, y: usize) -> f64 {
+    let compute_gradient = |x_in: usize, y_in: usize| unsafe {
+        let tl = gray_image.value_unchecked(x_in - 1, y_in - 1);
+        let tc = gray_image.value_unchecked(x_in, y_in - 1);
+        let tr = gray_image.value_unchecked(x_in + 1, y_in - 1);
+        let cl = gray_image.value_unchecked(x_in - 1, y_in);
+        let cr = gray_image.value_unchecked(x_in + 1, y_in);
+        let bl = gray_image.value_unchecked(x_in - 1, y_in + 1);
+        let bc = gray_image.value_unchecked(x_in, y_in + 1);
+        let br = gray_image.value_unchecked(x_in + 1, y_in + 1);
 
         let sqrt2 = std::f64::consts::FRAC_1_SQRT_2;
         let grad_tl_br = br - tl;
@@ -1159,20 +1199,20 @@ fn compute_smoothed_gradient_squared(gray_image: &Mat, x: usize, y: usize) -> f6
 }
 
 fn compute_smoothed_gradient_channel(
-    image: &WrappedRgbImage,
+    image: &RgbPixelReader<'_>,
     x: usize,
     y: usize,
     channel: usize,
 ) -> f64 {
-    let compute_gradient = |x_in: usize, y_in: usize| -> f64 {
-        let tl = image.get_pixel((x_in - 1) as u32, (y_in - 1) as u32)[channel] as f64;
-        let tc = image.get_pixel(x_in as u32, (y_in - 1) as u32)[channel] as f64;
-        let tr = image.get_pixel((x_in + 1) as u32, (y_in - 1) as u32)[channel] as f64;
-        let cl = image.get_pixel((x_in - 1) as u32, y_in as u32)[channel] as f64;
-        let cr = image.get_pixel((x_in + 1) as u32, y_in as u32)[channel] as f64;
-        let bl = image.get_pixel((x_in - 1) as u32, (y_in + 1) as u32)[channel] as f64;
-        let bc = image.get_pixel(x_in as u32, (y_in + 1) as u32)[channel] as f64;
-        let br = image.get_pixel((x_in + 1) as u32, (y_in + 1) as u32)[channel] as f64;
+    let compute_gradient = |x_in: usize, y_in: usize| unsafe {
+        let tl = image.channel_unchecked(x_in - 1, y_in - 1, channel);
+        let tc = image.channel_unchecked(x_in, y_in - 1, channel);
+        let tr = image.channel_unchecked(x_in + 1, y_in - 1, channel);
+        let cl = image.channel_unchecked(x_in - 1, y_in, channel);
+        let cr = image.channel_unchecked(x_in + 1, y_in, channel);
+        let bl = image.channel_unchecked(x_in - 1, y_in + 1, channel);
+        let bc = image.channel_unchecked(x_in, y_in + 1, channel);
+        let br = image.channel_unchecked(x_in + 1, y_in + 1, channel);
 
         let sqrt2 = std::f64::consts::FRAC_1_SQRT_2;
         let grad_tl_br = br - tl;
@@ -1234,6 +1274,8 @@ pub fn calculate_slices(
 
     if params.do_grayscale {
         let gray_image = image.grayscale_mat().expect("failed to convert image to grayscale");
+        let gray_reader =
+            GrayPixelReader::new(&gray_image).expect("failed to access grayscale image");
         let mut current_slice = None;
         let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
@@ -1246,7 +1288,7 @@ pub fn calculate_slices(
         for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
             for x in rectangle.top_left.x as usize + 2..rectangle.bottom_right.x as usize - 2 {
-                let gradient = compute_smoothed_gradient_squared(&gray_image, x, y);
+                let gradient = compute_smoothed_gradient_squared(&gray_reader, x, y);
                 if gradient <= threshold_squared {
                     if current_slice.is_none() {
                         current_slice = Some(PreliminaryAnnotatedSlice::new(
@@ -1285,15 +1327,16 @@ pub fn calculate_slices(
         }
         slice_matrix
     } else {
+        let rgb_reader = RgbPixelReader::new(&image).expect("failed to access RGB image");
         let mut current_slice = None;
         let gradient_threshold = params.gradient_threshold as f64;
         let threshold_squared = gradient_threshold * gradient_threshold;
         for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
             for x in rectangle.top_left.x as usize + 2..rectangle.bottom_right.x as usize - 2 {
-                let gradient_0 = compute_smoothed_gradient_channel(&image, x, y, 0);
-                let gradient_1 = compute_smoothed_gradient_channel(&image, x, y, 1);
-                let gradient_2 = compute_smoothed_gradient_channel(&image, x, y, 2);
+                let gradient_0 = compute_smoothed_gradient_channel(&rgb_reader, x, y, 0);
+                let gradient_1 = compute_smoothed_gradient_channel(&rgb_reader, x, y, 1);
+                let gradient_2 = compute_smoothed_gradient_channel(&rgb_reader, x, y, 2);
 
                 if gradient_0 <= threshold_squared
                     && gradient_1 <= threshold_squared
@@ -1873,15 +1916,17 @@ mod tests {
 
     #[test]
     fn gradient_helpers_distinguish_uniform_and_edge_images() {
-        let gray = WrappedRgbImage::new_with_color(7, 7, [100, 100, 100])
+        let gray_mat = WrappedRgbImage::new_with_color(7, 7, [100, 100, 100])
             .grayscale_mat()
             .expect("failed to convert uniform image to grayscale");
+        let gray = GrayPixelReader::new(&gray_mat).expect("failed to access grayscale image");
         let color = WrappedRgbImage::new_with_color(7, 7, [0, 0, 0]);
         for y in 0..7 {
             for x in 3..7 {
                 color.set_pixel(x, y, [255, 0, 0]);
             }
         }
+        let color = RgbPixelReader::new(&color).expect("failed to access RGB image");
 
         assert_eq!(compute_smoothed_gradient_squared(&gray, 3, 3), 0.0);
         assert!(compute_smoothed_gradient_channel(&color, 3, 3, 0) > 0.0);
