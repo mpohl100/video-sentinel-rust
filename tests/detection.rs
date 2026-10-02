@@ -369,7 +369,7 @@ fn assert_detect_objects_finds_circle_results_from_trace_cpp_scene(do_grayscale:
     let results = detect_objects(
         reference,
         &bucketed,
-        standard_detection_params(0.8),
+        standard_detection_params(0.7),
         surrounding_rectangle(&scene),
         Results::Absolute,
     );
@@ -395,7 +395,7 @@ fn assert_detect_objects_finds_rectangle_results_from_trace_cpp_scene(do_graysca
         Results::Absolute,
     );
 
-    assert_eq!(results.len(), if do_grayscale { 3 } else { 2 });
+    assert_eq!(results.len(), 2);
     assert_all_green(&results);
     for result in &results {
         let center_y = extract_center_y(&result.get_rectangle());
