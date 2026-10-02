@@ -18,5 +18,3 @@ RUN apt update \
 		libswscale-dev \
 		libswresample-dev \
 	&& rm -rf /var/lib/apt/lists/*
-
-RUN cargo install flamegraph
