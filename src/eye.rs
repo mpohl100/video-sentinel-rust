@@ -163,7 +163,6 @@ mod tests {
     use crate::math::{AnonymizedCoordinateSystem, CoordinatedPoint};
     use crate::mosaics::{Results, WrappedMosaic};
     use crate::slices::{AnnotatedSlice, Slice, SliceLine, SliceMatrix, WrappedRgbImage};
-    use image::{ImageBuffer, Rgb};
     use rs_math3d::Vec3d;
 
     const EPSILON: f64 = 1e-8;
@@ -192,7 +191,7 @@ mod tests {
     }
 
     fn mosaic_from_ranges(ranges: &[(usize, f64, f64)], color: [u8; 3]) -> AnonymizedMosaic {
-        let image = WrappedRgbImage::new(ImageBuffer::from_pixel(32, 32, Rgb(color)));
+        let image = WrappedRgbImage::new_with_color(32, 32, color);
         let mut matrix = SliceMatrix::new(image);
         for (line_number, start, end) in ranges {
             matrix.add(SliceLine::new(

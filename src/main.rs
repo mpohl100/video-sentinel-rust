@@ -2,7 +2,6 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
-use image::{ImageBuffer, Rgb};
 use rs_math3d::Vec3d;
 use video_rs::{Decoder, Encoder, Frame};
 
@@ -13,8 +12,6 @@ use video_sentinel::service::{
     Service, TileParamsInput, TraceParamsInput,
 };
 use video_sentinel::slices::{Color, Rectangle, WrappedRgbImage};
-
-type RgbImage = ImageBuffer<Rgb<u8>, Vec<u8>>;
 
 #[derive(Parser)]
 #[command(name = "video-sentinel-exe")]
@@ -124,8 +121,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         };
 
         println!("processing frame {frame_index} at timestamp {timestamp} ms");
-        let rgb_image = frame_to_rgb_image(frame)?;
-        let wrapped_rgb_image = WrappedRgbImage::new(rgb_image.clone());
+        let wrapped_rgb_image = frame_to_rgb_image(frame)?;
 
         let previous_for_service = match &args.session {
             SessionArgs::Eye(_) => Some(
@@ -150,9 +146,9 @@ fn run() -> Result<(), Box<dyn Error>> {
             }
         };
 
-        let mut output_image = rgb_image;
+        let output_image = wrapped_rgb_image.clone();
         for mosaic in enriched_mosaics {
-            draw_rectangle(&mut output_image, &mosaic.bounding_box, &mosaic.color);
+            draw_rectangle(&output_image, &mosaic.bounding_box, &mosaic.color);
         }
 
         let output_frame = rgb_image_to_frame(output_image)?;
@@ -239,8 +235,10 @@ fn configure_session(service: &mut Service, args: &CliArgs) -> Result<(), Box<dy
                 .zip(object_args.object_rectangles.iter())
                 .enumerate()
             {
-                let image = image::open(file)?.to_rgb8();
-                let wrapped_image = WrappedRgbImage::new(image);
+                let wrapped_image = WrappedRgbImage::from_file(
+                    file.to_str()
+                        .ok_or_else(|| format!("non-utf8 path: {}", file.display()))?,
+                )?;
                 let surrounding_rectangle = parse_rectangle(rectangle)?;
                 let object_id = file
                     .file_stem()
@@ -321,7 +319,7 @@ fn parse_rectangle(input: &str) -> Result<Rectangle, Box<dyn Error>> {
     ))
 }
 
-fn draw_rectangle(image: &mut RgbImage, rectangle: &Rectangle, color: &Color) {
+fn draw_rectangle(image: &WrappedRgbImage, rectangle: &Rectangle, color: &Color) {
     let width = image.width() as i32;
     let height = image.height() as i32;
     if width == 0 || height == 0 {
@@ -343,22 +341,15 @@ fn draw_rectangle(image: &mut RgbImage, rectangle: &Rectangle, color: &Color) {
     }
 
     let pixel = match color {
-        Color::Red => Rgb([255, 0, 0]),
-        Color::Green => Rgb([0, 255, 0]),
-        Color::Blue => Rgb([0, 0, 255]),
+        Color::Red => [255, 0, 0],
+        Color::Green => [0, 255, 0],
+        Color::Blue => [0, 0, 255],
     };
 
-    for x in x1..=x2 {
-        image.put_pixel(x as u32, y1 as u32, pixel);
-        image.put_pixel(x as u32, y2 as u32, pixel);
-    }
-    for y in y1..=y2 {
-        image.put_pixel(x1 as u32, y as u32, pixel);
-        image.put_pixel(x2 as u32, y as u32, pixel);
-    }
+    image.draw_rectangle_outline((x1, y1), (x2, y2), pixel);
 }
 
-fn frame_to_rgb_image(frame: video_rs::Frame) -> Result<RgbImage, Box<dyn Error>> {
+fn frame_to_rgb_image(frame: video_rs::Frame) -> Result<WrappedRgbImage, Box<dyn Error>> {
     let (height, width, channels) = frame.dim();
     if channels != 3 {
         return Err(format!("expected 3 channels, got {channels}").into());
@@ -370,12 +361,16 @@ fn frame_to_rgb_image(frame: video_rs::Frame) -> Result<RgbImage, Box<dyn Error>
         frame.iter().copied().collect()
     };
 
-    ImageBuffer::from_raw(width as u32, height as u32, data)
-        .ok_or_else(|| "failed to create image buffer from decoded frame data".into())
+    WrappedRgbImage::from_rgb_data(width as u32, height as u32, &data)
+        .map_err(|error| format!("failed to create RGB image from decoded frame data: {error}").into())
 }
 
-fn rgb_image_to_frame(image: RgbImage) -> Result<Frame, Box<dyn Error>> {
-    let (width, height) = image.dimensions();
-    Frame::from_shape_vec((height as usize, width as usize, 3), image.into_raw())
+fn rgb_image_to_frame(image: WrappedRgbImage) -> Result<Frame, Box<dyn Error>> {
+    let width = image.width();
+    let height = image.height();
+    let data = image
+        .rgb_data()
+        .map_err(|error| format!("failed to extract RGB bytes from image: {error}"))?;
+    Frame::from_shape_vec((height as usize, width as usize, 3), data)
         .map_err(|error| format!("failed to create output frame: {error}").into())
 }

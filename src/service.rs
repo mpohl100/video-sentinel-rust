@@ -577,13 +577,9 @@ impl Service {
             match session {
                 Session::Object(_object_session) => {
                     let image = WrappedRgbImage::new_from_ascii_art(ascii_art.as_str());
-                    let image_guard = image.image.lock().unwrap();
-                    let width = image_guard.width() as f64;
-                    let height = image_guard.height() as f64;
-                    drop(image_guard);
                     let surrounding_rectangle = Rectangle::new(
                         Vec3d::new(0.0, 0.0, 0.0),
-                        Vec3d::new(width, height, 0.0),
+                        Vec3d::new(image.width() as f64, image.height() as f64, 0.0),
                     );
                     self.add_object_to_be_detected_as_image(
                         session_id,
@@ -752,8 +748,8 @@ fn calculate_ordinary_mosaics(
     results: Results,
     image: WrappedRgbImage,
 ) -> Vec<AnonymizedMosaic> {
-    let width = image.image.lock().unwrap().width() as usize;
-    let height = image.image.lock().unwrap().height() as usize;
+    let width = image.width() as usize;
+    let height = image.height() as usize;
     let rectangle = Rectangle::new(
         Vec3d::new(0.0, 0.0, 0.0),
         Vec3d::new(width as f64, height as f64, 0.0),
@@ -860,8 +856,6 @@ fn calculate_ordinary(
     ordinary_session: &OrdinarySession,
     image: WrappedRgbImage,
 ) -> Vec<ColoredAnonymizedMosaic> {
-    let image_guard = image.image.lock().unwrap();
-    drop(image_guard);
     let mosaics = calculate_ordinary_mosaics(
         ordinary_session.basic_params.clone(),
         ordinary_session.results,
@@ -881,8 +875,8 @@ fn calculate_eye(
     image: WrappedRgbImage,
     previous_image: WrappedRgbImage,
 ) -> Vec<ColoredAnonymizedMosaic> {
-    let image_width = image.image.lock().unwrap().width() as f64;
-    let image_height = image.image.lock().unwrap().height() as f64;
+    let image_width = image.width() as f64;
+    let image_height = image.height() as f64;
     let surrounding_rectangle = Rectangle::new(
         Vec3d::new(0.0, 0.0, 0.0),
         Vec3d::new(image_width, image_height, 0.0),
@@ -920,8 +914,8 @@ fn calculate_object(
     object_session: &ObjectSession,
     image: WrappedRgbImage,
 ) -> Vec<ColoredAnonymizedMosaic> {
-    let image_width = image.image.lock().unwrap().width() as f64;
-    let image_height = image.image.lock().unwrap().height() as f64;
+    let image_width = image.width() as f64;
+    let image_height = image.height() as f64;
     let surrounding_rectangle = Rectangle::new(
         Vec3d::new(0.0, 0.0, 0.0),
         Vec3d::new(image_width, image_height, 0.0),
@@ -960,7 +954,6 @@ fn calculate_object(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image::{ImageBuffer, Rgb};
 
     const EPSILON: f64 = 1e-8;
 
@@ -1011,11 +1004,11 @@ mod tests {
     }
 
     fn solid_image(color: [u8; 3]) -> WrappedRgbImage {
-        WrappedRgbImage::new(ImageBuffer::from_pixel(4, 4, Rgb(color)))
+        WrappedRgbImage::new_with_color(4, 4, color)
     }
 
     fn larger_solid_image(color: [u8; 3]) -> WrappedRgbImage {
-        WrappedRgbImage::new(ImageBuffer::from_pixel(16, 16, Rgb(color)))
+        WrappedRgbImage::new_with_color(16, 16, color)
     }
 
     fn object_ascii_art() -> String {

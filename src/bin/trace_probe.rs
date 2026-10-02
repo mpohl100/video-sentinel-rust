@@ -1,6 +1,3 @@
-use image::{ImageBuffer, Rgb};
-use imageproc::drawing::{draw_filled_circle_mut, draw_polygon_mut};
-use imageproc::point::Point;
 use rs_math3d::Vec3d;
 use std::env;
 
@@ -66,16 +63,16 @@ struct ShapesData {
     circles: Vec<ColoredTestCircle>,
 }
 
-fn rgb_from_name(color: &str) -> Rgb<u8> {
+fn rgb_from_name(color: &str) -> [u8; 3] {
     match color {
-        "red" => Rgb([255, 0, 0]),
-        "green" => Rgb([0, 255, 0]),
-        "blue" => Rgb([0, 0, 255]),
-        _ => Rgb([255, 255, 255]),
+        "red" => [255, 0, 0],
+        "green" => [0, 255, 0],
+        "blue" => [0, 0, 255],
+        _ => [255, 255, 255],
     }
 }
 
-fn rotated_rectangle_vertices(rectangle: &ColoredTestRectangle) -> [Point<i32>; 4] {
+fn rotated_rectangle_vertices(rectangle: &ColoredTestRectangle) -> [(i32, i32); 4] {
     let center_x = (rectangle.top_left.x + rectangle.bottom_right.x) / 2.0;
     let center_y = (rectangle.top_left.y + rectangle.bottom_right.y) / 2.0;
     let half_width = (rectangle.bottom_right.x - rectangle.top_left.x) / 2.0;
@@ -93,24 +90,19 @@ fn rotated_rectangle_vertices(rectangle: &ColoredTestRectangle) -> [Point<i32>; 
     corners.map(|(local_x, local_y)| {
         let rotated_x = center_x + local_x * cos_angle - local_y * sin_angle;
         let rotated_y = center_y + local_x * sin_angle + local_y * cos_angle;
-        Point::new(rotated_x.round() as i32, rotated_y.round() as i32)
+        (rotated_x.round() as i32, rotated_y.round() as i32)
     })
 }
 
-fn fill_rotated_rectangle(
-    image: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
-    rectangle: &ColoredTestRectangle,
-) {
-    draw_polygon_mut(
-        image,
+fn fill_rotated_rectangle(image: &WrappedRgbImage, rectangle: &ColoredTestRectangle) {
+    image.fill_polygon(
         &rotated_rectangle_vertices(rectangle),
         rgb_from_name(rectangle.color),
     );
 }
 
-fn fill_circle(image: &mut ImageBuffer<Rgb<u8>, Vec<u8>>, circle: &ColoredTestCircle) {
-    draw_filled_circle_mut(
-        image,
+fn fill_circle(image: &WrappedRgbImage, circle: &ColoredTestCircle) {
+    image.fill_circle(
         (
             circle.center.x.round() as i32,
             circle.center.y.round() as i32,
@@ -125,14 +117,14 @@ fn create_test_image_with_shapes(
     width: u32,
     height: u32,
 ) -> WrappedRgbImage {
-    let mut image = ImageBuffer::from_pixel(width, height, Rgb([0, 0, 0]));
+    let image = WrappedRgbImage::new_with_color(width, height, [0, 0, 0]);
     for rectangle in &shapes_data.rectangles {
-        fill_rotated_rectangle(&mut image, rectangle);
+        fill_rotated_rectangle(&image, rectangle);
     }
     for circle in &shapes_data.circles {
-        fill_circle(&mut image, circle);
+        fill_circle(&image, circle);
     }
-    WrappedRgbImage::new(image)
+    image
 }
 
 fn object_detection_scene_shapes() -> ShapesData {
@@ -278,7 +270,7 @@ fn coordinated_point(x: f64, y: f64) -> CoordinatedPoint {
 }
 
 fn blank_image(width: u32, height: u32) -> WrappedRgbImage {
-    WrappedRgbImage::new(ImageBuffer::from_pixel(width, height, Rgb([0, 0, 0])))
+    WrappedRgbImage::new_with_color(width, height, [0, 0, 0])
 }
 
 fn add_horizontal_slice(
@@ -334,8 +326,8 @@ fn circle_slice_matrix(width: u32, height: u32, center: Vec3d, radius: f64) -> S
 }
 
 fn surrounding_rectangle(image: &WrappedRgbImage) -> Rectangle {
-    let width = image.image.lock().unwrap().width() as f64;
-    let height = image.image.lock().unwrap().height() as f64;
+    let width = image.width() as f64;
+    let height = image.height() as f64;
     Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(width, height, 0.0))
 }
 

@@ -929,7 +929,6 @@ mod tests {
     use super::*;
     use crate::mosaics::WrappedMosaic;
     use crate::slices::{AnnotatedSlice, Slice, SliceLine, SliceMatrix, WrappedRgbImage};
-    use image::{ImageBuffer, Rgb};
 
     const EPSILON: f64 = 1e-8;
     const TRACE_PROBE_EPSILON: f64 = 1e-4;
@@ -985,11 +984,11 @@ mod tests {
     }
 
     fn solid_image() -> WrappedRgbImage {
-        WrappedRgbImage::new(ImageBuffer::from_pixel(64, 64, Rgb([255, 255, 255])))
+        WrappedRgbImage::new_with_color(64, 64, [255, 255, 255])
     }
 
     fn blank_image(width: u32, height: u32) -> WrappedRgbImage {
-        WrappedRgbImage::new(ImageBuffer::from_pixel(width, height, Rgb([0, 0, 0])))
+        WrappedRgbImage::new_with_color(width, height, [0, 0, 0])
     }
 
     fn annotated_slice(x1: f64, y: usize, x2: f64) -> AnnotatedSlice {

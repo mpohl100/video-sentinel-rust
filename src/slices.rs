@@ -1,11 +1,14 @@
-use core::f64;
+use std::f64;
 
 use rs_math3d::Vector;
 use rs_math3d::{FloatVector, Vec3d, Vector3};
 
 use crate::math::CoordinatedCircle;
 use crate::math::Point;
-use image::{ImageBuffer, Rgb};
+use opencv::core::{self, Mat, Scalar, Vec3b, Vector as CvVector};
+use opencv::imgcodecs;
+use opencv::imgproc;
+use opencv::prelude::*;
 
 use std::sync::{Arc, Mutex};
 
@@ -287,40 +290,187 @@ impl SliceLine {
     }
 }
 
-pub type RgbImage = ImageBuffer<Rgb<u8>, Vec<u8>>;
-
 #[derive(Clone)]
 pub struct WrappedRgbImage {
-    pub image: Arc<Mutex<RgbImage>>,
+    image: Arc<Mutex<Mat>>,
 }
 
 impl WrappedRgbImage {
-    pub fn new(image: RgbImage) -> Self {
+    pub fn new(image: Mat) -> Self {
         Self {
             image: Arc::new(Mutex::new(image)),
         }
+    }
+
+    pub fn new_with_color(width: u32, height: u32, color: [u8; 3]) -> Self {
+        let image = Mat::new_rows_cols_with_default(
+            height as i32,
+            width as i32,
+            core::CV_8UC3,
+            Scalar::new(color[0] as f64, color[1] as f64, color[2] as f64, 0.0),
+        )
+        .expect("failed to create RGB image");
+        Self::new(image)
+    }
+
+    pub fn from_rgb_data(width: u32, height: u32, data: &[u8]) -> Result<Self, opencv::Error> {
+        let expected_len = width as usize * height as usize * 3;
+        if data.len() != expected_len {
+            return Err(opencv::Error::new(
+                core::StsUnmatchedSizes,
+                format!(
+                    "expected {expected_len} bytes for a {width}x{height} RGB image, got {}",
+                    data.len()
+                ),
+            ));
+        }
+
+        let mut image = Mat::new_rows_cols_with_default(
+            height as i32,
+            width as i32,
+            core::CV_8UC3,
+            Scalar::default(),
+        )?;
+        image.data_bytes_mut()?.copy_from_slice(data);
+        Ok(Self::new(image))
+    }
+
+    pub fn from_file(path: &str) -> Result<Self, opencv::Error> {
+        let bgr = imgcodecs::imread(path, imgcodecs::IMREAD_COLOR)?;
+        let mut rgb = Mat::default();
+        imgproc::cvt_color(&bgr, &mut rgb, imgproc::COLOR_BGR2RGB, 0)?;
+        Ok(Self::new(rgb))
+    }
+
+    pub fn from_jpeg_bytes(bytes: &[u8]) -> Result<Self, opencv::Error> {
+        let compressed = CvVector::<u8>::from_slice(bytes);
+        let bgr = imgcodecs::imdecode(&compressed, imgcodecs::IMREAD_COLOR)?;
+        let mut rgb = Mat::default();
+        imgproc::cvt_color(&bgr, &mut rgb, imgproc::COLOR_BGR2RGB, 0)?;
+        Ok(Self::new(rgb))
     }
 
     pub fn new_from_ascii_art(ascii_art: &str) -> Self {
         let lines: Vec<&str> = ascii_art.lines().collect();
         let height = lines.len() as u32;
         let width = lines.iter().map(|line| line.len()).max().unwrap_or(0) as u32;
-        let mut image = ImageBuffer::new(width, height);
+        let image = WrappedRgbImage::new_with_color(width, height, [0, 0, 0]);
         for (y, line) in lines.iter().enumerate() {
             for (x, char) in line.chars().enumerate() {
                 let pixel_value = if char == '#' { 255 } else { 0 };
-                image.put_pixel(
+                image.set_pixel(
                     x as u32,
                     y as u32,
-                    Rgb([pixel_value, pixel_value, pixel_value]),
+                    [pixel_value, pixel_value, pixel_value],
                 );
             }
         }
-        WrappedRgbImage::new(image)
+        image
     }
 
-    pub fn get_pixel(&self, x: u32, y: u32) -> Rgb<u8> {
-        *self.image.lock().unwrap().get_pixel(x, y)
+    pub fn width(&self) -> u32 {
+        self.image.lock().unwrap().cols() as u32
+    }
+
+    pub fn height(&self) -> u32 {
+        self.image.lock().unwrap().rows() as u32
+    }
+
+    pub fn get_pixel(&self, x: u32, y: u32) -> [u8; 3] {
+        let image = self.image.lock().unwrap();
+        let pixel = image
+            .at_2d::<Vec3b>(y as i32, x as i32)
+            .expect("failed to read RGB pixel");
+        [pixel[0], pixel[1], pixel[2]]
+    }
+
+    pub fn set_pixel(&self, x: u32, y: u32, color: [u8; 3]) {
+        let mut image = self.image.lock().unwrap();
+        let pixel = image
+            .at_2d_mut::<Vec3b>(y as i32, x as i32)
+            .expect("failed to write RGB pixel");
+        *pixel = Vec3b::from(color);
+    }
+
+    pub fn rgb_data(&self) -> Result<Vec<u8>, opencv::Error> {
+        let image = self.image.lock().unwrap();
+        Ok(image.data_bytes()?.to_vec())
+    }
+
+    pub fn fill_polygon(&self, points: &[(i32, i32)], color: [u8; 3]) {
+        if points.len() < 3 {
+            return;
+        }
+        let min_x = points.iter().map(|(x, _)| *x).min().unwrap().max(0) as u32;
+        let min_y = points.iter().map(|(_, y)| *y).min().unwrap().max(0) as u32;
+        let max_x = points
+            .iter()
+            .map(|(x, _)| *x)
+            .max()
+            .unwrap()
+            .min(self.width() as i32 - 1) as u32;
+        let max_y = points
+            .iter()
+            .map(|(_, y)| *y)
+            .max()
+            .unwrap()
+            .min(self.height() as i32 - 1) as u32;
+
+        for y in min_y..=max_y {
+            for x in min_x..=max_x {
+                if point_in_polygon((x as f64 + 0.5, y as f64 + 0.5), points) {
+                    self.set_pixel(x, y, color);
+                }
+            }
+        }
+    }
+
+    pub fn fill_circle(&self, center: (i32, i32), radius: i32, color: [u8; 3]) {
+        let min_x = (center.0 - radius).max(0) as u32;
+        let min_y = (center.1 - radius).max(0) as u32;
+        let max_x = (center.0 + radius).min(self.width() as i32 - 1) as u32;
+        let max_y = (center.1 + radius).min(self.height() as i32 - 1) as u32;
+        let radius_squared = (radius * radius) as f64;
+
+        for y in min_y..=max_y {
+            for x in min_x..=max_x {
+                let dx = x as f64 - center.0 as f64;
+                let dy = y as f64 - center.1 as f64;
+                if dx * dx + dy * dy <= radius_squared {
+                    self.set_pixel(x, y, color);
+                }
+            }
+        }
+    }
+
+    pub fn draw_rectangle_outline(&self, top_left: (i32, i32), bottom_right: (i32, i32), color: [u8; 3]) {
+        if self.width() == 0 || self.height() == 0 {
+            return;
+        }
+
+        let x1 = top_left.0.clamp(0, self.width() as i32 - 1) as u32;
+        let y1 = top_left.1.clamp(0, self.height() as i32 - 1) as u32;
+        let x2 = bottom_right.0.clamp(0, self.width() as i32 - 1) as u32;
+        let y2 = bottom_right.1.clamp(0, self.height() as i32 - 1) as u32;
+        if x1 > x2 || y1 > y2 {
+            return;
+        }
+
+        for x in x1..=x2 {
+            self.set_pixel(x, y1, color);
+            self.set_pixel(x, y2, color);
+        }
+        for y in y1..=y2 {
+            self.set_pixel(x1, y, color);
+            self.set_pixel(x2, y, color);
+        }
+    }
+
+    pub fn grayscale_data(&self) -> Result<Vec<u8>, opencv::Error> {
+        let image = self.image.lock().unwrap();
+        let mut gray = Mat::default();
+        imgproc::cvt_color(&*image, &mut gray, imgproc::COLOR_RGB2GRAY, 0)?;
+        Ok(gray.data_bytes()?.to_vec())
     }
 }
 
@@ -504,7 +654,6 @@ impl SliceMatrix {
         let mut tl = Vec3d::new(f64::INFINITY, f64::INFINITY, 0.0);
         let mut br = Vec3d::new(f64::NEG_INFINITY, f64::NEG_INFINITY, 0.0);
         let mut colors = Vec::new();
-        let image = self.image.image.lock().unwrap();
         for line in &self.lines {
             for slice in &line.slices {
                 masses.push((slice.get_mass(), slice.get_midpoint()));
@@ -515,7 +664,7 @@ impl SliceMatrix {
                 br.x = br.x.max(right_point.get_x());
                 br.y = br.y.max(right_point.get_y());
                 for x in left_point.get_x() as u32..=right_point.get_x() as u32 {
-                    colors.push(*image.get_pixel(x, left_point.get_y() as u32));
+                    colors.push(self.image.get_pixel(x, left_point.get_y() as u32));
                 }
             }
         }
@@ -945,18 +1094,20 @@ impl ColoredRectangle {
     }
 }
 
-fn compute_smoothed_gradient_squared(gray_image: &image::GrayImage, x: usize, y: usize) -> f64 {
+fn gray_value(gray_image: &[u8], width: usize, x: usize, y: usize) -> f64 {
+    gray_image[y * width + x] as f64
+}
+
+fn compute_smoothed_gradient_squared(gray_image: &[u8], width: usize, x: usize, y: usize) -> f64 {
     let compute_gradient = |x_in: usize, y_in: usize| -> f64 {
-        let x = x_in as u32;
-        let y = y_in as u32;
-        let tl = gray_image.get_pixel(x - 1, y - 1)[0] as f64;
-        let tc = gray_image.get_pixel(x, y - 1)[0] as f64;
-        let tr = gray_image.get_pixel(x + 1, y - 1)[0] as f64;
-        let cl = gray_image.get_pixel(x - 1, y)[0] as f64;
-        let cr = gray_image.get_pixel(x + 1, y)[0] as f64;
-        let bl = gray_image.get_pixel(x - 1, y + 1)[0] as f64;
-        let bc = gray_image.get_pixel(x, y + 1)[0] as f64;
-        let br = gray_image.get_pixel(x + 1, y + 1)[0] as f64;
+        let tl = gray_value(gray_image, width, x_in - 1, y_in - 1);
+        let tc = gray_value(gray_image, width, x_in, y_in - 1);
+        let tr = gray_value(gray_image, width, x_in + 1, y_in - 1);
+        let cl = gray_value(gray_image, width, x_in - 1, y_in);
+        let cr = gray_value(gray_image, width, x_in + 1, y_in);
+        let bl = gray_value(gray_image, width, x_in - 1, y_in + 1);
+        let bc = gray_value(gray_image, width, x_in, y_in + 1);
+        let br = gray_value(gray_image, width, x_in + 1, y_in + 1);
 
         let sqrt2 = std::f64::consts::FRAC_1_SQRT_2;
         let grad_tl_br = br - tl;
@@ -993,17 +1144,14 @@ fn compute_smoothed_gradient_channel(
     channel: usize,
 ) -> f64 {
     let compute_gradient = |x_in: usize, y_in: usize| -> f64 {
-        let x = x_in as u32;
-        let y = y_in as u32;
-        let image = image.image.lock().unwrap();
-        let tl = image.get_pixel(x - 1, y - 1)[channel] as f64;
-        let tc = image.get_pixel(x, y - 1)[channel] as f64;
-        let tr = image.get_pixel(x + 1, y - 1)[channel] as f64;
-        let cl = image.get_pixel(x - 1, y)[channel] as f64;
-        let cr = image.get_pixel(x + 1, y)[channel] as f64;
-        let bl = image.get_pixel(x - 1, y + 1)[channel] as f64;
-        let bc = image.get_pixel(x, y + 1)[channel] as f64;
-        let br = image.get_pixel(x + 1, y + 1)[channel] as f64;
+        let tl = image.get_pixel((x_in - 1) as u32, (y_in - 1) as u32)[channel] as f64;
+        let tc = image.get_pixel(x_in as u32, (y_in - 1) as u32)[channel] as f64;
+        let tr = image.get_pixel((x_in + 1) as u32, (y_in - 1) as u32)[channel] as f64;
+        let cl = image.get_pixel((x_in - 1) as u32, y_in as u32)[channel] as f64;
+        let cr = image.get_pixel((x_in + 1) as u32, y_in as u32)[channel] as f64;
+        let bl = image.get_pixel((x_in - 1) as u32, (y_in + 1) as u32)[channel] as f64;
+        let bc = image.get_pixel(x_in as u32, (y_in + 1) as u32)[channel] as f64;
+        let br = image.get_pixel((x_in + 1) as u32, (y_in + 1) as u32)[channel] as f64;
 
         let sqrt2 = std::f64::consts::FRAC_1_SQRT_2;
         let grad_tl_br = br - tl;
@@ -1053,11 +1201,10 @@ pub fn calculate_slices(
     params: BasicParams,
 ) -> SliceMatrix {
     // checkt the rectangle is within the bounds of the image
-    let (img_width, img_height) = image.image.lock().unwrap().dimensions();
     if rectangle.top_left.x < 0.0
         || rectangle.top_left.y < 0.0
-        || rectangle.bottom_right.x > img_width as f64
-        || rectangle.bottom_right.y > img_height as f64
+        || rectangle.bottom_right.x > image.width() as f64
+        || rectangle.bottom_right.y > image.height() as f64
     {
         panic!("Rectangle is out of bounds of the image");
     }
@@ -1065,11 +1212,8 @@ pub fn calculate_slices(
     let mut slice_matrix = SliceMatrix::new(image.clone());
 
     if params.do_grayscale {
-        // Convert image to grayscale
-        let gray_image = {
-            let image = image.image.lock().unwrap();
-            image::imageops::grayscale(&*image)
-        };
+        let gray_image = image.grayscale_data().expect("failed to convert image to grayscale");
+        let gray_width = image.width() as usize;
         let mut current_slice = None;
         let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
@@ -1082,7 +1226,8 @@ pub fn calculate_slices(
         for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
             for x in rectangle.top_left.x as usize + 2..rectangle.bottom_right.x as usize - 2 {
-                let gradient = compute_smoothed_gradient_squared(&gray_image, x, y);
+                let gradient =
+                    compute_smoothed_gradient_squared(&gray_image, gray_width, x, y);
                 if gradient <= threshold_squared {
                     if current_slice.is_none() {
                         current_slice = Some(PreliminaryAnnotatedSlice::new(
@@ -1292,7 +1437,6 @@ pub fn find_connected_slices(slice_matrix: &mut SliceMatrix) -> Vec<SliceMatrix>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use image::Rgb;
 
     const EPSILON: f64 = 1e-8;
 
@@ -1370,7 +1514,7 @@ mod tests {
     }
 
     fn solid_image(width: u32, height: u32, color: [u8; 3]) -> WrappedRgbImage {
-        WrappedRgbImage::new(ImageBuffer::from_pixel(width, height, Rgb(color)))
+        WrappedRgbImage::new_with_color(width, height, color)
     }
 
     fn slice_matrix(lines: Vec<SliceLine>) -> SliceMatrix {
@@ -1486,11 +1630,11 @@ mod tests {
         let image = solid_image(3, 2, [7, 8, 9]);
         let ascii = WrappedRgbImage::new_from_ascii_art(".#\n#.");
 
-        assert_eq!(image.get_pixel(1, 1), Rgb([7, 8, 9]));
-        assert_eq!(ascii.get_pixel(0, 0), Rgb([0, 0, 0]));
-        assert_eq!(ascii.get_pixel(1, 0), Rgb([255, 255, 255]));
-        assert_eq!(ascii.get_pixel(0, 1), Rgb([255, 255, 255]));
-        assert_eq!(ascii.get_pixel(1, 1), Rgb([0, 0, 0]));
+        assert_eq!(image.get_pixel(1, 1), [7, 8, 9]);
+        assert_eq!(ascii.get_pixel(0, 0), [0, 0, 0]);
+        assert_eq!(ascii.get_pixel(1, 0), [255, 255, 255]);
+        assert_eq!(ascii.get_pixel(0, 1), [255, 255, 255]);
+        assert_eq!(ascii.get_pixel(1, 1), [0, 0, 0]);
     }
 
     #[test]
@@ -1710,19 +1854,18 @@ mod tests {
 
     #[test]
     fn gradient_helpers_distinguish_uniform_and_edge_images() {
-        let gray = image::GrayImage::from_pixel(7, 7, image::Luma([100]));
-        let mut color = ImageBuffer::from_pixel(7, 7, Rgb([0, 0, 0]));
+        let gray = vec![100; 7 * 7];
+        let color = WrappedRgbImage::new_with_color(7, 7, [0, 0, 0]);
         for y in 0..7 {
             for x in 3..7 {
-                color.put_pixel(x, y, Rgb([255, 0, 0]));
+                color.set_pixel(x, y, [255, 0, 0]);
             }
         }
-        let wrapped = WrappedRgbImage::new(color);
 
-        assert_eq!(compute_smoothed_gradient_squared(&gray, 3, 3), 0.0);
-        assert!(compute_smoothed_gradient_channel(&wrapped, 3, 3, 0) > 0.0);
-        assert_eq!(compute_smoothed_gradient_channel(&wrapped, 3, 3, 1), 0.0);
-        assert_eq!(compute_smoothed_gradient_channel(&wrapped, 3, 3, 2), 0.0);
+        assert_eq!(compute_smoothed_gradient_squared(&gray, 7, 3, 3), 0.0);
+        assert!(compute_smoothed_gradient_channel(&color, 3, 3, 0) > 0.0);
+        assert_eq!(compute_smoothed_gradient_channel(&color, 3, 3, 1), 0.0);
+        assert_eq!(compute_smoothed_gradient_channel(&color, 3, 3, 2), 0.0);
     }
 
     #[test]

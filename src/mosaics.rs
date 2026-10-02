@@ -492,7 +492,6 @@ mod tests {
     use super::*;
     use crate::math::{AnonymizedCoordinateSystem, CoordinatedPoint};
     use crate::slices::{AnnotatedSlice, Slice, SliceLine, WrappedRgbImage};
-    use image::{ImageBuffer, Rgb};
 
     const EPSILON: f64 = 1e-8;
 
@@ -530,7 +529,7 @@ mod tests {
     }
 
     fn sample_slice_matrix(color: [u8; 3]) -> SliceMatrix {
-        let image = WrappedRgbImage::new(ImageBuffer::from_pixel(32, 32, Rgb(color)));
+        let image = WrappedRgbImage::new_with_color(32, 32, color);
         let mut matrix = SliceMatrix::new(image);
         matrix.add(SliceLine::new(1, vec![annotated_slice(1.0, 1.0, 3.0, 1)]));
         matrix.add(SliceLine::new(2, vec![annotated_slice(1.0, 2.0, 3.0, 2)]));
