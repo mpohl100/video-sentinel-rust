@@ -295,6 +295,25 @@ pub struct WrappedRgbImage {
     image: Arc<Mutex<Mat>>,
 }
 
+fn point_in_polygon(point: (f64, f64), polygon: &[(i32, i32)]) -> bool {
+    if polygon.len() < 3 {
+        return false;
+    }
+
+    let mut contour = CvVector::<core::Point>::new();
+    for &(x, y) in polygon {
+        contour.push(core::Point::new(x, y));
+    }
+
+    imgproc::point_polygon_test(
+        &contour,
+        core::Point2f::new(point.0 as f32, point.1 as f32),
+        false,
+    )
+    .map(|distance| distance >= 0.0)
+    .unwrap_or(false)
+}
+
 impl WrappedRgbImage {
     pub fn new(image: Mat) -> Self {
         Self {
@@ -418,7 +437,7 @@ impl WrappedRgbImage {
 
         for y in min_y..=max_y {
             for x in min_x..=max_x {
-                if point_in_polygon((x as f64 + 0.5, y as f64 + 0.5), points) {
+                if point_in_polygon((x as f64, y as f64), points) {
                     self.set_pixel(x, y, color);
                 }
             }
