@@ -504,10 +504,8 @@ fn read_upload_bytes(ctx: &Context<'_>, upload: Upload) -> Result<Vec<u8>> {
 }
 
 fn wrapped_rgb_image_from_jpeg(bytes: &[u8]) -> Result<WrappedRgbImage> {
-    let rgb_image = image::load_from_memory_with_format(bytes, image::ImageFormat::Jpeg)
-        .map_err(|error| Error::new(format!("Failed to decode JPEG upload: {error}")))?
-        .to_rgb8();
-    Ok(WrappedRgbImage::new(rgb_image))
+    WrappedRgbImage::from_jpeg_bytes(bytes)
+        .map_err(|error| Error::new(format!("Failed to decode JPEG upload: {error}")))
 }
 
 fn message_error(message: &str) -> Error {

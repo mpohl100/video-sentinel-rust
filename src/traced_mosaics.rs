@@ -58,7 +58,6 @@ mod tests {
     use super::*;
     use crate::math::{AnonymizedCoordinateSystem, CoordinateSystem, CoordinatedPoint};
     use crate::slices::{AnnotatedSlice, Slice, SliceLine, SliceMatrix, WrappedRgbImage};
-    use image::{ImageBuffer, Rgb};
     use rs_math3d::Vec3d;
 
     const EPSILON: f64 = 1e-8;
@@ -83,7 +82,7 @@ mod tests {
     }
 
     fn sample_mosaic() -> WrappedMosaic {
-        let image = WrappedRgbImage::new(ImageBuffer::from_pixel(16, 16, Rgb([200, 100, 50])));
+        let image = WrappedRgbImage::new_with_color(16, 16, [200, 100, 50]);
         let mut matrix = SliceMatrix::new(image);
         matrix.add(SliceLine::new(
             2,

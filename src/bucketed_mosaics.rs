@@ -192,7 +192,6 @@ mod tests {
         AnnotatedSlice, RelativeRectangle, Slice, SliceLine, SliceMatrix, WrappedRgbImage,
     };
     use crate::traces::TraceParams;
-    use image::{ImageBuffer, Rgb};
     use rs_math3d::Vec3d;
 
     const EPSILON: f64 = 1e-8;
@@ -219,7 +218,7 @@ mod tests {
     }
 
     fn solid_image() -> WrappedRgbImage {
-        WrappedRgbImage::new(ImageBuffer::from_pixel(64, 64, Rgb([20, 40, 60])))
+        WrappedRgbImage::new_with_color(64, 64, [20, 40, 60])
     }
 
     fn annotated_slice(x1: f64, y: f64, x2: f64, line_number: usize) -> AnnotatedSlice {
