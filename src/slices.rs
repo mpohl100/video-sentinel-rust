@@ -485,11 +485,11 @@ impl WrappedRgbImage {
         }
     }
 
-    pub fn grayscale_data(&self) -> Result<Vec<u8>, opencv::Error> {
+    pub fn grayscale_mat(&self) -> Result<Mat, opencv::Error> {
         let image = self.image.lock().unwrap();
         let mut gray = Mat::default();
         imgproc::cvt_color(&*image, &mut gray, imgproc::COLOR_RGB2GRAY, 0)?;
-        Ok(gray.data_bytes()?.to_vec())
+        Ok(gray)
     }
 }
 
@@ -1113,20 +1113,22 @@ impl ColoredRectangle {
     }
 }
 
-fn gray_value(gray_image: &[u8], width: usize, x: usize, y: usize) -> f64 {
-    gray_image[y * width + x] as f64
+fn gray_value(gray_image: &Mat, x: usize, y: usize) -> f64 {
+    *gray_image
+        .at_2d::<u8>(y as i32, x as i32)
+        .expect("failed to read grayscale pixel") as f64
 }
 
-fn compute_smoothed_gradient_squared(gray_image: &[u8], width: usize, x: usize, y: usize) -> f64 {
+fn compute_smoothed_gradient_squared(gray_image: &Mat, x: usize, y: usize) -> f64 {
     let compute_gradient = |x_in: usize, y_in: usize| -> f64 {
-        let tl = gray_value(gray_image, width, x_in - 1, y_in - 1);
-        let tc = gray_value(gray_image, width, x_in, y_in - 1);
-        let tr = gray_value(gray_image, width, x_in + 1, y_in - 1);
-        let cl = gray_value(gray_image, width, x_in - 1, y_in);
-        let cr = gray_value(gray_image, width, x_in + 1, y_in);
-        let bl = gray_value(gray_image, width, x_in - 1, y_in + 1);
-        let bc = gray_value(gray_image, width, x_in, y_in + 1);
-        let br = gray_value(gray_image, width, x_in + 1, y_in + 1);
+        let tl = gray_value(gray_image, x_in - 1, y_in - 1);
+        let tc = gray_value(gray_image, x_in, y_in - 1);
+        let tr = gray_value(gray_image, x_in + 1, y_in - 1);
+        let cl = gray_value(gray_image, x_in - 1, y_in);
+        let cr = gray_value(gray_image, x_in + 1, y_in);
+        let bl = gray_value(gray_image, x_in - 1, y_in + 1);
+        let bc = gray_value(gray_image, x_in, y_in + 1);
+        let br = gray_value(gray_image, x_in + 1, y_in + 1);
 
         let sqrt2 = std::f64::consts::FRAC_1_SQRT_2;
         let grad_tl_br = br - tl;
@@ -1231,8 +1233,7 @@ pub fn calculate_slices(
     let mut slice_matrix = SliceMatrix::new(image.clone());
 
     if params.do_grayscale {
-        let gray_image = image.grayscale_data().expect("failed to convert image to grayscale");
-        let gray_width = image.width() as usize;
+        let gray_image = image.grayscale_mat().expect("failed to convert image to grayscale");
         let mut current_slice = None;
         let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
@@ -1245,8 +1246,7 @@ pub fn calculate_slices(
         for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
             for x in rectangle.top_left.x as usize + 2..rectangle.bottom_right.x as usize - 2 {
-                let gradient =
-                    compute_smoothed_gradient_squared(&gray_image, gray_width, x, y);
+                let gradient = compute_smoothed_gradient_squared(&gray_image, x, y);
                 if gradient <= threshold_squared {
                     if current_slice.is_none() {
                         current_slice = Some(PreliminaryAnnotatedSlice::new(
@@ -1873,7 +1873,9 @@ mod tests {
 
     #[test]
     fn gradient_helpers_distinguish_uniform_and_edge_images() {
-        let gray = vec![100; 7 * 7];
+        let gray = WrappedRgbImage::new_with_color(7, 7, [100, 100, 100])
+            .grayscale_mat()
+            .expect("failed to convert uniform image to grayscale");
         let color = WrappedRgbImage::new_with_color(7, 7, [0, 0, 0]);
         for y in 0..7 {
             for x in 3..7 {
@@ -1881,7 +1883,7 @@ mod tests {
             }
         }
 
-        assert_eq!(compute_smoothed_gradient_squared(&gray, 7, 3, 3), 0.0);
+        assert_eq!(compute_smoothed_gradient_squared(&gray, 3, 3), 0.0);
         assert!(compute_smoothed_gradient_channel(&color, 3, 3, 0) > 0.0);
         assert_eq!(compute_smoothed_gradient_channel(&color, 3, 3, 1), 0.0);
         assert_eq!(compute_smoothed_gradient_channel(&color, 3, 3, 2), 0.0);
