@@ -361,8 +361,9 @@ fn frame_to_rgb_image(frame: video_rs::Frame) -> Result<WrappedRgbImage, Box<dyn
         frame.iter().copied().collect()
     };
 
-    WrappedRgbImage::from_rgb_data(width as u32, height as u32, &data)
-        .map_err(|error| format!("failed to create RGB image from decoded frame data: {error}").into())
+    WrappedRgbImage::from_rgb_data(width as u32, height as u32, &data).map_err(|error| {
+        format!("failed to create RGB image from decoded frame data: {error}").into()
+    })
 }
 
 fn rgb_image_to_frame(image: WrappedRgbImage) -> Result<Frame, Box<dyn Error>> {

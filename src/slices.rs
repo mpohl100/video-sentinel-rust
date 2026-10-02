@@ -423,11 +423,7 @@ impl WrappedRgbImage {
         for (y, line) in lines.iter().enumerate() {
             for (x, char) in line.chars().enumerate() {
                 let pixel_value = if char == '#' { 255 } else { 0 };
-                image.set_pixel(
-                    x as u32,
-                    y as u32,
-                    [pixel_value, pixel_value, pixel_value],
-                );
+                image.set_pixel(x as u32, y as u32, [pixel_value, pixel_value, pixel_value]);
             }
         }
         image
@@ -508,7 +504,12 @@ impl WrappedRgbImage {
         }
     }
 
-    pub fn draw_rectangle_outline(&self, top_left: (i32, i32), bottom_right: (i32, i32), color: [u8; 3]) {
+    pub fn draw_rectangle_outline(
+        &self,
+        top_left: (i32, i32),
+        bottom_right: (i32, i32),
+        color: [u8; 3],
+    ) {
         if self.width() == 0 || self.height() == 0 {
             return;
         }
@@ -1273,7 +1274,9 @@ pub fn calculate_slices(
     let mut slice_matrix = SliceMatrix::new(image.clone());
 
     if params.do_grayscale {
-        let gray_image = image.grayscale_mat().expect("failed to convert image to grayscale");
+        let gray_image = image
+            .grayscale_mat()
+            .expect("failed to convert image to grayscale");
         let gray_reader =
             GrayPixelReader::new(&gray_image).expect("failed to access grayscale image");
         let mut current_slice = None;
