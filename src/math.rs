@@ -824,12 +824,17 @@ impl CoordinatedLine {
 #[derive(Clone)]
 pub struct CoordinatedRectangle {
     points: Vec<CoordinatedPoint>,
+    cached_top_right: Option<CoordinatedPoint>,
+    cached_bottom_left: Option<CoordinatedPoint>,
 }
 
 impl CoordinatedRectangle {
     pub fn new(top_left: CoordinatedPoint, bottom_right: CoordinatedPoint) -> Self {
         let points = vec![top_left, bottom_right];
-        Self { points }
+        let mut rect = Self { points, cached_top_right: None, cached_bottom_left: None };
+        rect.calculate_top_right();
+        rect.calculate_bottom_left();
+        rect
     }
 
     pub fn new_from_rectangle(
@@ -851,20 +856,28 @@ impl CoordinatedRectangle {
                 coordinated_point.convert_to(coordinate_system.clone())
             })
             .collect();
-        Self { points }
+        let mut rect = Self { points, cached_top_right: None, cached_bottom_left: None };
+        rect.calculate_top_right();
+        rect.calculate_bottom_left();
+        rect
     }
 
     pub fn convert_to(
         &self,
         coordinate_system: AnonymizedCoordinateSystem,
     ) -> CoordinatedRectangle {
-        CoordinatedRectangle {
+        let mut rect = CoordinatedRectangle {
             points: self
                 .points
                 .iter()
                 .map(|point| point.convert_to(coordinate_system.clone()))
                 .collect(),
-        }
+            cached_top_right: None,
+            cached_bottom_left: None,
+        };
+        rect.calculate_top_right();
+        rect.calculate_bottom_left();
+        rect
     }
 
     pub fn get_local_rectangle(&self) -> Rectangle {
@@ -913,34 +926,48 @@ impl CoordinatedRectangle {
             })
     }
 
-    pub fn get_top_left(&self) -> CoordinatedPoint {
-        self.points[0].clone()
+    pub fn get_top_left(&self) -> &CoordinatedPoint {
+        &self.points[0]
+    }
+ 
+    pub fn get_top_right(&self) -> &CoordinatedPoint {
+        self.cached_top_right.as_ref().unwrap()
     }
 
-    pub fn get_top_right(&self) -> CoordinatedPoint {
-        CoordinatedPoint::new(
-            self.points[0].coordinate_system.clone(),
-            Vec3d::new(
-                self.points[1].local_coordinates.x,
-                self.points[0].local_coordinates.y,
-                0.0,
-            ),
-        )
+    fn calculate_top_right(&mut self) {
+        if self.cached_top_right.is_none() {
+            let top_right = CoordinatedPoint::new(
+                self.points[0].coordinate_system.clone(),
+                Vec3d::new(
+                    self.points[1].local_coordinates.x,
+                    self.points[0].local_coordinates.y,
+                    0.0,
+                ),
+            );
+            self.cached_top_right = Some(top_right);
+        }
     }
 
-    pub fn get_bottom_left(&self) -> CoordinatedPoint {
-        CoordinatedPoint::new(
-            self.points[0].coordinate_system.clone(),
-            Vec3d::new(
-                self.points[0].local_coordinates.x,
-                self.points[1].local_coordinates.y,
-                0.0,
-            ),
-        )
+    pub fn get_bottom_left(&self) -> &CoordinatedPoint {
+        self.cached_bottom_left.as_ref().unwrap()
     }
 
-    pub fn get_bottom_right(&self) -> CoordinatedPoint {
-        self.points[1].clone()
+    fn calculate_bottom_left(&mut self) {
+        if self.cached_bottom_left.is_none() {
+            let bottom_left = CoordinatedPoint::new(
+                self.points[0].coordinate_system.clone(),
+                Vec3d::new(
+                    self.points[0].local_coordinates.x,
+                    self.points[1].local_coordinates.y,
+                    0.0,
+                ),
+            );
+            self.cached_bottom_left = Some(bottom_left);
+        }
+    }
+
+    pub fn get_bottom_right(&self) -> &CoordinatedPoint {
+        &self.points[1]
     }
 }
 

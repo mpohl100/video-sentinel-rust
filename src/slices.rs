@@ -85,11 +85,11 @@ impl Slice {
         &self.global_rectangle
     }
 
-    pub fn get_start(&self) -> CoordinatedPoint {
+    pub fn get_start(&self) -> &CoordinatedPoint {
         self.global_rectangle.get_top_left()
     }
 
-    pub fn get_end(&self) -> CoordinatedPoint {
+    pub fn get_end(&self) -> &CoordinatedPoint {
         self.global_rectangle.get_top_right()
     }
 
@@ -181,11 +181,11 @@ impl AnnotatedSlice {
         self.slice.clone()
     }
 
-    pub fn get_start(&self) -> CoordinatedPoint {
+    pub fn get_start(&self) -> &CoordinatedPoint {
         self.slice.get_start()
     }
 
-    pub fn get_end(&self) -> CoordinatedPoint {
+    pub fn get_end(&self) -> &CoordinatedPoint {
         self.slice.get_end()
     }
 }
@@ -233,7 +233,7 @@ impl SliceLine {
                 let new_end = previous_end.max(slice.slice.get_end().get_x());
                 *previous = AnnotatedSlice::new(
                     Slice::new(
-                        previous.slice.get_start(),
+                        previous.slice.get_start().clone(),
                         CoordinatedPoint::new(
                             previous.slice.get_end().get_coordinate_system().clone(),
                             Vec3d::new(new_end, previous.slice.get_end().get_y(), 0.0),
@@ -585,11 +585,12 @@ impl SliceMatrix {
         let mut longest_distance_point = None;
         for line in &self.lines {
             for slice in &line.slices {
-                let slice_start_tl = slice.get_slice().get_start();
-                let mut slice_start_bl = slice.get_slice().get_start();
+                let inner_slice = slice.get_slice(); 
+                let slice_start_tl = inner_slice.get_start();
+                let mut slice_start_bl = inner_slice.get_start().clone();
                 slice_start_bl.set_y(slice_start_bl.get_y() + 1.0); // Move to bottom-left corner
-                let slice_end_tr = slice.get_slice().get_end();
-                let mut slice_end_br = slice.get_slice().get_end();
+                let slice_end_tr = inner_slice.get_end();
+                let mut slice_end_br = inner_slice.get_end().clone();
                 slice_end_br.set_y(slice_end_br.get_y() + 1.0); // Move to bottom-right corner
 
                 let distance_to_start_tl = point.distance_to(slice_start_tl.clone());
@@ -744,8 +745,9 @@ impl SliceMatrix {
         for line in &self.lines {
             for slice in &line.slices {
                 masses.push((slice.get_mass(), slice.get_midpoint()));
-                let left_point = slice.get_slice().get_start();
-                let right_point = slice.get_slice().get_end();
+                let inner_slice = slice.get_slice();
+                let left_point = inner_slice.get_start();
+                let right_point = inner_slice.get_end();
                 tl.x = tl.x.min(left_point.get_x());
                 tl.y = tl.y.min(left_point.get_y());
                 br.x = br.x.max(right_point.get_x());
