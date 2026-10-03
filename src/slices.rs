@@ -324,8 +324,7 @@ struct RgbPixelReader<'a> {
 }
 
 impl<'a> RgbPixelReader<'a> {
-    fn new(image: &'a WrappedRgbImage) -> Result<Self, opencv::Error> {
-        let guard = image.image.lock().unwrap();
+    fn from_guard(guard: MutexGuard<'a, Mat>) -> Result<Self, opencv::Error> {
         let data = guard.data();
         let row_stride = guard.step1(0)?;
         Ok(Self {
@@ -335,9 +334,25 @@ impl<'a> RgbPixelReader<'a> {
         })
     }
 
+    fn new(image: &'a WrappedRgbImage) -> Result<Self, opencv::Error> {
+        Self::from_guard(image.get_mat())
+    }
+
     #[inline]
     unsafe fn channel_unchecked(&self, x: usize, y: usize, channel: usize) -> f64 {
         unsafe { *self.data.add(y * self.row_stride + x * 3 + channel) as f64 }
+    }
+
+    #[inline]
+    unsafe fn pixel_unchecked(&self, x: usize, y: usize) -> [u8; 3] {
+        let offset = y * self.row_stride + x * 3;
+        unsafe {
+            [
+                *self.data.add(offset),
+                *self.data.add(offset + 1),
+                *self.data.add(offset + 2),
+            ]
+        }
     }
 }
 
@@ -435,6 +450,10 @@ impl WrappedRgbImage {
 
     pub fn height(&self) -> u32 {
         self.image.lock().unwrap().rows() as u32
+    }
+
+    pub fn get_mat(&self) -> MutexGuard<'_, Mat> {
+        self.image.lock().unwrap()
     }
 
     pub fn get_pixel(&self, x: u32, y: u32) -> [u8; 3] {
@@ -720,6 +739,8 @@ impl SliceMatrix {
         let mut tl = Vec3d::new(f64::INFINITY, f64::INFINITY, 0.0);
         let mut br = Vec3d::new(f64::NEG_INFINITY, f64::NEG_INFINITY, 0.0);
         let mut colors = Vec::new();
+        let rgb_reader =
+            RgbPixelReader::from_guard(self.image.get_mat()).expect("failed to access RGB image");
         for line in &self.lines {
             for slice in &line.slices {
                 masses.push((slice.get_mass(), slice.get_midpoint()));
@@ -730,7 +751,9 @@ impl SliceMatrix {
                 br.x = br.x.max(right_point.get_x());
                 br.y = br.y.max(right_point.get_y());
                 for x in left_point.get_x() as u32..=right_point.get_x() as u32 {
-                    colors.push(self.image.get_pixel(x, left_point.get_y() as u32));
+                    colors.push(unsafe {
+                        rgb_reader.pixel_unchecked(x as usize, left_point.get_y() as usize)
+                    });
                 }
             }
         }
