@@ -585,7 +585,7 @@ impl SliceMatrix {
         let mut longest_distance_point = None;
         for line in &self.lines {
             for slice in &line.slices {
-                let inner_slice = slice.get_slice(); 
+                let inner_slice = slice.get_slice();
                 let slice_start_tl = inner_slice.get_start();
                 let mut slice_start_bl = inner_slice.get_start().clone();
                 slice_start_bl.set_y(slice_start_bl.get_y() + 1.0); // Move to bottom-left corner
