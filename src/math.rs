@@ -831,7 +831,11 @@ pub struct CoordinatedRectangle {
 impl CoordinatedRectangle {
     pub fn new(top_left: CoordinatedPoint, bottom_right: CoordinatedPoint) -> Self {
         let points = vec![top_left, bottom_right];
-        let mut rect = Self { points, cached_top_right: None, cached_bottom_left: None };
+        let mut rect = Self {
+            points,
+            cached_top_right: None,
+            cached_bottom_left: None,
+        };
         rect.calculate_top_right();
         rect.calculate_bottom_left();
         rect
@@ -856,7 +860,11 @@ impl CoordinatedRectangle {
                 coordinated_point.convert_to(coordinate_system.clone())
             })
             .collect();
-        let mut rect = Self { points, cached_top_right: None, cached_bottom_left: None };
+        let mut rect = Self {
+            points,
+            cached_top_right: None,
+            cached_bottom_left: None,
+        };
         rect.calculate_top_right();
         rect.calculate_bottom_left();
         rect
@@ -929,7 +937,7 @@ impl CoordinatedRectangle {
     pub fn get_top_left(&self) -> &CoordinatedPoint {
         &self.points[0]
     }
- 
+
     pub fn get_top_right(&self) -> &CoordinatedPoint {
         self.cached_top_right.as_ref().unwrap()
     }
