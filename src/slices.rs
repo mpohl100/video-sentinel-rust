@@ -58,6 +58,7 @@ impl PartialEq for Slice {
 }
 
 impl Slice {
+    #[must_use]
     pub fn new(start: CoordinatedPoint, end: CoordinatedPoint) -> Self {
         let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
@@ -79,18 +80,22 @@ impl Slice {
         }
     }
 
+    #[must_use]
     pub fn get_global_rectangle(&self) -> &CoordinatedRectangle {
         &self.global_rectangle
     }
 
+    #[must_use]
     pub fn get_start(&self) -> &CoordinatedPoint {
         self.global_rectangle.get_top_left()
     }
 
+    #[must_use]
     pub fn get_end(&self) -> &CoordinatedPoint {
         self.global_rectangle.get_top_right()
     }
 
+    #[must_use]
     pub fn convert_to_global(&self) -> Slice {
         let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
@@ -109,6 +114,7 @@ impl Slice {
         }
     }
 
+    #[must_use]
     pub fn convert_to(&self, coordinate_system: AnonymizedCoordinateSystem) -> Slice {
         Slice {
             global_rectangle: CoordinatedRectangle::new(
@@ -145,10 +151,12 @@ pub struct AnnotatedSlice {
 }
 
 impl AnnotatedSlice {
+    #[must_use]
     pub fn new(slice: Slice, line_number: usize) -> Self {
         Self { slice, line_number }
     }
 
+    #[must_use]
     pub fn touches(&self, other: &AnnotatedSlice) -> bool {
         // Check if the slices are on adjacent lines
         if (self.line_number as i32 - other.line_number as i32).abs() != 1 {
@@ -163,26 +171,31 @@ impl AnnotatedSlice {
         !(self_end_x < other_start_x || self_start_x > other_end_x)
     }
 
+    #[must_use]
     pub fn get_mass(&self) -> f64 {
         self.slice.get_end().get_x() - self.slice.get_start().get_x() + 1.0
     }
 
+    #[must_use]
     pub fn get_midpoint(&self) -> Vec3d {
         Vec3d::new(
-            (self.slice.get_start().get_x() + self.slice.get_end().get_x()) / 2.0,
+            f64::midpoint(self.slice.get_start().get_x(), self.slice.get_end().get_x()),
             self.slice.get_start().get_y(),
             0.0,
         )
     }
 
+    #[must_use]
     pub fn get_slice(&self) -> Slice {
         self.slice.clone()
     }
 
+    #[must_use]
     pub fn get_start(&self) -> &CoordinatedPoint {
         self.slice.get_start()
     }
 
+    #[must_use]
     pub fn get_end(&self) -> &CoordinatedPoint {
         self.slice.get_end()
     }
@@ -195,6 +208,7 @@ pub struct SliceLine {
 }
 
 impl SliceLine {
+    #[must_use]
     pub fn new(line_number: usize, slices: Vec<AnnotatedSlice>) -> Self {
         Self {
             line_number,
@@ -280,10 +294,12 @@ impl SliceLine {
         self.maintain_slices();
     }
 
+    #[must_use]
     pub fn get_line_number(&self) -> usize {
         self.line_number
     }
 
+    #[must_use]
     pub fn get_slices(&self) -> &[AnnotatedSlice] {
         &self.slices
     }
@@ -311,7 +327,7 @@ impl<'a> GrayPixelReader<'a> {
 
     #[inline]
     unsafe fn value_unchecked(&self, x: usize, y: usize) -> f64 {
-        unsafe { *self.data.add(y * self.row_stride + x) as f64 }
+        unsafe { f64::from(*self.data.add(y * self.row_stride + x)) }
     }
 }
 
@@ -338,7 +354,7 @@ impl<'a> RgbPixelReader<'a> {
 
     #[inline]
     unsafe fn channel_unchecked(&self, x: usize, y: usize, channel: usize) -> f64 {
-        unsafe { *self.data.add(y * self.row_stride + x * 3 + channel) as f64 }
+        unsafe { f64::from(*self.data.add(y * self.row_stride + x * 3 + channel)) }
     }
 
     #[inline]
@@ -369,23 +385,29 @@ fn point_in_polygon(point: (f64, f64), polygon: &[(i32, i32)]) -> bool {
         core::Point2f::new(point.0 as f32, point.1 as f32),
         false,
     )
-    .map(|distance| distance >= 0.0)
-    .unwrap_or(false)
+    .is_ok_and(|distance| distance >= 0.0)
 }
 
 impl WrappedRgbImage {
+    #[must_use]
     pub fn new(image: Mat) -> Self {
         Self {
             image: Arc::new(Mutex::new(image)),
         }
     }
 
+    #[must_use]
     pub fn new_with_color(width: u32, height: u32, color: [u8; 3]) -> Self {
         let image = Mat::new_rows_cols_with_default(
             height as i32,
             width as i32,
             core::CV_8UC3,
-            Scalar::new(color[0] as f64, color[1] as f64, color[2] as f64, 0.0),
+            Scalar::new(
+                f64::from(color[0]),
+                f64::from(color[1]),
+                f64::from(color[2]),
+                0.0,
+            ),
         )
         .expect("failed to create RGB image");
         Self::new(image)
@@ -428,6 +450,7 @@ impl WrappedRgbImage {
         Ok(Self::new(rgb))
     }
 
+    #[must_use]
     pub fn new_from_ascii_art(ascii_art: &str) -> Self {
         let lines: Vec<&str> = ascii_art.lines().collect();
         let height = lines.len() as u32;
@@ -442,10 +465,12 @@ impl WrappedRgbImage {
         image
     }
 
+    #[must_use]
     pub fn width(&self) -> u32 {
         self.image.lock().unwrap().cols() as u32
     }
 
+    #[must_use]
     pub fn height(&self) -> u32 {
         self.image.lock().unwrap().rows() as u32
     }
@@ -454,6 +479,7 @@ impl WrappedRgbImage {
         self.image.lock().unwrap()
     }
 
+    #[must_use]
     pub fn get_pixel(&self, x: u32, y: u32) -> [u8; 3] {
         let image = self.image.lock().unwrap();
         let pixel = image
@@ -496,7 +522,7 @@ impl WrappedRgbImage {
 
         for y in min_y..=max_y {
             for x in min_x..=max_x {
-                if point_in_polygon((x as f64, y as f64), points) {
+                if point_in_polygon((f64::from(x), f64::from(y)), points) {
                     self.set_pixel(x, y, color);
                 }
             }
@@ -508,12 +534,12 @@ impl WrappedRgbImage {
         let min_y = (center.1 - radius).max(0) as u32;
         let max_x = (center.0 + radius).min(self.width() as i32 - 1) as u32;
         let max_y = (center.1 + radius).min(self.height() as i32 - 1) as u32;
-        let radius_squared = (radius * radius) as f64;
+        let radius_squared = f64::from(radius * radius);
 
         for y in min_y..=max_y {
             for x in min_x..=max_x {
-                let dx = x as f64 - center.0 as f64;
-                let dy = y as f64 - center.1 as f64;
+                let dx = f64::from(x) - f64::from(center.0);
+                let dy = f64::from(y) - f64::from(center.1);
                 if dx * dx + dy * dy <= radius_squared {
                     self.set_pixel(x, y, color);
                 }
@@ -564,6 +590,7 @@ pub struct SliceMatrix {
 }
 
 impl SliceMatrix {
+    #[must_use]
     pub fn new(image: WrappedRgbImage) -> Self {
         Self {
             lines: Vec::new(),
@@ -575,6 +602,7 @@ impl SliceMatrix {
         self.lines.push(line);
     }
 
+    #[must_use]
     pub fn deduce_longest_distance_point(
         &self,
         point: CoordinatedPoint,
@@ -617,14 +645,17 @@ impl SliceMatrix {
         longest_distance_point
     }
 
+    #[must_use]
     pub fn get_top_line_number(&self) -> Option<usize> {
         self.lines.first().map(|line| line.line_number)
     }
 
+    #[must_use]
     pub fn get_bottom_line_number(&self) -> Option<usize> {
         self.lines.last().map(|line| line.line_number)
     }
 
+    #[must_use]
     pub fn get_top_left_slice(&self) -> Option<SliceLine> {
         let annotated_slice = self
             .lines
@@ -633,23 +664,27 @@ impl SliceMatrix {
         annotated_slice.map(|slice| SliceLine::new(slice.line_number, vec![slice]))
     }
 
+    #[must_use]
     pub fn get_line_below(&self, line_number: usize) -> Option<&SliceLine> {
         self.lines
             .iter()
             .find(|line| line.line_number == line_number + 1)
     }
 
+    #[must_use]
     pub fn get_line_above(&self, line_number: usize) -> Option<&SliceLine> {
         let target = line_number.checked_sub(1)?;
         self.lines.iter().find(|line| line.line_number == target)
     }
 
+    #[must_use]
     pub fn get_line(&self, line_number: usize) -> Option<&SliceLine> {
         self.lines
             .iter()
             .find(|line| line.line_number == line_number)
     }
 
+    #[must_use]
     pub fn find_touching_slices(&self, line: &SliceLine, direction: i32) -> Option<SliceLine> {
         let touching_line = if direction == -1 {
             self.get_line_below(line.line_number)
@@ -712,6 +747,7 @@ impl SliceMatrix {
         }
     }
 
+    #[must_use]
     pub fn get_bounding_box(&self) -> Rectangle {
         let mut min_x = f64::INFINITY;
         let mut max_x = f64::NEG_INFINITY;
@@ -785,7 +821,11 @@ impl SliceMatrix {
         let area = masses.iter().map(|(mass, _)| *mass).sum::<f64>();
 
         let average_color_vec = colors.iter().fold(Vec3d::new(0.0, 0.0, 0.0), |acc, pixel| {
-            acc + Vec3d::new(pixel[0] as f64, pixel[1] as f64, pixel[2] as f64)
+            acc + Vec3d::new(
+                f64::from(pixel[0]),
+                f64::from(pixel[1]),
+                f64::from(pixel[2]),
+            )
         }) / colors.len() as f64;
         CachedData::new(
             bounding_box,
@@ -796,6 +836,7 @@ impl SliceMatrix {
         )
     }
 
+    #[must_use]
     pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
         let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
@@ -833,6 +874,7 @@ impl SliceMatrix {
         false
     }
 
+    #[must_use]
     pub fn get_slice_lines(&self) -> Vec<SliceLine> {
         self.lines.clone()
     }
@@ -928,6 +970,7 @@ pub struct CachedData {
 }
 
 impl CachedData {
+    #[must_use]
     pub fn new(
         bounding_box: CoordinatedRectangle,
         bounding_circle: CoordinatedCircle,
@@ -944,22 +987,27 @@ impl CachedData {
         }
     }
 
+    #[must_use]
     pub fn get_bounding_box(&self) -> CoordinatedRectangle {
         self.bounding_box.clone()
     }
 
+    #[must_use]
     pub fn get_bounding_circle(&self) -> CoordinatedCircle {
         self.bounding_circle.clone()
     }
 
+    #[must_use]
     pub fn get_center_of_mass(&self) -> CoordinatedPoint {
         self.center_of_mass.clone()
     }
 
+    #[must_use]
     pub fn get_area(&self) -> f64 {
         self.area
     }
 
+    #[must_use]
     pub fn get_average_color_vec(&self) -> Vec3d {
         self.average_color
     }
@@ -972,6 +1020,7 @@ pub struct BasicParams {
 }
 
 impl BasicParams {
+    #[must_use]
     pub fn new(do_grayscale: bool, gradient_threshold: u8) -> Self {
         Self {
             do_grayscale,
@@ -979,10 +1028,12 @@ impl BasicParams {
         }
     }
 
+    #[must_use]
     pub fn do_grayscale(&self) -> bool {
         self.do_grayscale
     }
 
+    #[must_use]
     pub fn gradient_threshold(&self) -> u8 {
         self.gradient_threshold
     }
@@ -995,6 +1046,7 @@ pub struct Rectangle {
 }
 
 impl Rectangle {
+    #[must_use]
     pub fn new(top_left: Vec3d, bottom_right: Vec3d) -> Self {
         Self {
             top_left,
@@ -1002,6 +1054,7 @@ impl Rectangle {
         }
     }
 
+    #[must_use]
     pub fn new_from_math_rectangle(rectangle: MathRectangle) -> Self {
         Self {
             top_left: rectangle.get_top_left(),
@@ -1009,6 +1062,7 @@ impl Rectangle {
         }
     }
 
+    #[must_use]
     pub fn new_from_dims(top_left: Vec3d, width: f64, height: f64) -> Self {
         Self {
             top_left,
@@ -1016,20 +1070,24 @@ impl Rectangle {
         }
     }
 
+    #[must_use]
     pub fn get_top_left(&self) -> Vec3d {
         self.top_left
     }
 
+    #[must_use]
     pub fn get_bottom_right(&self) -> Vec3d {
         self.bottom_right
     }
 
+    #[must_use]
     pub fn get_area(&self) -> f64 {
         let width = self.bottom_right.x - self.top_left.x + 1.0;
         let height = self.bottom_right.y - self.top_left.y + 1.0;
         width * height
     }
 
+    #[must_use]
     pub fn overlaps(&self, other: &Rectangle) -> bool {
         !(self.bottom_right.x < other.top_left.x
             || self.top_left.x > other.bottom_right.x
@@ -1037,10 +1095,12 @@ impl Rectangle {
             || self.top_left.y > other.bottom_right.y)
     }
 
+    #[must_use]
     pub fn get_width(&self) -> f64 {
         self.bottom_right.x - self.top_left.x + 1.0
     }
 
+    #[must_use]
     pub fn get_height(&self) -> f64 {
         self.bottom_right.y - self.top_left.y + 1.0
     }
@@ -1053,10 +1113,12 @@ pub struct RelativeRectangle {
 }
 
 impl RelativeRectangle {
+    #[must_use]
     pub fn new(top_left: Vec3d, dims: Vec3d) -> Self {
         Self { top_left, dims }
     }
 
+    #[must_use]
     pub fn new_from_rectangles(first: Rectangle, second: Rectangle) -> Self {
         let rel_x = (first.get_top_left().x - second.get_top_left().x) / second.get_width();
         let rel_y = (first.get_top_left().y - second.get_top_left().y) / second.get_height();
@@ -1068,6 +1130,7 @@ impl RelativeRectangle {
         }
     }
 
+    #[must_use]
     pub fn invert(&self) -> RelativeRectangle {
         // convert the C++ code to rust code
         let tl = self.top_left;
@@ -1088,6 +1151,7 @@ impl RelativeRectangle {
         }
     }
 
+    #[must_use]
     pub fn multiply_with_rectangle(&self, rectangle: Rectangle) -> Rectangle {
         let abs_x = rectangle.get_top_left().x + self.top_left.x * rectangle.get_width();
         let abs_y = rectangle.get_top_left().y + self.top_left.y * rectangle.get_height();
@@ -1103,21 +1167,25 @@ pub struct WrappedRelativeRectangle {
 }
 
 impl WrappedRelativeRectangle {
+    #[must_use]
     pub fn new(relative_rectangle: RelativeRectangle) -> Self {
         Self {
             relative_rectangle: Arc::new(Mutex::new(relative_rectangle)),
         }
     }
 
+    #[must_use]
     pub fn new_from_rectangles(first: Rectangle, second: Rectangle) -> Self {
         Self::new(RelativeRectangle::new_from_rectangles(first, second))
     }
 
+    #[must_use]
     pub fn multiply_with_rectangle(&self, rectangle: Rectangle) -> Rectangle {
         let relative_rectangle = self.relative_rectangle.lock().unwrap();
         relative_rectangle.multiply_with_rectangle(rectangle)
     }
 
+    #[must_use]
     pub fn to_rectangle(&self) -> Rectangle {
         let unit_scale_reference =
             Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.0, 0.0, 0.0));
@@ -1125,6 +1193,7 @@ impl WrappedRelativeRectangle {
         self.multiply_with_rectangle(unit_scale_reference)
     }
 
+    #[must_use]
     pub fn overlaps(&self, other: &Rectangle) -> bool {
         self.to_rectangle().overlaps(other)
     }
@@ -1162,6 +1231,7 @@ pub struct ColoredRectangle {
 }
 
 impl ColoredRectangle {
+    #[must_use]
     pub fn new(rectangle: Rectangle, color: Color, mosaics: Vec<AnonymizedMosaic>) -> Self {
         Self {
             rectangle,
@@ -1170,14 +1240,17 @@ impl ColoredRectangle {
         }
     }
 
+    #[must_use]
     pub fn get_rectangle(&self) -> Rectangle {
         self.rectangle.clone()
     }
 
+    #[must_use]
     pub fn get_color(&self) -> Color {
         self.color.clone()
     }
 
+    #[must_use]
     pub fn get_mosaics(&self) -> Vec<AnonymizedMosaic> {
         self.mosaics.clone()
     }
@@ -1280,6 +1353,7 @@ fn emplace_current_slice(
     }
 }
 
+#[must_use]
 pub fn calculate_slices(
     image: WrappedRgbImage,
     rectangle: Rectangle,
@@ -1288,8 +1362,8 @@ pub fn calculate_slices(
     // checkt the rectangle is within the bounds of the image
     if rectangle.top_left.x < 0.0
         || rectangle.top_left.y < 0.0
-        || rectangle.bottom_right.x > image.width() as f64
-        || rectangle.bottom_right.y > image.height() as f64
+        || rectangle.bottom_right.x > f64::from(image.width())
+        || rectangle.bottom_right.y > f64::from(image.height())
     {
         panic!("Rectangle is out of bounds of the image");
     }
@@ -1309,7 +1383,7 @@ pub fn calculate_slices(
             Vec3d::new(0.0, 1.0, 0.0),
         ));
 
-        let gradient_threshold = params.gradient_threshold as f64;
+        let gradient_threshold = f64::from(params.gradient_threshold);
         let threshold_squared = gradient_threshold * gradient_threshold;
         for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
@@ -1330,19 +1404,17 @@ pub fn calculate_slices(
                             ),
                             y,
                         ));
-                    } else {
-                        if let Some(slice) = &mut current_slice {
-                            *slice = PreliminaryAnnotatedSlice::new(
-                                PreliminarySlice::new(
-                                    slice.slice.get_start(),
-                                    CoordinatedPoint::new(
-                                        slice.slice.get_end().get_coordinate_system().clone(),
-                                        Vec3d::new(x as f64, y as f64, 0.0),
-                                    ),
+                    } else if let Some(slice) = &mut current_slice {
+                        *slice = PreliminaryAnnotatedSlice::new(
+                            PreliminarySlice::new(
+                                slice.slice.get_start(),
+                                CoordinatedPoint::new(
+                                    slice.slice.get_end().get_coordinate_system().clone(),
+                                    Vec3d::new(x as f64, y as f64, 0.0),
                                 ),
-                                slice.line_number,
-                            );
-                        }
+                            ),
+                            slice.line_number,
+                        );
                     }
                 } else {
                     emplace_current_slice(&mut current_slice, &mut current_line);
@@ -1355,7 +1427,7 @@ pub fn calculate_slices(
     } else {
         let rgb_reader = RgbPixelReader::new(&image).expect("failed to access RGB image");
         let mut current_slice = None;
-        let gradient_threshold = params.gradient_threshold as f64;
+        let gradient_threshold = f64::from(params.gradient_threshold);
         let threshold_squared = gradient_threshold * gradient_threshold;
         for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
@@ -1388,19 +1460,17 @@ pub fn calculate_slices(
                             ),
                             y,
                         ));
-                    } else {
-                        if let Some(slice) = &mut current_slice {
-                            *slice = PreliminaryAnnotatedSlice::new(
-                                PreliminarySlice::new(
-                                    slice.slice.get_start(),
-                                    CoordinatedPoint::new(
-                                        global_coordinate_system.clone(),
-                                        Vec3d::new(x as f64, y as f64, 0.0),
-                                    ),
+                    } else if let Some(slice) = &mut current_slice {
+                        *slice = PreliminaryAnnotatedSlice::new(
+                            PreliminarySlice::new(
+                                slice.slice.get_start(),
+                                CoordinatedPoint::new(
+                                    global_coordinate_system.clone(),
+                                    Vec3d::new(x as f64, y as f64, 0.0),
                                 ),
-                                slice.line_number,
-                            );
-                        }
+                            ),
+                            slice.line_number,
+                        );
                     }
                 } else {
                     emplace_current_slice(&mut current_slice, &mut current_line);
@@ -1505,10 +1575,10 @@ fn find_next_connected_slice_matrix(slice_matrix: &mut SliceMatrix) -> Option<Sl
             break;
         }
     }
-    if !connected_matrix.lines.is_empty() {
-        Some(connected_matrix)
-    } else {
+    if connected_matrix.lines.is_empty() {
         None
+    } else {
+        Some(connected_matrix)
     }
 }
 
@@ -2016,7 +2086,7 @@ mod tests {
         let image = WrappedRgbImage::new_from_ascii_art(
             "#######\n#######\n#######\n#######\n#######\n#######\n#######",
         );
-        calculate_slices(
+        let _ = calculate_slices(
             image,
             Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(8.0, 7.0, 0.0)),
             BasicParams::new(true, 0),

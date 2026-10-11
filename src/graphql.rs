@@ -35,6 +35,7 @@ impl Default for GraphqlAppState {
 
 pub type VideoSentinelSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
+#[must_use]
 pub fn create_schema() -> VideoSentinelSchema {
     Schema::build(QueryRoot, MutationRoot, EmptySubscription)
         .data(GraphqlAppState::default())

@@ -228,6 +228,7 @@ impl Default for Service {
 }
 
 impl Service {
+    #[must_use]
     pub fn new() -> Self {
         Service {
             sessions: BTreeMap::new(),
@@ -390,7 +391,9 @@ impl Service {
                     object_session.object_detection_params.tile_params =
                         TileParams::new(tile_params_input.tile_x, tile_params_input.tile_y);
                 }
-                _ => return TileParamsUpdateResult::SessionTypeDoesNotSupportTileParams,
+                Session::Ordinary(_) => {
+                    return TileParamsUpdateResult::SessionTypeDoesNotSupportTileParams;
+                }
             }
             TileParamsUpdateResult::Success
         } else {
@@ -418,7 +421,9 @@ impl Service {
                         trace_params_input.close_slice_threshold,
                     );
                 }
-                _ => return TraceParamsUpdateResult::SessionTypeDoesNotSupportTraceParams,
+                Session::Ordinary(_) => {
+                    return TraceParamsUpdateResult::SessionTypeDoesNotSupportTraceParams;
+                }
             }
             TraceParamsUpdateResult::Success
         } else {
@@ -440,7 +445,9 @@ impl Service {
                 Session::Object(object_session) => {
                     object_session.object_detection_params.bucket_delta = bucket_delta;
                 }
-                _ => return BucketDeltaUpdateResult::SessionTypeDoesNotSupportBucketDelta,
+                Session::Ordinary(_) => {
+                    return BucketDeltaUpdateResult::SessionTypeDoesNotSupportBucketDelta;
+                }
             }
             BucketDeltaUpdateResult::Success
         } else {
@@ -462,7 +469,7 @@ impl Service {
                 Session::Object(object_session) => {
                     object_session.object_detection_params.target_similarity = target_similarity;
                 }
-                _ => {
+                Session::Ordinary(_) => {
                     return TargetSimilarityUpdateResult::SessionTypeDoesNotSupportTargetSimilarity;
                 }
             }
@@ -594,7 +601,7 @@ impl Service {
                     let image = WrappedRgbImage::new_from_ascii_art(ascii_art.as_str());
                     let surrounding_rectangle = Rectangle::new(
                         Vec3d::new(0.0, 0.0, 0.0),
-                        Vec3d::new(image.width() as f64, image.height() as f64, 0.0),
+                        Vec3d::new(f64::from(image.width()), f64::from(image.height()), 0.0),
                     );
                     self.add_object_to_be_detected_as_image(
                         session_id,
@@ -643,6 +650,7 @@ impl Service {
     }
 
     // queries
+    #[must_use]
     pub fn get_ordinary_session(&self, session_id: &String) -> Option<OrdinarySession> {
         if let Some(Session::Ordinary(ordinary_session)) = self.sessions.get(session_id) {
             Some(ordinary_session.clone())
@@ -651,6 +659,7 @@ impl Service {
         }
     }
 
+    #[must_use]
     pub fn get_eye_session(&self, session_id: &String) -> Option<EyeSession> {
         if let Some(Session::Eye(eye_session)) = self.sessions.get(session_id) {
             Some(eye_session.clone())
@@ -659,6 +668,7 @@ impl Service {
         }
     }
 
+    #[must_use]
     pub fn get_object_session(&self, session_id: &String) -> Option<ObjectSession> {
         if let Some(Session::Object(object_session)) = self.sessions.get(session_id) {
             Some(object_session.clone())
@@ -667,6 +677,7 @@ impl Service {
         }
     }
 
+    #[must_use]
     pub fn get_basic_params(&self, session_id: &String) -> Option<BasicParams> {
         match self.sessions.get(session_id) {
             Some(Session::Ordinary(ordinary_session)) => {
@@ -678,6 +689,7 @@ impl Service {
         }
     }
 
+    #[must_use]
     pub fn get_tile_params(&self, session_id: &String) -> Option<TileParams> {
         match self.sessions.get(session_id) {
             Some(Session::Eye(eye_session)) => Some(eye_session.eye_params.tile_params.clone()),
@@ -688,6 +700,7 @@ impl Service {
         }
     }
 
+    #[must_use]
     pub fn get_trace_params(&self, session_id: &String) -> Option<TraceParams> {
         match self.sessions.get(session_id) {
             Some(Session::Eye(eye_session)) => Some(eye_session.eye_params.trace_params.clone()),
@@ -698,6 +711,7 @@ impl Service {
         }
     }
 
+    #[must_use]
     pub fn get_bucket_delta(&self, session_id: &String) -> Option<f64> {
         match self.sessions.get(session_id) {
             Some(Session::Eye(eye_session)) => Some(eye_session.eye_params.bucket_delta),
@@ -708,6 +722,7 @@ impl Service {
         }
     }
 
+    #[must_use]
     pub fn get_target_similarity(&self, session_id: &String) -> Option<f64> {
         match self.sessions.get(session_id) {
             Some(Session::Eye(eye_session)) => Some(eye_session.eye_params.target_similarity),
@@ -718,6 +733,7 @@ impl Service {
         }
     }
 
+    #[must_use]
     pub fn get_session(&self, session_id: &String) -> Option<Session> {
         self.sessions.get(session_id).cloned()
     }
@@ -727,9 +743,8 @@ impl Service {
         session_id: String,
         image: WrappedRgbImage,
     ) -> GetRectanglesResult {
-        let session = match self.get_session(&session_id) {
-            Some(session) => session,
-            None => return GetRectanglesResult::SessionNotFound,
+        let Some(session) = self.get_session(&session_id) else {
+            return GetRectanglesResult::SessionNotFound;
         };
         match session {
             Session::Eye(eye_session) => {
@@ -921,8 +936,8 @@ async fn calculate_eye(
     eye_session: &EyeSession,
     image: WrappedRgbImage,
 ) -> Result<(Vec<ColoredAnonymizedMosaic>, BucketedMosaics), String> {
-    let image_width = image.width() as f64;
-    let image_height = image.height() as f64;
+    let image_width = f64::from(image.width());
+    let image_height = f64::from(image.height());
     let surrounding_rectangle = Rectangle::new(
         Vec3d::new(0.0, 0.0, 0.0),
         Vec3d::new(image_width, image_height, 0.0),
@@ -971,8 +986,8 @@ async fn calculate_object(
     object_session: &ObjectSession,
     image: WrappedRgbImage,
 ) -> Result<Vec<ColoredAnonymizedMosaic>, String> {
-    let image_width = image.width() as f64;
-    let image_height = image.height() as f64;
+    let image_width = f64::from(image.width());
+    let image_height = f64::from(image.height());
     let surrounding_rectangle = Rectangle::new(
         Vec3d::new(0.0, 0.0, 0.0),
         Vec3d::new(image_width, image_height, 0.0),

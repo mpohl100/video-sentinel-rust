@@ -10,6 +10,7 @@ use crate::mosaics::WrappedMosaic;
 
 use rs_math3d::Vec3d;
 use smallvec::SmallVec;
+use std::fmt::Write as _;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -62,6 +63,7 @@ pub struct TraceParams {
 }
 
 impl TraceParams {
+    #[must_use]
     pub fn new(num_skeleton: usize, close_slice_threshold: f64) -> Self {
         TraceParams {
             num_skeleton,
@@ -69,10 +71,12 @@ impl TraceParams {
         }
     }
 
+    #[must_use]
     pub fn num_skeleton(&self) -> usize {
         self.num_skeleton
     }
 
+    #[must_use]
     pub fn close_slice_threshold(&self) -> f64 {
         self.close_slice_threshold
     }
@@ -86,6 +90,7 @@ pub struct Trace {
 }
 
 impl Trace {
+    #[must_use]
     pub fn new_from_mosaic(mosaic: WrappedMosaic, params: TraceParams) -> Self {
         let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
@@ -128,6 +133,7 @@ impl Trace {
         }
     }
 
+    #[must_use]
     pub fn new_from_mosaics(mosaics: Vec<WrappedMosaic>, params: TraceParams) -> Self {
         let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
@@ -167,6 +173,7 @@ impl Trace {
         }
     }
 
+    #[must_use]
     pub fn compare_with(&self, target_similarity: f64, other: &Trace) -> f64 {
         let mut highest_similarity = 0.0;
         let first_factor = self.total_mass / self.total_surrounding_circle_area;
@@ -179,8 +186,7 @@ impl Trace {
             let adjusted_similarity = similarity * closeness;
             if trace_debug_enabled() {
                 println!(
-                    "trace.compare_with rotation={} similarity={:.8} highest_before={:.8} target={:.8}",
-                    i, similarity, highest_similarity, target_similarity,
+                    "trace.compare_with rotation={i} similarity={similarity:.8} highest_before={highest_similarity:.8} target={target_similarity:.8}",
                 );
             }
             if adjusted_similarity > highest_similarity {
@@ -191,26 +197,26 @@ impl Trace {
             }
         }
         if trace_debug_enabled() {
-            println!(
-                "trace.compare_with final highest_similarity={:.8}",
-                highest_similarity,
-            );
+            println!("trace.compare_with final highest_similarity={highest_similarity:.8}");
         }
         highest_similarity
     }
 
+    #[must_use]
     pub fn dump_details(&self) -> String {
         let mut output = String::new();
-        output.push_str(&format!(
-            "Trace {{ ratio_line_count: {} }}\n",
+        let _ = writeln!(
+            output,
+            "Trace {{ ratio_line_count: {} }}",
             self.ratio_lines.len()
-        ));
+        );
 
         for (line_index, ratio_line) in self.ratio_lines.iter().enumerate() {
-            output.push_str(&format!(
-                "  ratio_line[{line_index}] {{ slice_count: {} }}\n",
+            let _ = writeln!(
+                output,
+                "  ratio_line[{line_index}] {{ slice_count: {} }}",
                 ratio_line.slices.len()
-            ));
+            );
 
             for (slice_index, slice) in ratio_line.slices.iter().enumerate() {
                 let start = slice.get_start();
@@ -218,8 +224,9 @@ impl Trace {
                 let start_cartesian = start.to_cartesian();
                 let end_cartesian = end.to_cartesian();
 
-                output.push_str(&format!(
-                    "    slice[{slice_index}] {{ start_radius: {:.8}, start_angle_degrees: {:.8}, end_radius: {:.8}, end_angle_degrees: {:.8}, start_cartesian: ({:.8}, {:.8}, {:.8}), end_cartesian: ({:.8}, {:.8}, {:.8}) }}\n",
+                let _ = writeln!(
+                    output,
+                    "    slice[{slice_index}] {{ start_radius: {:.8}, start_angle_degrees: {:.8}, end_radius: {:.8}, end_angle_degrees: {:.8}, start_cartesian: ({:.8}, {:.8}, {:.8}), end_cartesian: ({:.8}, {:.8}, {:.8}) }}",
                     start.get_radius(),
                     start.get_angle().get_angle_degrees(),
                     end.get_radius(),
@@ -230,7 +237,7 @@ impl Trace {
                     end_cartesian.get_x(),
                     end_cartesian.get_y(),
                     end_cartesian.get_z(),
-                ));
+                );
             }
         }
 
@@ -244,12 +251,14 @@ pub struct WrappedTrace {
 }
 
 impl WrappedTrace {
+    #[must_use]
     pub fn new(trace: Trace) -> Self {
         Self {
             trace: Arc::new(Mutex::new(trace)),
         }
     }
 
+    #[must_use]
     pub fn compare_with(&self, target_similarity: f64, other: &WrappedTrace) -> f64 {
         // If both point to the same return 1.0
         if Arc::ptr_eq(&self.trace, &other.trace) {
@@ -262,7 +271,10 @@ impl WrappedTrace {
 }
 
 fn calculate_total_mass(mosaics: &[WrappedMosaic]) -> f64 {
-    mosaics.iter().map(|m| m.get_area()).sum()
+    mosaics
+        .iter()
+        .map(super::mosaics::WrappedMosaic::get_area)
+        .sum()
 }
 
 fn calculate_total_surrounding_circle_area(mosaics: &[WrappedMosaic]) -> f64 {
@@ -300,8 +312,7 @@ fn compare_with_rotation(
         let similarity = compare_lines(line1, &second_ratio_lines[rotated_index]);
         if trace_debug_enabled() {
             println!(
-                "trace.compare_with line_index={} rotated_index={} line_similarity={:.8}",
-                line_index, rotated_index, similarity,
+                "trace.compare_with line_index={line_index} rotated_index={rotated_index} line_similarity={similarity:.8}",
             );
         }
         total_similarity += similarity;
@@ -309,10 +320,7 @@ fn compare_with_rotation(
 
     let similarity = total_similarity / line_count as f64;
     if trace_debug_enabled() {
-        println!(
-            "trace.compare_with average_similarity={:.8} line_count={}",
-            similarity, line_count,
-        );
+        println!("trace.compare_with average_similarity={similarity:.8} line_count={line_count}");
     }
     similarity
 }
@@ -367,8 +375,7 @@ fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
     if similar_overlap.abs() < 1e-6 {
         if trace_debug_enabled() {
             println!(
-                "trace.compare_lines similar_overlap={:.8} different_overlap={:.8} similarity=0.00000000",
-                similar_overlap, different_overlap,
+                "trace.compare_lines similar_overlap={similar_overlap:.8} different_overlap={different_overlap:.8} similarity=0.00000000",
             );
         }
         return 0.0;
@@ -376,8 +383,7 @@ fn compare_lines(line1: &RatioLine, line2: &RatioLine) -> f64 {
     let similarity = (similar_overlap - different_overlap) / similar_overlap;
     if trace_debug_enabled() {
         println!(
-            "trace.compare_lines similar_overlap={:.8} different_overlap={:.8} similarity={:.8}",
-            similar_overlap, different_overlap, similarity,
+            "trace.compare_lines similar_overlap={similar_overlap:.8} different_overlap={different_overlap:.8} similarity={similarity:.8}",
         );
     }
     similarity
@@ -423,7 +429,7 @@ fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> SmallVec<[TaggedRatio; 
         if from == to {
             continue; // skip zero-length intervals
         }
-        let current_midpoint = (from + to) / 2.0;
+        let current_midpoint = f64::midpoint(from, to);
         let pred = |polar_ratio: &PolarSlice| {
             polar_ratio.get_start().get_radius() <= current_midpoint
                 && polar_ratio.get_end().get_radius() >= current_midpoint
@@ -872,7 +878,7 @@ fn combine_close_slices(slices: Vec<Option<PolarSlice>>) -> Vec<PolarSlice> {
                 current_slice = None;
             }
             (None, Some(_)) => {
-                current_slice = slice.clone();
+                current_slice.clone_from(slice);
             }
             (None, None) => {}
         }
@@ -1043,8 +1049,8 @@ mod tests {
     fn circle_slice_matrix(width: u32, height: u32, center: Vec3d, radius: f64) -> SliceMatrix {
         let mut slice_matrix = SliceMatrix::new(blank_image(width, height));
         let start_y = (center.y - radius).floor().max(0.0) as usize;
-        let end_y = (center.y + radius).ceil().min(height as f64) as usize;
-        let max_x = width.saturating_sub(1) as f64;
+        let end_y = (center.y + radius).ceil().min(f64::from(height)) as usize;
+        let max_x = f64::from(width.saturating_sub(1));
 
         for y in start_y..end_y {
             let dy = y as f64 - center.y;

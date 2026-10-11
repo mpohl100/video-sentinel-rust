@@ -15,6 +15,7 @@ pub struct BucketedMosaicsPerSection {
 }
 
 impl BucketedMosaicsPerSection {
+    #[must_use]
     pub fn new(region: WrappedRelativeRectangle, delta: f64) -> Self {
         BucketedMosaicsPerSection {
             region,
@@ -51,6 +52,7 @@ impl BucketedMosaicsPerSection {
         }
     }
 
+    #[must_use]
     pub fn get_potentially_similar_mosaics(
         &self,
         mosaic: &TracedRelativeMosaic,
@@ -72,6 +74,7 @@ pub struct BucketedMosaics {
 }
 
 impl BucketedMosaics {
+    #[must_use]
     pub fn new(tile_params: TileParams, delta: f64) -> Self {
         let regions = Self::calculate_regions(tile_params);
         let sections = regions
@@ -87,6 +90,7 @@ impl BucketedMosaics {
         }
     }
 
+    #[must_use]
     pub fn get_potentially_similar_mosaics(
         &self,
         mosaic: &TracedRelativeMosaic,
@@ -102,8 +106,8 @@ impl BucketedMosaics {
             for candidate in section.get_potentially_similar_mosaics(mosaic) {
                 let center_of_mass = candidate.get_relative_mosaic().get_center_of_mass();
                 let key_tuple = (
-                    (center_of_mass.get_x() * 1000000.0) as i64,
-                    (center_of_mass.get_y() * 1000000.0) as i64,
+                    (center_of_mass.get_x() * 1_000_000.0) as i64,
+                    (center_of_mass.get_y() * 1_000_000.0) as i64,
                 );
                 mosaics_by_center_of_mass.insert(key_tuple, candidate);
             }
@@ -111,6 +115,7 @@ impl BucketedMosaics {
         mosaics_by_center_of_mass.into_values().collect()
     }
 
+    #[must_use]
     pub fn get_all_similar_mosaics(
         &self,
         mosaic: &TracedRelativeMosaic,
@@ -121,8 +126,8 @@ impl BucketedMosaics {
             for candidate in section.get_potentially_similar_mosaics(mosaic) {
                 let center_of_mass = candidate.get_relative_mosaic().get_center_of_mass();
                 let key_tuple = (
-                    (center_of_mass.get_x() * 1000000.0) as i64,
-                    (center_of_mass.get_y() * 1000000.0) as i64,
+                    (center_of_mass.get_x() * 1_000_000.0) as i64,
+                    (center_of_mass.get_y() * 1_000_000.0) as i64,
                 );
                 mosaics_by_center_of_mass.insert(key_tuple, candidate);
             }
@@ -130,6 +135,7 @@ impl BucketedMosaics {
         mosaics_by_center_of_mass.into_values().collect()
     }
 
+    #[must_use]
     pub fn get_similar_mosaics_from_rectangle(
         &self,
         mosaic: &TracedRelativeMosaic,
@@ -141,8 +147,8 @@ impl BucketedMosaics {
             for candidate in section.get_potentially_similar_mosaics(mosaic) {
                 let center_of_mass = candidate.get_relative_mosaic().get_center_of_mass();
                 let key_tuple = (
-                    (center_of_mass.get_x() * 1000000.0) as i64,
-                    (center_of_mass.get_y() * 1000000.0) as i64,
+                    (center_of_mass.get_x() * 1_000_000.0) as i64,
+                    (center_of_mass.get_y() * 1_000_000.0) as i64,
                 );
                 mosaics_by_center_of_mass.insert(key_tuple, candidate);
             }
