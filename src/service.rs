@@ -585,14 +585,14 @@ impl Service {
                         Vec3d::new(0.0, 0.0, 0.0),
                         Vec3d::new(image.width() as f64, image.height() as f64, 0.0),
                     );
-                    return self.add_object_to_be_detected_as_image(
+                    self.add_object_to_be_detected_as_image(
                         session_id,
                         object_id,
                         image,
                         surrounding_rectangle,
-                    );
+                    )
                 }
-                _ => return AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected,
+                _ => AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected,
             }
         } else {
             AddObjectToBeDetectedResult::SessionNotFound
