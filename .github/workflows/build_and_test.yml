@@ -26,3 +26,4 @@ jobs:
             cargo fmt --check || exit 1
             cargo clippy --all-targets -- -D warnings || exit 1
             cargo test --release --verbose || exit 1
+            BENCH_ENFORCE_BUDGETS=1 cargo bench --bench get_rectangles --bench pipeline || exit 1
