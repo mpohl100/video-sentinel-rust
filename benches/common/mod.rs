@@ -153,7 +153,6 @@ fn load_example_video() -> ExampleVideoData {
     });
 
     let video_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("video-sentinel-cpp")
         .join("video")
         .join("BillardTakeoff.mp4");
     let mut decoder = Decoder::new(video_path.as_path()).expect("example video should open");
