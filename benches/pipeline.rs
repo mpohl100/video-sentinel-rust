@@ -1,19 +1,13 @@
 #![warn(clippy::pedantic)]
 #![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::must_use_candidate,
     clippy::needless_pass_by_value,
-    clippy::similar_names,
     clippy::too_many_lines,
-    clippy::unreadable_literal
+    clippy::unused_async_trait_impl
 )]
 
-mod common;
+pub mod common;
 
 use std::time::Duration;
 
@@ -34,7 +28,7 @@ fn pipeline_benchmarks(c: &mut criterion::Criterion) {
     let frames = example_video().frames.clone();
     let frame = frames[0].image.clone();
     let frame_rectangle = surrounding_rectangle(&frame);
-    let frame_slices = calculate_slices(frame.clone(), frame_rectangle.clone(), basic_params());
+    let frame_slices = calculate_slices(frame.clone(), frame_rectangle, basic_params());
     let connected_slices = find_connected_slices(&mut frame_slices.clone());
 
     let mut group = c.benchmark_group("pipeline");
@@ -45,7 +39,7 @@ fn pipeline_benchmarks(c: &mut criterion::Criterion) {
         Duration::from_millis(400),
         || frame.clone(),
         |image: WrappedRgbImage| {
-            calculate_slices(image, frame_rectangle.clone(), basic_params())
+            calculate_slices(image, frame_rectangle, basic_params())
                 .get_slice_lines()
                 .len()
         },
@@ -101,8 +95,8 @@ fn pipeline_benchmarks(c: &mut criterion::Criterion) {
     let eye_fixture = eye_pipeline_fixture();
     let bucket_inputs = (
         eye_fixture.next_mosaics.clone(),
-        eye_fixture.surrounding_rectangle.clone(),
-        eye_fixture.eye_params.clone(),
+        eye_fixture.surrounding_rectangle,
+        eye_fixture.eye_params,
     );
     bench_with_setup(
         &mut group,

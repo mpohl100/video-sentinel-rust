@@ -1,6 +1,3 @@
-#![allow(dead_code)]
-#![allow(unused_imports)]
-
 use std::hint::black_box;
 use std::path::PathBuf;
 use std::sync::{Arc, Once, OnceLock};
@@ -8,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use criterion::measurement::WallTime;
 use criterion::{BenchmarkGroup, Criterion};
+use num_traits::ToPrimitive;
 use opencv::core::{Mat, Vector as CvVector};
 use opencv::imgcodecs;
 use opencv::imgproc;
@@ -33,9 +31,21 @@ use video_sentinel::traces::{Trace, TraceParams};
 
 static VIDEO_RS_INIT: Once = Once::new();
 static EXAMPLE_VIDEO: OnceLock<ExampleVideoData> = OnceLock::new();
-static TRACE_FIXTURE: OnceLock<TraceFixture> = OnceLock::new();
-static DETECTION_FIXTURE: OnceLock<DetectionFixture> = OnceLock::new();
+pub static TRACE_FIXTURE: OnceLock<TraceFixture> = OnceLock::new();
+pub static DETECTION_FIXTURE: OnceLock<DetectionFixture> = OnceLock::new();
 static BENCHMARK_RUNTIME: OnceLock<Runtime> = OnceLock::new();
+
+fn i32_from_f64(value: f64) -> i32 {
+    value.round().to_i32().expect("fixture coordinate should fit within i32")
+}
+
+fn u32_from_usize(value: usize) -> u32 {
+    value.to_u32().expect("fixture dimension should fit within u32")
+}
+
+fn u64_from_u128(value: u128) -> u64 {
+    value.to_u64().expect("benchmark duration should fit within u64 nanoseconds")
+}
 
 #[derive(Clone)]
 pub struct ExampleFrame {
@@ -74,26 +84,27 @@ pub struct DetectionFixture {
 }
 
 #[derive(Clone)]
-struct ColoredTestRectangle {
-    top_left: Vec3d,
-    bottom_right: Vec3d,
-    color: &'static str,
-    rotation_angle_degrees: f64,
+pub struct ColoredTestRectangle {
+    pub top_left: Vec3d,
+    pub bottom_right: Vec3d,
+    pub color: &'static str,
+    pub rotation_angle_degrees: f64,
 }
 
 #[derive(Clone)]
-struct ColoredTestCircle {
-    center: Vec3d,
-    radius: f64,
-    color: &'static str,
+pub struct ColoredTestCircle {
+    pub center: Vec3d,
+    pub radius: f64,
+    pub color: &'static str,
 }
 
 #[derive(Default, Clone)]
-struct ShapesData {
-    rectangles: Vec<ColoredTestRectangle>,
-    circles: Vec<ColoredTestCircle>,
+pub struct ShapesData {
+    pub rectangles: Vec<ColoredTestRectangle>,
+    pub circles: Vec<ColoredTestCircle>,
 }
 
+#[must_use]
 pub fn criterion_config() -> Criterion {
     Criterion::default()
         .sample_size(10)
@@ -146,12 +157,13 @@ fn enforce_budget(name: &str, total: Duration, iters: u64, budget: Duration) {
     assert!(
         avg_nanos <= budget_nanos,
         "benchmark `{name}` exceeded budget: avg {:?} > budget {:?}",
-        Duration::from_nanos(avg_nanos as u64),
+        Duration::from_nanos(u64_from_u128(avg_nanos)),
         budget,
     );
 }
 
-fn should_enforce_budgets() -> bool {
+#[must_use]
+pub fn should_enforce_budgets() -> bool {
     std::env::var_os("BENCH_ENFORCE_BUDGETS").is_some() || std::env::var_os("CI").is_some()
 }
 
@@ -159,7 +171,7 @@ pub fn example_video() -> &'static ExampleVideoData {
     EXAMPLE_VIDEO.get_or_init(load_example_video)
 }
 
-fn load_example_video() -> ExampleVideoData {
+pub fn load_example_video() -> ExampleVideoData {
     VIDEO_RS_INIT.call_once(|| {
         video_rs::init().expect("video-rs should initialize for benchmarks");
     });
@@ -183,11 +195,12 @@ fn load_example_video() -> ExampleVideoData {
     ExampleVideoData { frames }
 }
 
+#[must_use]
 pub fn ordinary_service() -> Service {
     let mut service = Service::new();
     assert!(matches!(
         service.create_ordinary_session(
-            "ordinary".to_string(),
+            "ordinary",
             basic_params_input(),
             Results::Absolute
         ),
@@ -196,11 +209,12 @@ pub fn ordinary_service() -> Service {
     service
 }
 
+#[must_use]
 pub fn eye_service() -> Service {
     let mut service = Service::new();
     assert!(matches!(
         service.create_eye_session(
-            "eye".to_string(),
+            "eye",
             basic_params_input(),
             eye_params_input(),
             Results::Relative
@@ -210,6 +224,7 @@ pub fn eye_service() -> Service {
     service
 }
 
+#[must_use]
 pub fn object_service() -> Service {
     let frames = &example_video().frames;
     let reference_rectangle = first_rectangle_from_ordinary(&frames[0].image);
@@ -217,7 +232,7 @@ pub fn object_service() -> Service {
     let mut service = Service::new();
     assert!(matches!(
         service.create_object_session(
-            "object".to_string(),
+            "object",
             basic_params_input(),
             object_detection_params_input(),
             Results::Absolute
@@ -226,8 +241,8 @@ pub fn object_service() -> Service {
     ));
     assert!(matches!(
         service.add_object_to_be_detected_as_image(
-            "object".to_string(),
-            "billard-reference".to_string(),
+            "object",
+            "billard-reference",
             frames[0].image.clone(),
             reference_rectangle,
         ),
@@ -236,10 +251,11 @@ pub fn object_service() -> Service {
     service
 }
 
-fn first_rectangle_from_ordinary(image: &WrappedRgbImage) -> Rectangle {
+#[must_use]
+pub fn first_rectangle_from_ordinary(image: &WrappedRgbImage) -> Rectangle {
     let mut service = ordinary_service();
     match benchmark_runtime()
-        .block_on(service.get_rectangles("ordinary".to_string(), image.clone()))
+        .block_on(service.get_rectangles("ordinary", image.clone()))
     {
         GetRectanglesResult::Success(rectangles) => {
             rectangles
@@ -252,30 +268,36 @@ fn first_rectangle_from_ordinary(image: &WrappedRgbImage) -> Rectangle {
     }
 }
 
+#[must_use]
 pub fn basic_params() -> BasicParams {
     BasicParams::new(false, 15)
 }
 
+#[must_use]
 pub fn trace_params() -> TraceParams {
     TraceParams::new(12, 0.2)
 }
 
+#[must_use]
 pub fn eye_params() -> EyeParams {
     EyeParams::new(TileParams::new(0.5, 0.5), 0.25, trace_params(), 0.9)
 }
 
+#[must_use]
 pub fn object_detection_params() -> ObjectDetectionParams {
     ObjectDetectionParams::new(TileParams::new(0.5, 0.5), 0.25, trace_params(), 0.9)
 }
 
-fn basic_params_input() -> BasicParamsInput {
+#[must_use]
+pub fn basic_params_input() -> BasicParamsInput {
     BasicParamsInput {
         do_grayscale: false,
         gradient_threshold: 15,
     }
 }
 
-fn eye_params_input() -> EyeParamsInput {
+#[must_use]
+pub fn eye_params_input() -> EyeParamsInput {
     EyeParamsInput {
         tile_params: TileParamsInput {
             tile_x: 0.5,
@@ -290,7 +312,8 @@ fn eye_params_input() -> EyeParamsInput {
     }
 }
 
-fn object_detection_params_input() -> ObjectDetectionParamsInput {
+#[must_use]
+pub fn object_detection_params_input() -> ObjectDetectionParamsInput {
     ObjectDetectionParamsInput {
         tile_params: TileParamsInput {
             tile_x: 0.5,
@@ -305,6 +328,7 @@ fn object_detection_params_input() -> ObjectDetectionParamsInput {
     }
 }
 
+#[must_use]
 pub fn surrounding_rectangle(image: &WrappedRgbImage) -> Rectangle {
     Rectangle::new(
         Vec3d::new(0.0, 0.0, 0.0),
@@ -312,9 +336,10 @@ pub fn surrounding_rectangle(image: &WrappedRgbImage) -> Rectangle {
     )
 }
 
+#[must_use]
 pub fn ordinary_mosaics(image: WrappedRgbImage, results: Results) -> Vec<AnonymizedMosaic> {
     let rectangle = surrounding_rectangle(&image);
-    let slices = calculate_slices(image.clone(), rectangle.clone(), basic_params());
+    let slices = calculate_slices(image.clone(), rectangle, basic_params());
     let connected_slices = find_connected_slices(&mut slices.clone());
     deduce_mosaics(
         connected_slices,
@@ -331,6 +356,7 @@ pub fn ordinary_mosaics(image: WrappedRgbImage, results: Results) -> Vec<Anonymi
     .collect()
 }
 
+#[must_use]
 pub fn eye_pipeline_fixture() -> EyePipelineFixture {
     let frames = &example_video().frames;
     let current_image = frames[2].image.clone();
@@ -341,10 +367,10 @@ pub fn eye_pipeline_fixture() -> EyePipelineFixture {
     let eye_params = eye_params();
     let previous_bucketed_mosaics = deduce_bucketed_mosaics(
         previous_mosaics,
-        surrounding_rectangle.clone(),
-        eye_params.tile_params.clone(),
+        surrounding_rectangle,
+        eye_params.tile_params,
         eye_params.bucket_delta,
-        eye_params.trace_params.clone(),
+        eye_params.trace_params,
     );
     EyePipelineFixture {
         previous_bucketed_mosaics,
@@ -402,8 +428,8 @@ pub fn trace_fixture() -> &'static TraceFixture {
                 .get_mosaic();
         let params = trace_params();
         TraceFixture {
-            primary_trace: Trace::new_from_mosaic(primary_mosaic.clone(), params.clone()),
-            secondary_trace: Trace::new_from_mosaic(secondary_mosaic.clone(), params.clone()),
+            primary_trace: Trace::new_from_mosaic(primary_mosaic.clone(), params),
+            secondary_trace: Trace::new_from_mosaic(secondary_mosaic.clone(), params),
             primary_mosaic,
             secondary_mosaic,
         }
@@ -488,10 +514,10 @@ pub fn detection_fixture() -> &'static DetectionFixture {
                     )
                 })
                 .collect(),
-            surrounding_rectangle.clone(),
-            object_detection_params.tile_params.clone(),
+            surrounding_rectangle,
+            object_detection_params.tile_params,
             object_detection_params.bucket_delta,
-            object_detection_params.trace_params.clone(),
+            object_detection_params.trace_params,
         );
         let query_mosaic = scene_mosaics[0].clone();
         DetectionFixture {
@@ -504,14 +530,15 @@ pub fn detection_fixture() -> &'static DetectionFixture {
     })
 }
 
+#[must_use]
 pub fn detect_objects_for_fixture(
     fixture: &DetectionFixture,
 ) -> Vec<video_sentinel::slices::ColoredRectangle> {
     detect_objects(
         fixture.reference_object.clone(),
         &fixture.bucketed_mosaics,
-        fixture.object_detection_params.clone(),
-        fixture.surrounding_rectangle.clone(),
+        fixture.object_detection_params,
+        fixture.surrounding_rectangle,
         Results::Absolute,
     )
 }
@@ -536,7 +563,7 @@ fn wrapped_rgb_image_from_frame(frame: Frame) -> WrappedRgbImage {
     } else {
         frame.iter().copied().collect()
     };
-    WrappedRgbImage::from_rgb_data(width as u32, height as u32, &data)
+    WrappedRgbImage::from_rgb_data(u32_from_usize(width), u32_from_usize(height), &data)
         .expect("decoded frame should convert to WrappedRgbImage")
 }
 
@@ -580,7 +607,7 @@ fn rotated_rectangle_vertices(rectangle: &ColoredTestRectangle) -> [(i32, i32); 
     corners.map(|(local_x, local_y)| {
         let rotated_x = center_x + local_x * cos_angle - local_y * sin_angle;
         let rotated_y = center_y + local_x * sin_angle + local_y * cos_angle;
-        (rotated_x.round() as i32, rotated_y.round() as i32)
+        (i32_from_f64(rotated_x), i32_from_f64(rotated_y))
     })
 }
 
@@ -594,10 +621,10 @@ fn fill_rotated_rectangle(image: &WrappedRgbImage, rectangle: &ColoredTestRectan
 fn fill_circle(image: &WrappedRgbImage, circle: &ColoredTestCircle) {
     image.fill_circle(
         (
-            circle.center.x.round() as i32,
-            circle.center.y.round() as i32,
+            i32_from_f64(circle.center.x),
+            i32_from_f64(circle.center.y),
         ),
-        circle.radius.round() as i32,
+        i32_from_f64(circle.radius),
         rgb_from_name(circle.color),
     );
 }
@@ -625,7 +652,7 @@ fn deduce_all_mosaics(image: WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
     let connected_slices = find_connected_slices(&mut slices.clone());
     deduce_mosaics(connected_slices, math_rectangle)
         .into_iter()
-        .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params.clone()))
+        .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params))
         .collect()
 }
 

@@ -119,11 +119,11 @@ mod tests {
         let mosaic = sample_mosaic();
         let trace_params = TraceParams::new(12, 0.2);
         let direct_trace =
-            WrappedTrace::new(Trace::new_from_mosaic(mosaic.clone(), trace_params.clone()));
+            WrappedTrace::new(Trace::new_from_mosaic(mosaic.clone(), trace_params));
         let traced_mosaic = TracedMosaic::new(mosaic.clone(), trace_params);
         let similarity = traced_mosaic.get_trace().compare_with(1.0, &direct_trace);
 
         assert_float_eq(traced_mosaic.get_mosaic().get_area(), mosaic.get_area());
-        assert_float_eq(similarity, 0.3333333333333333);
+        assert_float_eq(similarity, 0.333_333_333_333_333_3);
     }
 }

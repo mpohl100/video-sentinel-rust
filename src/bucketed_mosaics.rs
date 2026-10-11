@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use num_traits::ToPrimitive;
 use rs_math3d::Vector3;
 
 use crate::eye::TileParams;
@@ -7,6 +8,20 @@ use crate::slices::RelativeRectangle;
 use crate::slices::{Rectangle, WrappedRelativeRectangle};
 use crate::traced_mosaics::TracedRelativeMosaic;
 use std::collections::HashMap;
+
+fn i64_from_f64(value: f64) -> i64 {
+    value.to_i64().expect("bucket key should fit within i64")
+}
+
+fn usize_from_f64(value: f64) -> usize {
+    value
+        .to_usize()
+        .expect("tile step count should fit within usize")
+}
+
+fn f64_from_usize(value: usize) -> f64 {
+    value.to_f64().expect("tile index should convert to f64")
+}
 #[derive(Clone)]
 pub struct BucketedMosaicsPerSection {
     region: WrappedRelativeRectangle,
@@ -48,7 +63,7 @@ impl BucketedMosaicsPerSection {
         if bounding_circle_area == 0.0 {
             0
         } else {
-            ((mosaic_area / bounding_circle_area) / self.delta).floor() as i64
+            i64_from_f64(((mosaic_area / bounding_circle_area) / self.delta).floor())
         }
     }
 
@@ -106,8 +121,8 @@ impl BucketedMosaics {
             for candidate in section.get_potentially_similar_mosaics(mosaic) {
                 let center_of_mass = candidate.get_relative_mosaic().get_center_of_mass();
                 let key_tuple = (
-                    (center_of_mass.get_x() * 1_000_000.0) as i64,
-                    (center_of_mass.get_y() * 1_000_000.0) as i64,
+                    i64_from_f64(center_of_mass.get_x() * 1_000_000.0),
+                    i64_from_f64(center_of_mass.get_y() * 1_000_000.0),
                 );
                 mosaics_by_center_of_mass.insert(key_tuple, candidate);
             }
@@ -126,8 +141,8 @@ impl BucketedMosaics {
             for candidate in section.get_potentially_similar_mosaics(mosaic) {
                 let center_of_mass = candidate.get_relative_mosaic().get_center_of_mass();
                 let key_tuple = (
-                    (center_of_mass.get_x() * 1_000_000.0) as i64,
-                    (center_of_mass.get_y() * 1_000_000.0) as i64,
+                    i64_from_f64(center_of_mass.get_x() * 1_000_000.0),
+                    i64_from_f64(center_of_mass.get_y() * 1_000_000.0),
                 );
                 mosaics_by_center_of_mass.insert(key_tuple, candidate);
             }
@@ -147,8 +162,8 @@ impl BucketedMosaics {
             for candidate in section.get_potentially_similar_mosaics(mosaic) {
                 let center_of_mass = candidate.get_relative_mosaic().get_center_of_mass();
                 let key_tuple = (
-                    (center_of_mass.get_x() * 1_000_000.0) as i64,
-                    (center_of_mass.get_y() * 1_000_000.0) as i64,
+                    i64_from_f64(center_of_mass.get_x() * 1_000_000.0),
+                    i64_from_f64(center_of_mass.get_y() * 1_000_000.0),
                 );
                 mosaics_by_center_of_mass.insert(key_tuple, candidate);
             }
@@ -164,13 +179,13 @@ impl BucketedMosaics {
     }
 
     fn calculate_regions(tile_params: TileParams) -> Vec<WrappedRelativeRectangle> {
-        let num_steps_x = (1.0 / tile_params.relative_tile_x()).ceil() as usize;
-        let num_steps_y = (1.0 / tile_params.relative_tile_y()).ceil() as usize;
+        let num_steps_x = usize_from_f64((1.0 / tile_params.relative_tile_x()).ceil());
+        let num_steps_y = usize_from_f64((1.0 / tile_params.relative_tile_y()).ceil());
         let mut regions = Vec::new();
         for i in 0..num_steps_x {
             for j in 0..num_steps_y {
-                let top_left_x = tile_params.relative_tile_x() * (i as f64);
-                let top_left_y = tile_params.relative_tile_y() * (j as f64);
+                let top_left_x = tile_params.relative_tile_x() * f64_from_usize(i);
+                let top_left_y = tile_params.relative_tile_y() * f64_from_usize(j);
                 let width = (1.0 - top_left_x).min(tile_params.relative_tile_x());
                 let height = (1.0 - top_left_y).min(tile_params.relative_tile_y());
                 let region = WrappedRelativeRectangle::new(RelativeRectangle::new(
@@ -252,7 +267,7 @@ mod tests {
             let slices = ranges
                 .iter()
                 .map(|(start, end)| {
-                    annotated_slice(*start, *line_number as f64, *end, *line_number)
+                    annotated_slice(*start, f64_from_usize(*line_number), *end, *line_number)
                 })
                 .collect();
             matrix.add(SliceLine::new(*line_number, slices));
@@ -328,7 +343,7 @@ mod tests {
         assert_signature(
             &section.bucket.get(&5).unwrap()[0],
             Vec3d::new(0.0, 0.0, 0.0),
-            Vec3d::new(0.09090909090909091, 0.18181818181818182, 0.0),
+            Vec3d::new(0.090_909_090_909_090_91, 0.181_818_181_818_181_82, 0.0),
         );
     }
 
@@ -352,18 +367,18 @@ mod tests {
         assert_signature(
             &similar_to_bucket_one[0],
             Vec3d::new(0.0, 0.0, 0.0),
-            Vec3d::new(0.09090909090909091, 0.09090909090909091, 0.0),
+            Vec3d::new(0.090_909_090_909_090_91, 0.090_909_090_909_090_91, 0.0),
         );
         assert_signature(
             &similar_to_bucket_one[1],
             Vec3d::new(0.0, 0.0, 0.0),
-            Vec3d::new(0.09090909090909091, 0.2727272727272727, 0.0),
+            Vec3d::new(0.090_909_090_909_090_91, 0.272_727_272_727_272_7, 0.0),
         );
         assert_eq!(similar_to_bucket_five.len(), 1);
         assert_signature(
             &similar_to_bucket_five[0],
             Vec3d::new(0.0, 0.0, 0.0),
-            Vec3d::new(0.09090909090909091, 0.18181818181818182, 0.0),
+            Vec3d::new(0.090_909_090_909_090_91, 0.181_818_181_818_181_82, 0.0),
         );
     }
 
@@ -414,7 +429,7 @@ mod tests {
         assert_signature(
             &similar[0],
             Vec3d::new(0.0, 0.0, 0.0),
-            Vec3d::new(0.09090909090909091, 0.18181818181818182, 0.0),
+            Vec3d::new(0.090_909_090_909_090_91, 0.181_818_181_818_181_82, 0.0),
         );
     }
 
@@ -431,7 +446,7 @@ mod tests {
         assert_signature(
             &similar[0],
             Vec3d::new(0.0, 0.0, 0.0),
-            Vec3d::new(0.09090909090909091, 0.18181818181818182, 0.0),
+            Vec3d::new(0.090_909_090_909_090_91, 0.181_818_181_818_181_82, 0.0),
         );
     }
 
@@ -458,12 +473,12 @@ mod tests {
         assert_signature(
             &near_only[0],
             Vec3d::new(0.0, 0.0, 0.0),
-            Vec3d::new(0.09090909090909091, 0.18181818181818182, 0.0),
+            Vec3d::new(0.090_909_090_909_090_91, 0.181_818_181_818_181_82, 0.0),
         );
         assert_signature(
             &far_only[0],
-            Vec3d::new(0.7272727272727273, 0.7272727272727273, 0.0),
-            Vec3d::new(0.8181818181818182, 0.9090909090909091, 0.0),
+            Vec3d::new(0.727_272_727_272_727_3, 0.727_272_727_272_727_3, 0.0),
+            Vec3d::new(0.818_181_818_181_818_2, 0.909_090_909_090_909_1, 0.0),
         );
     }
 
@@ -493,13 +508,13 @@ mod tests {
         assert_signature(
             &mosaic,
             Vec3d::new(0.0, 0.0, 0.0),
-            Vec3d::new(0.09090909090909091, 0.18181818181818182, 0.0),
+            Vec3d::new(0.090_909_090_909_090_91, 0.181_818_181_818_181_82, 0.0),
         );
         assert_float_eq(mosaic.get_relative_mosaic().get_area(), 0.02);
         assert_float_eq(bounding_circle.get_center().get_x(), 0.0);
         assert_float_eq(bounding_circle.get_center().get_y(), 0.05);
         assert_float_eq(bounding_circle.get_radius(), 0.05);
-        assert_float_eq(bounding_circle.get_area(), 0.007853981633974483);
+        assert_float_eq(bounding_circle.get_area(), 0.007_853_981_633_974_483);
         assert_float_eq(
             mosaic
                 .get_relative_mosaic()

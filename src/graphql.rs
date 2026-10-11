@@ -606,7 +606,7 @@ impl MutationRoot {
         let service = app_state(ctx)?.service;
         let mut service = service.lock().await;
 
-        match service.get_rectangles(session_id, image).await {
+        match service.get_rectangles(&session_id, image).await {
             GetRectanglesResult::Success(mosaics) => {
                 Ok(mosaics.into_iter().map(Into::into).collect())
             }
@@ -624,7 +624,7 @@ impl MutationRoot {
     ) -> Result<bool> {
         let service = app_state(ctx)?.service;
         let mut service = service.lock().await;
-        match service.create_ordinary_session(session_id, basic_params.into(), results.into()) {
+        match service.create_ordinary_session(&session_id, basic_params.into(), results.into()) {
             CreateOrdinarySessionResult::Success => Ok(true),
             CreateOrdinarySessionResult::SessionAlreadyExists => {
                 Err(message_error("Session already exists"))
@@ -643,7 +643,7 @@ impl MutationRoot {
         let service = app_state(ctx)?.service;
         let mut service = service.lock().await;
         match service.create_eye_session(
-            session_id,
+            &session_id,
             basic_params.into(),
             eye_params.into(),
             results.into(),
@@ -666,7 +666,7 @@ impl MutationRoot {
         let service = app_state(ctx)?.service;
         let mut service = service.lock().await;
         match service.create_object_session(
-            session_id,
+            &session_id,
             basic_params.into(),
             object_detection_params.into(),
             results.into(),
@@ -686,7 +686,7 @@ impl MutationRoot {
     ) -> Result<bool> {
         let service = app_state(ctx)?.service;
         let mut service = service.lock().await;
-        match service.update_basic_params(session_id, basic_params.into()) {
+        match service.update_basic_params(&session_id, basic_params.into()) {
             UpdateBasicParamsResult::Success => Ok(true),
             UpdateBasicParamsResult::SessionNotFound => Err(message_error("Session not found")),
         }
@@ -700,7 +700,7 @@ impl MutationRoot {
     ) -> Result<bool> {
         let service = app_state(ctx)?.service;
         let mut service = service.lock().await;
-        match service.update_tile_params(session_id, tile_params.into()) {
+        match service.update_tile_params(&session_id, tile_params.into()) {
             TileParamsUpdateResult::Success => Ok(true),
             TileParamsUpdateResult::SessionNotFound => Err(message_error("Session not found")),
             TileParamsUpdateResult::SessionTypeDoesNotSupportTileParams => {
@@ -717,7 +717,7 @@ impl MutationRoot {
     ) -> Result<bool> {
         let service = app_state(ctx)?.service;
         let mut service = service.lock().await;
-        match service.update_trace_params(session_id, trace_params.into()) {
+        match service.update_trace_params(&session_id, trace_params.into()) {
             TraceParamsUpdateResult::Success => Ok(true),
             TraceParamsUpdateResult::SessionNotFound => Err(message_error("Session not found")),
             TraceParamsUpdateResult::SessionTypeDoesNotSupportTraceParams => {
@@ -734,7 +734,7 @@ impl MutationRoot {
     ) -> Result<bool> {
         let service = app_state(ctx)?.service;
         let mut service = service.lock().await;
-        match service.update_bucket_delta(session_id, bucket_delta) {
+        match service.update_bucket_delta(&session_id, bucket_delta) {
             BucketDeltaUpdateResult::Success => Ok(true),
             BucketDeltaUpdateResult::SessionNotFound => Err(message_error("Session not found")),
             BucketDeltaUpdateResult::SessionTypeDoesNotSupportBucketDelta => {
@@ -751,7 +751,7 @@ impl MutationRoot {
     ) -> Result<bool> {
         let service = app_state(ctx)?.service;
         let mut service = service.lock().await;
-        match service.update_target_similarity(session_id, target_similarity) {
+        match service.update_target_similarity(&session_id, target_similarity) {
             TargetSimilarityUpdateResult::Success => Ok(true),
             TargetSimilarityUpdateResult::SessionNotFound => {
                 Err(message_error("Session not found"))
@@ -770,7 +770,7 @@ impl MutationRoot {
     ) -> Result<bool> {
         let service = app_state(ctx)?.service;
         let mut service = service.lock().await;
-        match service.update_eye_params(session_id, eye_params.into()) {
+        match service.update_eye_params(&session_id, eye_params.into()) {
             EyeParamsUpdateResult::Success => Ok(true),
             EyeParamsUpdateResult::SessionNotFound => Err(message_error("Session not found")),
             EyeParamsUpdateResult::SessionTypeDoesNotSupportEyeParams => {
@@ -787,7 +787,7 @@ impl MutationRoot {
     ) -> Result<bool> {
         let service = app_state(ctx)?.service;
         let mut service = service.lock().await;
-        match service.update_object_detection_params(session_id, object_detection_params.into()) {
+        match service.update_object_detection_params(&session_id, object_detection_params.into()) {
             ObjectDetectionParamsUpdateResult::Success => Ok(true),
             ObjectDetectionParamsUpdateResult::SessionNotFound => {
                 Err(message_error("Session not found"))
@@ -814,8 +814,8 @@ impl MutationRoot {
         let service = app_state(ctx)?.service;
         let mut service = service.lock().await;
         match service.add_object_to_be_detected_as_image(
-            session_id,
-            object_id,
+            &session_id,
+            &object_id,
             wrapped_image,
             surrounding_rectangle.into(),
         ) {
@@ -839,7 +839,7 @@ impl MutationRoot {
     ) -> Result<bool> {
         let service = app_state(ctx)?.service;
         let mut service = service.lock().await;
-        match service.add_object_to_be_detected_as_ascii_art(session_id, object_id, ascii_art) {
+        match service.add_object_to_be_detected_as_ascii_art(&session_id, &object_id, &ascii_art) {
             AddObjectToBeDetectedResult::Success => Ok(true),
             AddObjectToBeDetectedResult::SessionNotFound => Err(message_error("Session not found")),
             AddObjectToBeDetectedResult::NoReferenceMosaicsDetected => {
@@ -868,7 +868,7 @@ impl MutationRoot {
     ) -> Result<bool> {
         let service = app_state(ctx)?.service;
         let mut service = service.lock().await;
-        match service.delete_reference_object(&session_id, object_id) {
+        match service.delete_reference_object(&session_id, &object_id) {
             DeleteReferenceObjectResult::Success => Ok(true),
             DeleteReferenceObjectResult::SessionNotFound => Err(message_error("Session not found")),
             DeleteReferenceObjectResult::SessionTypeDoesNotSupportDeletingReferenceObject => Err(

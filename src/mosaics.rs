@@ -215,7 +215,7 @@ impl RelativeMosaic {
             .get_center()
             .convert_to(relative_coordinate_system.clone())
             .get_local_point();
-        let relative_x_radius = Self::map_to_relative_point(
+        let horizontal_relative_radius = Self::map_to_relative_point(
             CoordinatedPoint::new(
                 relative_coordinate_system.clone(),
                 circle_center_global + Vec3d::new(radius, 0.0, 0.0),
@@ -226,7 +226,7 @@ impl RelativeMosaic {
             height,
         )
         .distance_to(relative_circle_center.clone());
-        let relative_y_radius = Self::map_to_relative_point(
+        let vertical_relative_radius = Self::map_to_relative_point(
             CoordinatedPoint::new(
                 relative_coordinate_system.clone(),
                 circle_center_global + Vec3d::new(0.0, radius, 0.0),
@@ -239,7 +239,7 @@ impl RelativeMosaic {
         .distance_to(relative_circle_center.clone());
         let relative_bounding_circle = CoordinatedCircle::new(
             relative_circle_center,
-            relative_x_radius.max(relative_y_radius),
+            horizontal_relative_radius.max(vertical_relative_radius),
         );
         let relative_center_of_mass = Self::map_to_relative_point(
             self.mosaic.get_center_of_mass(),
@@ -646,24 +646,21 @@ mod tests {
         let mut relative_mosaic =
             RelativeMosaic::new(wrapped_mosaic.clone(), absolute_rectangle.clone());
 
-        assert_eq!(
-            relative_mosaic.get_mosaic().get_area(),
-            wrapped_mosaic.get_area()
-        );
+        assert_float_eq(relative_mosaic.get_mosaic().get_area(), wrapped_mosaic.get_area());
         assert!(relative_mosaic.get_absolute_rectangle() == absolute_rectangle);
         assert_vec_eq(
             relative_mosaic
                 .get_bounding_box()
                 .to_global_rectangle()
                 .get_top_left(),
-            Vec3d::new(0.09090909090909091, 0.047619047619047616, 0.0),
+            Vec3d::new(0.090_909_090_909_090_91, 0.047_619_047_619_047_616, 0.0),
         );
         assert_vec_eq(
             relative_mosaic
                 .get_bounding_box()
                 .to_global_rectangle()
                 .get_bottom_right(),
-            Vec3d::new(0.36363636363636365, 0.19047619047619047, 0.0),
+            Vec3d::new(0.363_636_363_636_363_65, 0.190_476_190_476_190_47, 0.0),
         );
         assert_vec_eq(
             relative_mosaic
@@ -700,10 +697,7 @@ mod tests {
             wrapped_relative.get_average_color(),
             Vec3d::new(1.0, 2.0, 3.0),
         );
-        assert_eq!(
-            wrapped_relative.get_mosaic().get_area(),
-            wrapped_mosaic.get_area()
-        );
+        assert_float_eq(wrapped_relative.get_mosaic().get_area(), wrapped_mosaic.get_area());
     }
 
     #[test]

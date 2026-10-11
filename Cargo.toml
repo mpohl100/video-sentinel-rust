@@ -15,6 +15,7 @@ axum-server = { version = "0.7", features = ["tls-rustls"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 rcgen = "0.14"
 smallvec = "1.13"
+num-traits = "0.2"
 
 [dev-dependencies]
 graphql_client = "0.14"

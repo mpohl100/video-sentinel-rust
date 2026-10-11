@@ -6,10 +6,17 @@ use crate::slices::Color;
 use crate::slices::{ColoredRectangle, Rectangle};
 use crate::traced_mosaics::TracedRelativeMosaic;
 use crate::traces::TraceParams;
+#[cfg(test)]
+use num_traits::ToPrimitive;
 use std::sync::Arc;
 use tokio::task::JoinSet;
 
-#[derive(Clone, PartialEq)]
+#[cfg(test)]
+fn f64_from_usize(value: usize) -> f64 {
+    value.to_f64().expect("fixture index should fit within f64")
+}
+
+#[derive(Clone, Copy, PartialEq)]
 pub struct TileParams {
     relative_tile_x: f64,
     relative_tile_y: f64,
@@ -39,7 +46,7 @@ impl TileParams {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct EyeParams {
     pub tile_params: TileParams,
     pub bucket_delta: f64,
@@ -80,7 +87,7 @@ pub fn deduce_bucketed_mosaics(
     for mosaic in mosaics {
         bucketed_mosaics.add_mosaic(TracedRelativeMosaic::new(
             WrappedRelativeMosaic::new(mosaic.get_mosaic(), absolute_rectangle.clone()),
-            trace_params.clone(),
+            trace_params,
         ));
     }
     bucketed_mosaics
@@ -139,7 +146,7 @@ fn deduce_rectangle_for_next_mosaic(
     let wrapped_next_mosaic =
         WrappedRelativeMosaic::new(next_mosaic.get_mosaic(), absolute_rectangle);
     let traced_next_mosaic =
-        TracedRelativeMosaic::new(wrapped_next_mosaic.clone(), eye_params.trace_params.clone());
+        TracedRelativeMosaic::new(wrapped_next_mosaic.clone(), eye_params.trace_params);
     let potentially_similar_mosaics =
         previous_bucketed_mosaics.get_potentially_similar_mosaics(&traced_next_mosaic);
     let mut current_color = Color::Red;
@@ -233,7 +240,7 @@ mod tests {
                 *line_number,
                 vec![annotated_slice(
                     *start,
-                    *line_number as f64,
+                    f64_from_usize(*line_number),
                     *end,
                     *line_number,
                 )],
@@ -249,7 +256,7 @@ mod tests {
     #[test]
     fn tile_params_and_eye_params_store_constructor_values() {
         let tile_params = TileParams::new(0.25, 0.5);
-        let eye_params = EyeParams::new(tile_params.clone(), 0.2, TraceParams::new(18, 0.3), 0.85);
+        let eye_params = EyeParams::new(tile_params, 0.2, TraceParams::new(18, 0.3), 0.85);
 
         assert_float_eq(tile_params.relative_tile_x(), 0.25);
         assert_float_eq(tile_params.relative_tile_y(), 0.5);
@@ -280,10 +287,10 @@ mod tests {
         let traced_params = TraceParams::new(12, 0.2);
         let bucketed = deduce_bucketed_mosaics(
             vec![mosaic.clone()],
-            surrounding_rectangle.clone(),
+            surrounding_rectangle,
             TileParams::new(0.5, 0.5),
             0.25,
-            traced_params.clone(),
+            traced_params,
         );
         let wrapped = TracedRelativeMosaic::new(
             WrappedRelativeMosaic::new(
@@ -325,7 +332,7 @@ mod tests {
         let next = previous.clone();
         let bucketed = deduce_bucketed_mosaics(
             vec![previous],
-            surrounding_rectangle.clone(),
+            surrounding_rectangle,
             TileParams::new(0.5, 0.5),
             0.25,
             TraceParams::new(12, 0.2),
@@ -367,7 +374,7 @@ mod tests {
         );
         let bucketed = deduce_bucketed_mosaics(
             vec![previous],
-            surrounding_rectangle.clone(),
+            surrounding_rectangle,
             TileParams::new(0.5, 0.5),
             0.25,
             TraceParams::new(12, 0.2),
@@ -417,7 +424,7 @@ mod tests {
                 mosaic.get_mosaic(),
                 MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(4.0, 4.0, 0.0)),
             ),
-            trace_params.clone(),
+            trace_params,
         );
         let similar_at_point_nine =
             are_mosaics_similar(&traced_relative_mosaic, &traced_relative_mosaic, 0.9);

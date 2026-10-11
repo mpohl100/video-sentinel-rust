@@ -1,19 +1,13 @@
 #![warn(clippy::pedantic)]
 #![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::must_use_candidate,
     clippy::needless_pass_by_value,
-    clippy::similar_names,
     clippy::too_many_lines,
-    clippy::unreadable_literal
+    clippy::unused_async_trait_impl
 )]
 
-mod common;
+pub mod common;
 
 use std::cell::Cell;
 use std::time::Duration;
@@ -57,8 +51,7 @@ fn get_rectangles_benchmarks(c: &mut criterion::Criterion) {
             ordinary_index.set((index + 1) % frames.len());
             frames[index].image.clone()
         },
-        |image| match benchmark_runtime()
-            .block_on(ordinary_service.get_rectangles("ordinary".to_string(), image))
+        |image| match benchmark_runtime().block_on(ordinary_service.get_rectangles("ordinary", image))
         {
             GetRectanglesResult::Success(rectangles) => rectangles.len(),
             _ => panic!("ordinary benchmark should succeed"),
@@ -76,9 +69,7 @@ fn get_rectangles_benchmarks(c: &mut criterion::Criterion) {
             eye_index.set((index + 1) % frames.len());
             frames[index].image.clone()
         },
-        |image| match benchmark_runtime()
-            .block_on(eye_service.get_rectangles("eye".to_string(), image))
-        {
+        |image| match benchmark_runtime().block_on(eye_service.get_rectangles("eye", image)) {
             GetRectanglesResult::Success(rectangles) => rectangles.len(),
             _ => panic!("eye benchmark should succeed"),
         },
@@ -95,8 +86,7 @@ fn get_rectangles_benchmarks(c: &mut criterion::Criterion) {
             object_index.set((index + 1) % frames.len());
             frames[index].image.clone()
         },
-        |image| match benchmark_runtime()
-            .block_on(object_service.get_rectangles("object".to_string(), image))
+        |image| match benchmark_runtime().block_on(object_service.get_rectangles("object", image))
         {
             GetRectanglesResult::Success(rectangles) => rectangles.len(),
             _ => panic!("object benchmark should succeed"),

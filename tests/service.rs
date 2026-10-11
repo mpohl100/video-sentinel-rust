@@ -1,17 +1,10 @@
 #![warn(clippy::pedantic)]
 #![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    clippy::float_cmp,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::must_use_candidate,
     clippy::needless_pass_by_value,
-    clippy::similar_names,
     clippy::too_many_lines,
-    clippy::unreadable_literal
+    clippy::unused_async_trait_impl
 )]
 
 use std::path::PathBuf;
@@ -24,6 +17,7 @@ use axum::Router;
 use axum::extract::State;
 use axum::routing::post;
 use graphql_client::QueryBody;
+use num_traits::ToPrimitive;
 use opencv::core::Vector as CvVector;
 use opencv::imgcodecs;
 use opencv::imgproc;
@@ -38,6 +32,10 @@ use video_sentinel::graphql::{MutationRoot, QueryRoot};
 use video_sentinel::slices::WrappedRgbImage;
 
 type TestSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
+
+fn u32_from_usize(value: usize) -> u32 {
+    value.to_u32().expect("frame dimension should fit within u32")
+}
 
 const FETCH_SESSION_STATE: &str = r"
 query FetchSessionState($sessionId: String!) {
@@ -486,7 +484,7 @@ fn wrapped_rgb_image_from_frame(frame: Frame) -> WrappedRgbImage {
         frame.iter().copied().collect()
     };
 
-    WrappedRgbImage::from_rgb_data(width as u32, height as u32, &data)
+    WrappedRgbImage::from_rgb_data(u32_from_usize(width), u32_from_usize(height), &data)
         .expect("decoded frame should convert into WrappedRgbImage")
 }
 

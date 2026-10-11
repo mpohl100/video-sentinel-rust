@@ -17,11 +17,54 @@ use crate::math::CoordinatedPoint;
 use crate::math::CoordinatedRectangle;
 use crate::math::Rectangle as MathRectangle;
 use crate::mosaics::AnonymizedMosaic;
+use num_traits::ToPrimitive;
 
 #[derive(Clone)]
 struct PreliminarySlice {
     start: CoordinatedPoint,
     end: CoordinatedPoint,
+}
+
+fn i32_from_u32(value: u32) -> i32 {
+    value
+        .to_i32()
+        .expect("u32 image dimension should fit within i32")
+}
+
+fn i32_from_usize(value: usize) -> i32 {
+    value.to_i32().expect("usize index should fit within i32")
+}
+
+fn u32_from_i32(value: i32) -> u32 {
+    value.to_u32().expect("i32 coordinate should be non-negative")
+}
+
+fn u32_from_usize(value: usize) -> u32 {
+    value.to_u32().expect("usize index should fit within u32")
+}
+
+fn usize_from_u32(value: u32) -> usize {
+    value
+        .to_usize()
+        .expect("u32 image dimension should fit within usize")
+}
+
+fn usize_from_f64(value: f64) -> usize {
+    value
+        .to_usize()
+        .expect("f64 coordinate should fit within usize")
+}
+
+fn f64_from_usize(value: usize) -> f64 {
+    value
+        .to_f64()
+        .expect("usize value should convert losslessly for image coordinates")
+}
+
+fn f32_from_f64(value: f64) -> f32 {
+    value
+        .to_f32()
+        .expect("polygon coordinate should fit within f32")
 }
 
 impl PreliminarySlice {
@@ -159,7 +202,7 @@ impl AnnotatedSlice {
     #[must_use]
     pub fn touches(&self, other: &AnnotatedSlice) -> bool {
         // Check if the slices are on adjacent lines
-        if (self.line_number as i32 - other.line_number as i32).abs() != 1 {
+        if (i32_from_usize(self.line_number) - i32_from_usize(other.line_number)).abs() != 1 {
             return false;
         }
         // Check if the slices overlap in the x-axis
@@ -382,7 +425,7 @@ fn point_in_polygon(point: (f64, f64), polygon: &[(i32, i32)]) -> bool {
 
     imgproc::point_polygon_test(
         &contour,
-        core::Point2f::new(point.0 as f32, point.1 as f32),
+        core::Point2f::new(f32_from_f64(point.0), f32_from_f64(point.1)),
         false,
     )
     .is_ok_and(|distance| distance >= 0.0)
@@ -399,8 +442,8 @@ impl WrappedRgbImage {
     #[must_use]
     pub fn new_with_color(width: u32, height: u32, color: [u8; 3]) -> Self {
         let image = Mat::new_rows_cols_with_default(
-            height as i32,
-            width as i32,
+            i32_from_u32(height),
+            i32_from_u32(width),
             core::CV_8UC3,
             Scalar::new(
                 f64::from(color[0]),
@@ -414,7 +457,7 @@ impl WrappedRgbImage {
     }
 
     pub fn from_rgb_data(width: u32, height: u32, data: &[u8]) -> Result<Self, opencv::Error> {
-        let expected_len = width as usize * height as usize * 3;
+        let expected_len = usize_from_u32(width) * usize_from_u32(height) * 3;
         if data.len() != expected_len {
             return Err(opencv::Error::new(
                 core::StsUnmatchedSizes,
@@ -426,8 +469,8 @@ impl WrappedRgbImage {
         }
 
         let mut image = Mat::new_rows_cols_with_default(
-            height as i32,
-            width as i32,
+            i32_from_u32(height),
+            i32_from_u32(width),
             core::CV_8UC3,
             Scalar::default(),
         )?;
@@ -453,13 +496,17 @@ impl WrappedRgbImage {
     #[must_use]
     pub fn new_from_ascii_art(ascii_art: &str) -> Self {
         let lines: Vec<&str> = ascii_art.lines().collect();
-        let height = lines.len() as u32;
-        let width = lines.iter().map(|line| line.len()).max().unwrap_or(0) as u32;
+        let height = u32_from_usize(lines.len());
+        let width = u32_from_usize(lines.iter().map(|line| line.len()).max().unwrap_or(0));
         let image = WrappedRgbImage::new_with_color(width, height, [0, 0, 0]);
         for (y, line) in lines.iter().enumerate() {
             for (x, char) in line.chars().enumerate() {
                 let pixel_value = if char == '#' { 255 } else { 0 };
-                image.set_pixel(x as u32, y as u32, [pixel_value, pixel_value, pixel_value]);
+                image.set_pixel(
+                    u32_from_usize(x),
+                    u32_from_usize(y),
+                    [pixel_value, pixel_value, pixel_value],
+                );
             }
         }
         image
@@ -467,12 +514,12 @@ impl WrappedRgbImage {
 
     #[must_use]
     pub fn width(&self) -> u32 {
-        self.image.lock().unwrap().cols() as u32
+        u32_from_i32(self.image.lock().unwrap().cols())
     }
 
     #[must_use]
     pub fn height(&self) -> u32 {
-        self.image.lock().unwrap().rows() as u32
+        u32_from_i32(self.image.lock().unwrap().rows())
     }
 
     pub fn get_mat(&self) -> MutexGuard<'_, Mat> {
@@ -483,7 +530,7 @@ impl WrappedRgbImage {
     pub fn get_pixel(&self, x: u32, y: u32) -> [u8; 3] {
         let image = self.image.lock().unwrap();
         let pixel = image
-            .at_2d::<Vec3b>(y as i32, x as i32)
+            .at_2d::<Vec3b>(i32_from_u32(y), i32_from_u32(x))
             .expect("failed to read RGB pixel");
         [pixel[0], pixel[1], pixel[2]]
     }
@@ -491,7 +538,7 @@ impl WrappedRgbImage {
     pub fn set_pixel(&self, x: u32, y: u32, color: [u8; 3]) {
         let mut image = self.image.lock().unwrap();
         let pixel = image
-            .at_2d_mut::<Vec3b>(y as i32, x as i32)
+            .at_2d_mut::<Vec3b>(i32_from_u32(y), i32_from_u32(x))
             .expect("failed to write RGB pixel");
         *pixel = Vec3b::from(color);
     }
@@ -505,20 +552,22 @@ impl WrappedRgbImage {
         if points.len() < 3 {
             return;
         }
-        let min_x = points.iter().map(|(x, _)| *x).min().unwrap().max(0) as u32;
-        let min_y = points.iter().map(|(_, y)| *y).min().unwrap().max(0) as u32;
+        let min_x = u32_from_i32(points.iter().map(|(x, _)| *x).min().unwrap().max(0));
+        let min_y = u32_from_i32(points.iter().map(|(_, y)| *y).min().unwrap().max(0));
         let max_x = points
             .iter()
             .map(|(x, _)| *x)
             .max()
             .unwrap()
-            .min(self.width() as i32 - 1) as u32;
+            .min(i32_from_u32(self.width()) - 1);
         let max_y = points
             .iter()
             .map(|(_, y)| *y)
             .max()
             .unwrap()
-            .min(self.height() as i32 - 1) as u32;
+            .min(i32_from_u32(self.height()) - 1);
+        let max_x = u32_from_i32(max_x);
+        let max_y = u32_from_i32(max_y);
 
         for y in min_y..=max_y {
             for x in min_x..=max_x {
@@ -530,10 +579,10 @@ impl WrappedRgbImage {
     }
 
     pub fn fill_circle(&self, center: (i32, i32), radius: i32, color: [u8; 3]) {
-        let min_x = (center.0 - radius).max(0) as u32;
-        let min_y = (center.1 - radius).max(0) as u32;
-        let max_x = (center.0 + radius).min(self.width() as i32 - 1) as u32;
-        let max_y = (center.1 + radius).min(self.height() as i32 - 1) as u32;
+        let min_x = u32_from_i32((center.0 - radius).max(0));
+        let min_y = u32_from_i32((center.1 - radius).max(0));
+        let max_x = u32_from_i32((center.0 + radius).min(i32_from_u32(self.width()) - 1));
+        let max_y = u32_from_i32((center.1 + radius).min(i32_from_u32(self.height()) - 1));
         let radius_squared = f64::from(radius * radius);
 
         for y in min_y..=max_y {
@@ -557,21 +606,21 @@ impl WrappedRgbImage {
             return;
         }
 
-        let x1 = top_left.0.clamp(0, self.width() as i32 - 1) as u32;
-        let y1 = top_left.1.clamp(0, self.height() as i32 - 1) as u32;
-        let x2 = bottom_right.0.clamp(0, self.width() as i32 - 1) as u32;
-        let y2 = bottom_right.1.clamp(0, self.height() as i32 - 1) as u32;
-        if x1 > x2 || y1 > y2 {
+        let min_x = u32_from_i32(top_left.0.clamp(0, i32_from_u32(self.width()) - 1));
+        let min_y = u32_from_i32(top_left.1.clamp(0, i32_from_u32(self.height()) - 1));
+        let max_x = u32_from_i32(bottom_right.0.clamp(0, i32_from_u32(self.width()) - 1));
+        let max_y = u32_from_i32(bottom_right.1.clamp(0, i32_from_u32(self.height()) - 1));
+        if min_x > max_x || min_y > max_y {
             return;
         }
 
-        for x in x1..=x2 {
-            self.set_pixel(x, y1, color);
-            self.set_pixel(x, y2, color);
+        for x in min_x..=max_x {
+            self.set_pixel(x, min_y, color);
+            self.set_pixel(x, max_y, color);
         }
-        for y in y1..=y2 {
-            self.set_pixel(x1, y, color);
-            self.set_pixel(x2, y, color);
+        for y in min_y..=max_y {
+            self.set_pixel(min_x, y, color);
+            self.set_pixel(max_x, y, color);
         }
     }
 
@@ -612,33 +661,33 @@ impl SliceMatrix {
         for line in &self.lines {
             for slice in &line.slices {
                 let inner_slice = slice.get_slice();
-                let slice_start_tl = inner_slice.get_start();
-                let mut slice_start_bl = inner_slice.get_start().clone();
-                slice_start_bl.set_y(slice_start_bl.get_y() + 1.0); // Move to bottom-left corner
-                let slice_end_tr = inner_slice.get_end();
-                let mut slice_end_br = inner_slice.get_end().clone();
-                slice_end_br.set_y(slice_end_br.get_y() + 1.0); // Move to bottom-right corner
+                let top_left_corner = inner_slice.get_start();
+                let mut bottom_left_corner = inner_slice.get_start().clone();
+                bottom_left_corner.set_y(bottom_left_corner.get_y() + 1.0);
+                let top_right_corner = inner_slice.get_end();
+                let mut bottom_right_corner = inner_slice.get_end().clone();
+                bottom_right_corner.set_y(bottom_right_corner.get_y() + 1.0);
 
-                let distance_to_start_tl = point.distance_to(slice_start_tl.clone());
-                let distance_to_start_bl = point.distance_to(slice_start_bl.clone());
-                let distance_to_end_tr = point.distance_to(slice_end_tr.clone());
-                let distance_to_end_br = point.distance_to(slice_end_br.clone());
+                let top_left_distance = point.distance_to(top_left_corner.clone());
+                let bottom_left_distance = point.distance_to(bottom_left_corner.clone());
+                let top_right_distance = point.distance_to(top_right_corner.clone());
+                let bottom_right_distance = point.distance_to(bottom_right_corner.clone());
 
-                if distance_to_start_tl > longest_distance {
-                    longest_distance = distance_to_start_tl;
-                    longest_distance_point = Some(slice_start_tl.clone());
+                if top_left_distance > longest_distance {
+                    longest_distance = top_left_distance;
+                    longest_distance_point = Some(top_left_corner.clone());
                 }
-                if distance_to_start_bl > longest_distance {
-                    longest_distance = distance_to_start_bl;
-                    longest_distance_point = Some(slice_start_bl.clone());
+                if bottom_left_distance > longest_distance {
+                    longest_distance = bottom_left_distance;
+                    longest_distance_point = Some(bottom_left_corner.clone());
                 }
-                if distance_to_end_tr > longest_distance {
-                    longest_distance = distance_to_end_tr;
-                    longest_distance_point = Some(slice_end_tr.clone());
+                if top_right_distance > longest_distance {
+                    longest_distance = top_right_distance;
+                    longest_distance_point = Some(top_right_corner.clone());
                 }
-                if distance_to_end_br > longest_distance {
-                    longest_distance = distance_to_end_br;
-                    longest_distance_point = Some(slice_end_br.clone());
+                if bottom_right_distance > longest_distance {
+                    longest_distance = bottom_right_distance;
+                    longest_distance_point = Some(bottom_right_corner.clone());
                 }
             }
         }
@@ -786,9 +835,14 @@ impl SliceMatrix {
                 tl.y = tl.y.min(left_point.get_y());
                 br.x = br.x.max(right_point.get_x());
                 br.y = br.y.max(right_point.get_y());
-                for x in left_point.get_x() as u32..=right_point.get_x() as u32 {
+                for x in u32_from_i32(left_point.get_x().to_i32().expect("x coordinate should fit i32"))
+                    ..=u32_from_i32(right_point.get_x().to_i32().expect("x coordinate should fit i32"))
+                {
                     colors.push(unsafe {
-                        rgb_reader.pixel_unchecked(x as usize, left_point.get_y() as usize)
+                        rgb_reader.pixel_unchecked(
+                            usize_from_u32(x),
+                            usize_from_f64(left_point.get_y()),
+                        )
                     });
                 }
             }
@@ -826,7 +880,7 @@ impl SliceMatrix {
                 f64::from(pixel[1]),
                 f64::from(pixel[2]),
             )
-        }) / colors.len() as f64;
+        }) / f64_from_usize(colors.len());
         CachedData::new(
             bounding_box,
             bounding_circle,
@@ -845,15 +899,15 @@ impl SliceMatrix {
         ));
         let global_point = point.convert_to(global_coordinate_system.clone());
         let y_coordinate = global_point.get_y().floor();
-        let first_line_number = self.lines.first().unwrap().line_number as f64;
+        let first_line_number = f64_from_usize(self.lines.first().unwrap().line_number);
         if y_coordinate < first_line_number {
             return false;
         }
-        let last_line_number = self.lines.last().unwrap().line_number as f64;
+        let last_line_number = f64_from_usize(self.lines.last().unwrap().line_number);
         if y_coordinate > last_line_number {
             return false;
         }
-        let line = &self.lines[(y_coordinate - first_line_number) as usize];
+        let line = &self.lines[usize_from_f64(y_coordinate - first_line_number)];
         let point_rectangle_tl = Point::new(Vec3d::new(
             global_point.get_x().floor(),
             global_point.get_y().floor(),
@@ -898,7 +952,7 @@ impl SliceMatrix {
             if index > 0 {
                 let mut upper = original_lines[index - 1].slices.clone();
                 for slice in &mut upper {
-                    let delta = line_number as f64 - slice.line_number as f64;
+                    let delta = f64_from_usize(line_number) - f64_from_usize(slice.line_number);
                     slice.line_number = line_number;
                     let new_start = slice.slice.get_start().plus(Vec3d::new(0.0, delta, 0.0));
                     let new_end = slice.slice.get_end().plus(Vec3d::new(0.0, delta, 0.0));
@@ -909,7 +963,7 @@ impl SliceMatrix {
             if index + 1 < original_len {
                 let mut lower = original_lines[index + 1].slices.clone();
                 for slice in &mut lower {
-                    let delta = line_number as f64 - slice.line_number as f64;
+                    let delta = f64_from_usize(line_number) - f64_from_usize(slice.line_number);
                     slice.line_number = line_number;
                     let new_start = slice.slice.get_start().plus(Vec3d::new(0.0, delta, 0.0));
                     let new_end = slice.slice.get_end().plus(Vec3d::new(0.0, delta, 0.0));
@@ -1013,7 +1067,7 @@ impl CachedData {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct BasicParams {
     do_grayscale: bool,
     gradient_threshold: u8,
@@ -1039,7 +1093,7 @@ impl BasicParams {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Rectangle {
     top_left: Vec3d,
     bottom_right: Vec3d,
@@ -1242,7 +1296,7 @@ impl ColoredRectangle {
 
     #[must_use]
     pub fn get_rectangle(&self) -> Rectangle {
-        self.rectangle.clone()
+        self.rectangle
     }
 
     #[must_use]
@@ -1385,9 +1439,9 @@ pub fn calculate_slices(
 
         let gradient_threshold = f64::from(params.gradient_threshold);
         let threshold_squared = gradient_threshold * gradient_threshold;
-        for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
+        for y in usize_from_f64(rectangle.top_left.y) + 2..usize_from_f64(rectangle.bottom_right.y) - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
-            for x in rectangle.top_left.x as usize + 2..rectangle.bottom_right.x as usize - 2 {
+            for x in usize_from_f64(rectangle.top_left.x) + 2..usize_from_f64(rectangle.bottom_right.x) - 2 {
                 let gradient = compute_smoothed_gradient_squared(&gray_reader, x, y);
                 if gradient <= threshold_squared {
                     if current_slice.is_none() {
@@ -1395,11 +1449,11 @@ pub fn calculate_slices(
                             PreliminarySlice::new(
                                 CoordinatedPoint::new(
                                     global_coordinate_system.clone(),
-                                    Vec3d::new(x as f64, y as f64, 0.0),
+                                    Vec3d::new(f64_from_usize(x), f64_from_usize(y), 0.0),
                                 ),
                                 CoordinatedPoint::new(
                                     global_coordinate_system.clone(),
-                                    Vec3d::new(x as f64, y as f64, 0.0),
+                                    Vec3d::new(f64_from_usize(x), f64_from_usize(y), 0.0),
                                 ),
                             ),
                             y,
@@ -1410,7 +1464,7 @@ pub fn calculate_slices(
                                 slice.slice.get_start(),
                                 CoordinatedPoint::new(
                                     slice.slice.get_end().get_coordinate_system().clone(),
-                                    Vec3d::new(x as f64, y as f64, 0.0),
+                                    Vec3d::new(f64_from_usize(x), f64_from_usize(y), 0.0),
                                 ),
                             ),
                             slice.line_number,
@@ -1429,9 +1483,9 @@ pub fn calculate_slices(
         let mut current_slice = None;
         let gradient_threshold = f64::from(params.gradient_threshold);
         let threshold_squared = gradient_threshold * gradient_threshold;
-        for y in rectangle.top_left.y as usize + 2..rectangle.bottom_right.y as usize - 2 {
+        for y in usize_from_f64(rectangle.top_left.y) + 2..usize_from_f64(rectangle.bottom_right.y) - 2 {
             let mut current_line = SliceLine::new(y, Vec::new());
-            for x in rectangle.top_left.x as usize + 2..rectangle.bottom_right.x as usize - 2 {
+            for x in usize_from_f64(rectangle.top_left.x) + 2..usize_from_f64(rectangle.bottom_right.x) - 2 {
                 let gradient_0 = compute_smoothed_gradient_channel(&rgb_reader, x, y, 0);
                 let gradient_1 = compute_smoothed_gradient_channel(&rgb_reader, x, y, 1);
                 let gradient_2 = compute_smoothed_gradient_channel(&rgb_reader, x, y, 2);
@@ -1451,11 +1505,11 @@ pub fn calculate_slices(
                             PreliminarySlice::new(
                                 CoordinatedPoint::new(
                                     global_coordinate_system.clone(),
-                                    Vec3d::new(x as f64, y as f64, 0.0),
+                                    Vec3d::new(f64_from_usize(x), f64_from_usize(y), 0.0),
                                 ),
                                 CoordinatedPoint::new(
                                     global_coordinate_system.clone(),
-                                    Vec3d::new(x as f64, y as f64, 0.0),
+                                    Vec3d::new(f64_from_usize(x), f64_from_usize(y), 0.0),
                                 ),
                             ),
                             y,
@@ -1466,7 +1520,7 @@ pub fn calculate_slices(
                                 slice.slice.get_start(),
                                 CoordinatedPoint::new(
                                     global_coordinate_system.clone(),
-                                    Vec3d::new(x as f64, y as f64, 0.0),
+                                    Vec3d::new(f64_from_usize(x), f64_from_usize(y), 0.0),
                                 ),
                             ),
                             slice.line_number,
@@ -1666,7 +1720,7 @@ mod tests {
     fn slice_line(line_number: usize, ranges: &[(f64, f64)]) -> SliceLine {
         let slices = ranges
             .iter()
-            .map(|(start, end)| annotated_slice(*start, line_number as f64, *end, line_number))
+            .map(|(start, end)| annotated_slice(*start, f64_from_usize(line_number), *end, line_number))
             .collect();
         SliceLine::new(line_number, slices)
     }
@@ -1852,9 +1906,9 @@ mod tests {
         );
         assert_vec_eq(
             cached.get_center_of_mass().get_local_point(),
-            Vec3d::new(5.333333333333333, 2.3333333333333335, 0.0),
+            Vec3d::new(5.333_333_333_333_333, 2.333_333_333_333_333_5, 0.0),
         );
-        assert_float_eq(cached.get_bounding_circle().get_radius(), 5.90668171555645);
+        assert_float_eq(cached.get_bounding_circle().get_radius(), 5.906_681_715_556_45);
         assert_float_eq(cached.get_area(), 9.0);
         assert_vec_eq(cached.get_average_color_vec(), Vec3d::new(10.0, 20.0, 30.0));
     }
@@ -1945,7 +1999,7 @@ mod tests {
         assert_vec_eq(relative.top_left, Vec3d::new(0.1, 0.2, 0.0));
         assert_vec_eq(relative.dims, Vec3d::new(0.3, 0.4, 0.0));
         assert_vec_eq(inverted.top_left, Vec3d::new(0.6, 0.4, 0.0));
-        assert_vec_eq(inverted.dims, Vec3d::new(0.30000000000000004, 0.4, 0.0));
+        assert_vec_eq(inverted.dims, Vec3d::new(0.300_000_000_000_000_04, 0.4, 0.0));
         assert_vec_eq(multiplied.get_top_left(), Vec3d::new(11.0, 22.0, 0.0));
         assert_vec_eq(multiplied.get_bottom_right(), Vec3d::new(14.0, 26.0, 0.0));
     }
@@ -2024,10 +2078,10 @@ mod tests {
         }
         let color = RgbPixelReader::new(&color).expect("failed to access RGB image");
 
-        assert_eq!(compute_smoothed_gradient_squared(&gray, 3, 3), 0.0);
+        assert!(compute_smoothed_gradient_squared(&gray, 3, 3).abs() < f64::EPSILON);
         assert!(compute_smoothed_gradient_channel(&color, 3, 3, 0) > 0.0);
-        assert_eq!(compute_smoothed_gradient_channel(&color, 3, 3, 1), 0.0);
-        assert_eq!(compute_smoothed_gradient_channel(&color, 3, 3, 2), 0.0);
+        assert!(compute_smoothed_gradient_channel(&color, 3, 3, 1).abs() < f64::EPSILON);
+        assert!(compute_smoothed_gradient_channel(&color, 3, 3, 2).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -2049,7 +2103,7 @@ mod tests {
         let image = WrappedRgbImage::new_from_ascii_art(ascii);
         let rectangle = Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(7.0, 7.0, 0.0));
         let grayscale =
-            calculate_slices(image.clone(), rectangle.clone(), BasicParams::new(true, 0));
+            calculate_slices(image.clone(), rectangle, BasicParams::new(true, 0));
         let color = calculate_slices(image, rectangle, BasicParams::new(false, 0));
 
         assert_eq!(grayscale.get_slice_lines().len(), 3);

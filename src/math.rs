@@ -2,7 +2,7 @@ use rs_math3d::Vector;
 use rs_math3d::{CrossProduct, FloatVector, Vec3d, Vector3};
 use std::sync::{Arc, Mutex};
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Line {
     start: Vec3d,
     end: Vec3d,
@@ -24,42 +24,42 @@ impl Line {
 
     #[must_use]
     pub fn intersects(&self, other: &Line) -> bool {
-        let p = self.start;
-        let r = self.end - self.start;
-        let q = other.start;
-        let s = other.end - other.start;
+        let self_start = self.start;
+        let self_delta = self.end - self.start;
+        let other_start = other.start;
+        let other_delta = other.end - other.start;
 
-        let r_cross_s = Vector3::<f64>::cross(&r, &s);
-        let q_minus_p = q - p;
+        let self_cross_other = Vector3::<f64>::cross(&self_delta, &other_delta);
+        let start_delta = other_start - self_start;
 
-        if r_cross_s.length() < 1e-6 {
+        if self_cross_other.length() < 1e-6 {
             // Lines are parallel
             return false;
         }
 
-        let t = Vector3::<f64>::cross(&q_minus_p, &s).z / r_cross_s.z;
-        let u = Vector3::<f64>::cross(&q_minus_p, &r).z / r_cross_s.z;
+        let self_ratio = Vector3::<f64>::cross(&start_delta, &other_delta).z / self_cross_other.z;
+        let other_ratio = Vector3::<f64>::cross(&start_delta, &self_delta).z / self_cross_other.z;
 
-        (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u)
+        (0.0..=1.0).contains(&self_ratio) && (0.0..=1.0).contains(&other_ratio)
     }
 
     #[must_use]
     pub fn get_intersection_point(&self, other: &Line) -> Point {
-        let p = self.start;
-        let r = self.end - self.start;
-        let q = other.start;
-        let s = other.end - other.start;
+        let self_start = self.start;
+        let self_delta = self.end - self.start;
+        let other_start = other.start;
+        let other_delta = other.end - other.start;
 
-        let r_cross_s = Vector3::<f64>::cross(&r, &s);
-        let q_minus_p = q - p;
+        let self_cross_other = Vector3::<f64>::cross(&self_delta, &other_delta);
+        let start_delta = other_start - self_start;
 
-        if r_cross_s.length() < 1e-6 {
+        if self_cross_other.length() < 1e-6 {
             // Lines are parallel, return the midpoint of the overlapping segment as the intersection point
             return Point::new((self.start + self.end) / 2.0);
         }
 
-        let t = Vector3::<f64>::cross(&q_minus_p, &s).z / r_cross_s.z;
-        Point::new(p + r * t)
+        let self_ratio = Vector3::<f64>::cross(&start_delta, &other_delta).z / self_cross_other.z;
+        Point::new(self_start + self_delta * self_ratio)
     }
 
     #[must_use]
@@ -96,7 +96,7 @@ impl Line {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct RegionedAngle {
     pub angle_degrees: f64,
     pub min_degrees: f64,
@@ -181,7 +181,7 @@ impl RegionedAngle {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Point {
     pub point: Vec3d,
 }
@@ -257,7 +257,7 @@ impl Rectangle {
             // return the one line of [input_line.begin, intersection_point] or [input_line.end, intersection_point] depending on which one is inside the coordinated rectangle
             let input_line_begin = line.start;
             let input_line_end = line.end;
-            let intersection_point = intersection_points[0].clone();
+            let intersection_point = intersection_points[0];
             if self.contains_point(input_line_begin) {
                 Some(Line::new(input_line_begin, intersection_point.point))
             } else if self.contains_point(input_line_end) {
@@ -420,7 +420,7 @@ impl Circle {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct CoordinateSystem {
     origin: Vec3d,
     x_axis: Vec3d,
@@ -441,26 +441,26 @@ impl CoordinateSystem {
         let angle_radians = angle.radians();
         let cos_angle = angle_radians.cos();
         let sin_angle = angle_radians.sin();
-        let new_x_axis = Vec3d::new(
+        let rotated_primary_axis = Vec3d::new(
             self.x_axis.x * cos_angle - self.y_axis.x * sin_angle,
             self.x_axis.y * cos_angle - self.y_axis.y * sin_angle,
             0.0,
         );
-        let new_y_axis = Vec3d::new(
+        let rotated_secondary_axis = Vec3d::new(
             self.x_axis.x * sin_angle + self.y_axis.x * cos_angle,
             self.x_axis.y * sin_angle + self.y_axis.y * cos_angle,
             0.0,
         );
-        self.x_axis = new_x_axis;
-        self.y_axis = new_y_axis;
+        self.x_axis = rotated_primary_axis;
+        self.y_axis = rotated_secondary_axis;
     }
 
     #[must_use]
-    pub fn to_local(&self, point: CoordinatedPoint) -> CoordinatedPoint {
+    pub fn to_local(self, point: CoordinatedPoint) -> CoordinatedPoint {
         let global_point = point.coordinate_system.to_global(point.clone());
         let local_coordinates = self.to_local_coordinates(global_point.get_local_point());
         CoordinatedPoint::new(
-            AnonymizedCoordinateSystem::Direct(self.clone()),
+            AnonymizedCoordinateSystem::Direct(self),
             local_coordinates,
         )
     }
@@ -469,23 +469,23 @@ impl CoordinateSystem {
     pub fn convert_from_global(&self, point: Vec3d) -> CoordinatedPoint {
         let local_coordinates = self.to_local_coordinates(point);
         CoordinatedPoint::new(
-            AnonymizedCoordinateSystem::Direct(self.clone()),
+            AnonymizedCoordinateSystem::Direct(*self),
             local_coordinates,
         )
     }
 
     #[must_use]
-    pub fn to_global(&self, point: CoordinatedPoint) -> Vec3d {
+    pub fn to_global(self, point: CoordinatedPoint) -> Vec3d {
         let local = point.local_coordinates;
         self.origin + self.x_axis * local.x + self.y_axis * local.y
     }
 
-    fn to_local_coordinates(&self, global: Vec3d) -> Vec3d {
+    fn to_local_coordinates(self, global: Vec3d) -> Vec3d {
         let relative = global - self.origin;
-        let x = Vector3::<f64>::dot(&relative, &self.x_axis)
-            / Vector3::<f64>::dot(&self.x_axis, &self.x_axis);
-        let y = Vector3::<f64>::dot(&relative, &self.y_axis)
-            / Vector3::<f64>::dot(&self.y_axis, &self.y_axis);
+        let x =
+            Vector3::<f64>::dot(&relative, &self.x_axis) / Vector3::<f64>::dot(&self.x_axis, &self.x_axis);
+        let y =
+            Vector3::<f64>::dot(&relative, &self.y_axis) / Vector3::<f64>::dot(&self.y_axis, &self.y_axis);
         Vec3d::new(x, y, 0.0)
     }
 
@@ -541,7 +541,7 @@ impl WrappedCoordinateSystem {
     }
 
     #[must_use]
-    pub fn from_global(&self, point: Vec3d) -> CoordinatedPoint {
+    pub fn convert_from_global(&self, point: Vec3d) -> CoordinatedPoint {
         let cs = self.coordinate_system.lock().unwrap();
         cs.convert_from_global(point)
     }
@@ -621,7 +621,7 @@ impl AnonymizedCoordinateSystem {
     pub fn duplicate(&self) -> Self {
         match self {
             AnonymizedCoordinateSystem::Direct(cs) => {
-                AnonymizedCoordinateSystem::Direct(cs.clone())
+                AnonymizedCoordinateSystem::Direct(*cs)
             }
             AnonymizedCoordinateSystem::Indirect(wrapped_cs) => {
                 AnonymizedCoordinateSystem::Indirect(wrapped_cs.duplicate())
@@ -664,12 +664,12 @@ impl AnonymizedCoordinateSystem {
     }
 
     #[must_use]
-    pub fn from_global(&self, global_point: CoordinatedPoint) -> CoordinatedPoint {
+    pub fn convert_from_global(&self, global_point: CoordinatedPoint) -> CoordinatedPoint {
         let global_coordinates = global_point.get_local_point();
         match self {
             AnonymizedCoordinateSystem::Direct(cs) => cs.convert_from_global(global_coordinates),
             AnonymizedCoordinateSystem::Indirect(wrapped_cs) => {
-                wrapped_cs.from_global(global_coordinates)
+                wrapped_cs.convert_from_global(global_coordinates)
             }
         }
     }
@@ -758,7 +758,7 @@ impl CoordinatedPoint {
             .to_global(self.clone())
             .get_local_point();
         let local_coordinates = coordinate_system
-            .from_global(CoordinatedPoint::new(
+            .convert_from_global(CoordinatedPoint::new(
                 AnonymizedCoordinateSystem::new_direct(CoordinateSystem::new(
                     Vec3d::new(0.0, 0.0, 0.0),
                     Vec3d::new(1.0, 0.0, 0.0),
@@ -870,7 +870,7 @@ impl CoordinatedLine {
                 CoordinatedPoint::new(global_coordinate_system.clone(), intersection_point.point);
             let target_coordinate_system = self.start.coordinate_system.clone();
             let intersection_point =
-                target_coordinate_system.from_global(global_intersection_point);
+                target_coordinate_system.convert_from_global(global_intersection_point);
             Some(intersection_point)
         } else {
             None
@@ -1163,8 +1163,8 @@ impl CoordinatedCircle {
         if intersection_points.len() == 2 {
             let target_coordinate_system = line.start.coordinate_system.clone();
             Some(CoordinatedLine::new(
-                target_coordinate_system.from_global(intersection_points[0].clone()),
-                target_coordinate_system.from_global(intersection_points[1].clone()),
+                target_coordinate_system.convert_from_global(intersection_points[0].clone()),
+                target_coordinate_system.convert_from_global(intersection_points[1].clone()),
             ))
         } else {
             None
@@ -1173,26 +1173,27 @@ impl CoordinatedCircle {
 }
 
 fn get_circle_line_intersection_points(circle: &Circle, line: &Line) -> Vec<Vec3d> {
-    let d = line.end - line.start;
-    let f = line.start - circle.center;
+    let line_delta = line.end - line.start;
+    let center_offset = line.start - circle.center;
 
-    let a = Vector3::<f64>::dot(&d, &d);
-    let b = 2.0 * Vector3::<f64>::dot(&f, &d);
-    let c = Vector3::<f64>::dot(&f, &f) - circle.radius * circle.radius;
+    let quadratic_a = Vector3::<f64>::dot(&line_delta, &line_delta);
+    let quadratic_b = 2.0 * Vector3::<f64>::dot(&center_offset, &line_delta);
+    let quadratic_c =
+        Vector3::<f64>::dot(&center_offset, &center_offset) - circle.radius * circle.radius;
 
-    let discriminant = b * b - 4.0 * a * c;
+    let discriminant = quadratic_b * quadratic_b - 4.0 * quadratic_a * quadratic_c;
     if discriminant < 0.0 {
         vec![] // No intersection
     } else {
         let sqrt_discriminant = discriminant.sqrt();
-        let t1 = (-b - sqrt_discriminant) / (2.0 * a);
-        let t2 = (-b + sqrt_discriminant) / (2.0 * a);
+        let t1 = (-quadratic_b - sqrt_discriminant) / (2.0 * quadratic_a);
+        let t2 = (-quadratic_b + sqrt_discriminant) / (2.0 * quadratic_a);
         let mut points = Vec::new();
         if (0.0..=1.0).contains(&t1) {
-            points.push(line.start + d * t1);
+            points.push(line.start + line_delta * t1);
         }
         if (0.0..=1.0).contains(&t2) {
-            points.push(line.start + d * t2);
+            points.push(line.start + line_delta * t2);
         }
         points
     }
@@ -1249,7 +1250,7 @@ impl CoordinatedRegionedAngle {
 
     #[must_use]
     pub fn get_regioned_angle(&self) -> RegionedAngle {
-        self.regioned_angle.clone()
+        self.regioned_angle
     }
 
     #[must_use]
@@ -1366,7 +1367,7 @@ mod tests {
     #[test]
     fn line_methods_cover_equality_intersections_and_angles() {
         let line = Line::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(2.0, 2.0, 0.0));
-        let almost_equal = Line::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(2.0, 2.0000005, 0.0));
+        let almost_equal = Line::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(2.0, 2.000_000_5, 0.0));
         let different = Line::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(2.0, 2.01, 0.0));
         let crossing = Line::new(Vec3d::new(0.0, 2.0, 0.0), Vec3d::new(2.0, 0.0, 0.0));
         let parallel = Line::new(Vec3d::new(0.0, 1.0, 0.0), Vec3d::new(2.0, 1.0, 0.0));
@@ -1451,7 +1452,7 @@ mod tests {
     #[test]
     fn circle_methods_cover_geometry_and_intersections() {
         let circle = Circle::new(Vec3d::new(2.0, -1.0, 0.0), 2.0);
-        let almost_equal = Circle::new(Vec3d::new(2.0, -1.0, 0.0), 2.0000005);
+        let almost_equal = Circle::new(Vec3d::new(2.0, -1.0, 0.0), 2.000_000_5);
         let overlapping = Circle::new(Vec3d::new(5.0, -1.0, 0.0), 2.0);
         let tangent = Circle::new(Vec3d::new(6.0, -1.0, 0.0), 2.0);
         let separate = Circle::new(Vec3d::new(7.0, -1.0, 0.0), 2.0);
@@ -1465,7 +1466,7 @@ mod tests {
         assert!(!circle.intersects(&separate));
         assert_vec_eq(bounding_box.get_top_left(), Vec3d::new(0.0, -3.0, 0.0));
         assert_vec_eq(bounding_box.get_bottom_right(), Vec3d::new(4.0, 1.0, 0.0));
-        assert_float_eq(circle.get_area(), 12.566370614359172);
+        assert_float_eq(circle.get_area(), 12.566_370_614_359_172);
     }
 
     #[test]
@@ -1541,7 +1542,7 @@ mod tests {
         );
         assert_vec_eq(
             translated
-                .from_global(CoordinatedPoint::new(
+                .convert_from_global(CoordinatedPoint::new(
                     global_coordinate_system(),
                     Vec3d::new(12.0, -2.0, 0.0),
                 ))
@@ -1769,7 +1770,7 @@ mod tests {
             bbox.to_global_rectangle().get_bottom_right(),
             Vec3d::new(17.0, 3.0, 0.0),
         );
-        assert_float_eq(circle.get_area(), 78.53981633974483);
+        assert_float_eq(circle.get_area(), 78.539_816_339_744_83);
         assert!(circle.contains_point(CoordinatedPoint::new(
             global_coordinate_system(),
             Vec3d::new(15.0, 2.0, 0.0),
@@ -1845,9 +1846,9 @@ mod tests {
         );
         assert_vec_eq(
             cartesian.get_local_point(),
-            Vec3d::new(1.0, -1.7320508075688772, 0.0),
+            Vec3d::new(1.0, -1.732_050_807_568_877_2, 0.0),
         );
-        assert_global_point_eq(cartesian, Vec3d::new(1.7320508075688772, 1.0, 0.0));
+        assert_global_point_eq(cartesian, Vec3d::new(1.732_050_807_568_877_2, 1.0, 0.0));
         assert_float_eq(converted_polar.get_angle().get_angle_degrees(), -45.0);
         assert_vec_eq(
             converted_cartesian.get_local_point(),
