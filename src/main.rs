@@ -110,8 +110,6 @@ async fn run() -> Result<(), Box<dyn Error>> {
     let mut service = Service::new();
     configure_session(&mut service, &args)?;
 
-    let mut previous_image: Option<WrappedRgbImage> = None;
-
     for (frame_index, frame_result) in decoder.decode_iter().enumerate() {
         let (timestamp, frame) = match frame_result {
             Ok(frame) => frame,
@@ -124,29 +122,13 @@ async fn run() -> Result<(), Box<dyn Error>> {
         println!("processing frame {frame_index} at timestamp {timestamp} ms");
         let wrapped_rgb_image = frame_to_rgb_image(frame)?;
 
-        let previous_for_service = match &args.session {
-            SessionArgs::Eye(_) => Some(
-                previous_image
-                    .clone()
-                    .unwrap_or_else(|| wrapped_rgb_image.clone()),
-            ),
-            _ => None,
-        };
-
         let enriched_mosaics = match service
-            .get_rectangles(
-                args.session_id.clone(),
-                wrapped_rgb_image.clone(),
-                previous_for_service,
-            )
+            .get_rectangles(args.session_id.clone(), wrapped_rgb_image.clone())
             .await
         {
             GetRectanglesResult::Success(mosaics) => mosaics,
             GetRectanglesResult::SessionNotFound => {
                 return Err(format!("session {} not found", args.session_id).into());
-            }
-            GetRectanglesResult::PreviousImageRequiredForEyeSession => {
-                return Err("eye session requires a previous frame".into());
             }
             GetRectanglesResult::ComputationFailed(error) => return Err(error.into()),
         };
@@ -158,8 +140,6 @@ async fn run() -> Result<(), Box<dyn Error>> {
 
         let output_frame = rgb_image_to_frame(output_image)?;
         encoder.encode(&output_frame, timestamp)?;
-
-        previous_image = Some(wrapped_rgb_image);
 
         if args.finish_after_two_frames && frame_index >= 1 {
             println!("stopping early after processing two frames");

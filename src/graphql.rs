@@ -598,36 +598,18 @@ impl MutationRoot {
         ctx: &Context<'_>,
         session_id: String,
         image: Upload,
-        previous_image: Option<Upload>,
     ) -> Result<Vec<EnrichedMosaicGql>> {
         let image_bytes = read_upload_bytes(ctx, image)?;
         let image = wrapped_rgb_image_from_jpeg(&image_bytes)?;
-        let previous_image = previous_image
-            .map(|upload| {
-                let bytes = read_upload_bytes(ctx, upload)?;
-                wrapped_rgb_image_from_jpeg(&bytes)
-            })
-            .transpose()?;
 
         let service = app_state(ctx)?.service;
-        let session = {
-            let service = service.lock().await;
-            service.get_session(&session_id)
-        };
+        let mut service = service.lock().await;
 
-        let session = match session {
-            Some(session) => session,
-            None => return Err(message_error("Session not found")),
-        };
-
-        match Service::get_rectangles_for_session(session, image, previous_image).await {
+        match service.get_rectangles(session_id, image).await {
             GetRectanglesResult::Success(mosaics) => {
                 Ok(mosaics.into_iter().map(Into::into).collect())
             }
             GetRectanglesResult::SessionNotFound => Err(message_error("Session not found")),
-            GetRectanglesResult::PreviousImageRequiredForEyeSession => {
-                Err(message_error("Previous image required for eye session"))
-            }
             GetRectanglesResult::ComputationFailed(error) => Err(message_error(&error)),
         }
     }
