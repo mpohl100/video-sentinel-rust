@@ -9,9 +9,10 @@ use video_sentinel::slices::{WrappedRgbImage, calculate_slices, find_connected_s
 use video_sentinel::traces::Trace;
 
 use common::{
-    basic_params, bench_with_setup, criterion_config, deduce_rectangles_for_fixture,
-    detect_objects_for_fixture, detection_fixture, example_video, eye_pipeline_fixture,
-    object_detection_params, ordinary_mosaics, surrounding_rectangle, trace_fixture,
+    basic_params, bench_with_setup, benchmark_runtime, criterion_config,
+    deduce_rectangles_for_fixture, detect_objects_for_fixture, detection_fixture, example_video,
+    eye_pipeline_fixture, object_detection_params, ordinary_mosaics, surrounding_rectangle,
+    trace_fixture,
 };
 
 fn pipeline_benchmarks(c: &mut criterion::Criterion) {
@@ -127,7 +128,12 @@ fn pipeline_benchmarks(c: &mut criterion::Criterion) {
         "eye_deduce_rectangles",
         Duration::from_secs(4),
         eye_pipeline_fixture,
-        |fixture| deduce_rectangles_for_fixture(fixture).len(),
+        |fixture| {
+            benchmark_runtime()
+                .block_on(deduce_rectangles_for_fixture(fixture))
+                .expect("eye rectangle benchmark should succeed")
+                .len()
+        },
     );
 
     bench_with_setup(

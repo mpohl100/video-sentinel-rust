@@ -8,8 +8,8 @@ use video_sentinel::service::GetRectanglesResult;
 use video_sentinel::slices::WrappedRgbImage;
 
 use common::{
-    bench_with_setup, criterion_config, example_video, eye_service, object_service,
-    ordinary_service,
+    bench_with_setup, benchmark_runtime, criterion_config, example_video, eye_service,
+    object_service, ordinary_service,
 };
 
 fn get_rectangles_benchmarks(c: &mut criterion::Criterion) {
@@ -42,7 +42,11 @@ fn get_rectangles_benchmarks(c: &mut criterion::Criterion) {
             ordinary_index.set((index + 1) % frames.len());
             frames[index].image.clone()
         },
-        |image| match ordinary_service.get_rectangles("ordinary".to_string(), image, None) {
+        |image| match benchmark_runtime().block_on(ordinary_service.get_rectangles(
+            "ordinary".to_string(),
+            image,
+            None,
+        )) {
             GetRectanglesResult::Success(rectangles) => rectangles.len(),
             _ => panic!("ordinary benchmark should succeed"),
         },
@@ -64,11 +68,11 @@ fn get_rectangles_benchmarks(c: &mut criterion::Criterion) {
             eye_index.set((index + 1) % eye_pairs.len());
             eye_pairs[index].clone()
         },
-        |(image, previous_image)| match eye_service.get_rectangles(
+        |(image, previous_image)| match benchmark_runtime().block_on(eye_service.get_rectangles(
             "eye".to_string(),
             image,
             Some(previous_image),
-        ) {
+        )) {
             GetRectanglesResult::Success(rectangles) => rectangles.len(),
             _ => panic!("eye benchmark should succeed"),
         },
@@ -85,7 +89,11 @@ fn get_rectangles_benchmarks(c: &mut criterion::Criterion) {
             object_index.set((index + 1) % frames.len());
             frames[index].image.clone()
         },
-        |image| match object_service.get_rectangles("object".to_string(), image, None) {
+        |image| match benchmark_runtime().block_on(object_service.get_rectangles(
+            "object".to_string(),
+            image,
+            None,
+        )) {
             GetRectanglesResult::Success(rectangles) => rectangles.len(),
             _ => panic!("object benchmark should succeed"),
         },
