@@ -1,21 +1,17 @@
 #![warn(clippy::pedantic)]
 #![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::must_use_candidate,
     clippy::needless_pass_by_value,
-    clippy::similar_names,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    clippy::unused_async_trait_impl
 )]
 
 use std::error::Error;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
+use num_traits::ToPrimitive;
 use rs_math3d::Vec3d;
 use video_rs::{Decoder, Encoder, Frame};
 
@@ -53,6 +49,26 @@ struct CliArgs {
 
     #[command(subcommand)]
     session: SessionArgs,
+}
+
+fn i32_from_u32(value: u32) -> i32 {
+    value.to_i32().expect("image dimension should fit within i32")
+}
+
+fn u32_from_usize(value: usize) -> u32 {
+    value.to_u32().expect("frame dimension should fit within u32")
+}
+
+fn usize_from_u32(value: u32) -> usize {
+    value
+        .to_usize()
+        .expect("frame dimension should fit within usize")
+}
+
+fn i32_from_f64(value: f64) -> i32 {
+    value
+        .to_i32()
+        .expect("rectangle coordinate should fit within i32")
 }
 
 #[derive(Subcommand)]
@@ -117,8 +133,11 @@ async fn run() -> Result<(), Box<dyn Error>> {
     let mut decoder = Decoder::new(args.input_video.as_path())?;
     let (width, height) = decoder.size_out();
     let frame_rate = decoder.frame_rate();
-    let settings =
-        video_rs::encode::Settings::preset_h264_yuv420p(width as usize, height as usize, false);
+    let settings = video_rs::encode::Settings::preset_h264_yuv420p(
+        usize_from_u32(width),
+        usize_from_u32(height),
+        false,
+    );
     let mut encoder = Encoder::new(args.output_video.as_path(), settings)?;
 
     let mut service = Service::new();
@@ -137,7 +156,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
         let wrapped_rgb_image = frame_to_rgb_image(frame)?;
 
         let enriched_mosaics = match service
-            .get_rectangles(args.session_id.clone(), wrapped_rgb_image.clone())
+            .get_rectangles(&args.session_id, wrapped_rgb_image.clone())
             .await
         {
             GetRectanglesResult::Success(mosaics) => mosaics,
@@ -184,7 +203,7 @@ fn configure_session(service: &mut Service, args: &CliArgs) -> Result<(), Box<dy
 
     match &args.session {
         SessionArgs::Ordinary => {
-            match service.create_ordinary_session(args.session_id.clone(), basic_params, results) {
+            match service.create_ordinary_session(&args.session_id, basic_params, results) {
                 CreateOrdinarySessionResult::Success => Ok(()),
                 CreateOrdinarySessionResult::SessionAlreadyExists => {
                     Err(format!("session {} already exists", args.session_id).into())
@@ -194,7 +213,7 @@ fn configure_session(service: &mut Service, args: &CliArgs) -> Result<(), Box<dy
         SessionArgs::Eye(tracking) => {
             let eye_params = to_eye_params_input(tracking);
             match service.create_eye_session(
-                args.session_id.clone(),
+                &args.session_id,
                 basic_params,
                 eye_params,
                 results,
@@ -217,7 +236,7 @@ fn configure_session(service: &mut Service, args: &CliArgs) -> Result<(), Box<dy
 
             let object_params = to_object_params_input(&object_args.tracking);
             match service.create_object_session(
-                args.session_id.clone(),
+                &args.session_id,
                 basic_params,
                 object_params,
                 results,
@@ -245,8 +264,8 @@ fn configure_session(service: &mut Service, args: &CliArgs) -> Result<(), Box<dy
                     .map_or_else(|| format!("object-{index}"), ToOwned::to_owned);
 
                 match service.add_object_to_be_detected_as_image(
-                    args.session_id.clone(),
-                    object_id,
+                    &args.session_id,
+                    &object_id,
                     wrapped_image,
                     surrounding_rectangle,
                 ) {
@@ -321,16 +340,16 @@ fn parse_rectangle(input: &str) -> Result<Rectangle, Box<dyn Error>> {
 }
 
 fn draw_rectangle(image: &WrappedRgbImage, rectangle: &Rectangle, color: &Color) {
-    let width = image.width() as i32;
-    let height = image.height() as i32;
+    let width = i32_from_u32(image.width());
+    let height = i32_from_u32(image.height());
     if width == 0 || height == 0 {
         return;
     }
 
-    let x1 = rectangle.get_top_left().x.floor() as i32;
-    let y1 = rectangle.get_top_left().y.floor() as i32;
-    let x2 = rectangle.get_bottom_right().x.ceil() as i32;
-    let y2 = rectangle.get_bottom_right().y.ceil() as i32;
+    let x1 = i32_from_f64(rectangle.get_top_left().x.floor());
+    let y1 = i32_from_f64(rectangle.get_top_left().y.floor());
+    let x2 = i32_from_f64(rectangle.get_bottom_right().x.ceil());
+    let y2 = i32_from_f64(rectangle.get_bottom_right().y.ceil());
 
     let x1 = x1.clamp(0, width - 1);
     let y1 = y1.clamp(0, height - 1);
@@ -362,7 +381,7 @@ fn frame_to_rgb_image(frame: video_rs::Frame) -> Result<WrappedRgbImage, Box<dyn
         frame.iter().copied().collect()
     };
 
-    WrappedRgbImage::from_rgb_data(width as u32, height as u32, &data).map_err(|error| {
+    WrappedRgbImage::from_rgb_data(u32_from_usize(width), u32_from_usize(height), &data).map_err(|error| {
         format!("failed to create RGB image from decoded frame data: {error}").into()
     })
 }
@@ -373,6 +392,6 @@ fn rgb_image_to_frame(image: WrappedRgbImage) -> Result<Frame, Box<dyn Error>> {
     let data = image
         .rgb_data()
         .map_err(|error| format!("failed to extract RGB bytes from image: {error}"))?;
-    Frame::from_shape_vec((height as usize, width as usize, 3), data)
+    Frame::from_shape_vec((usize_from_u32(height), usize_from_u32(width), 3), data)
         .map_err(|error| format!("failed to create output frame: {error}").into())
 }

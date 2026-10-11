@@ -8,6 +8,8 @@ use crate::slices::Color;
 use crate::slices::RelativeRectangle;
 use crate::slices::{ColoredRectangle, Rectangle, WrappedRelativeRectangle};
 use crate::traced_mosaics::TracedRelativeMosaic;
+#[cfg(test)]
+use num_traits::ToPrimitive;
 use crate::traces::Trace;
 use crate::traces::TraceParams;
 
@@ -101,12 +103,17 @@ impl ReferenceObject {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct ObjectDetectionParams {
     pub tile_params: TileParams,
     pub bucket_delta: f64,
     pub trace_params: TraceParams,
     pub target_similarity: f64,
+}
+
+#[cfg(test)]
+fn i32_from_f64(value: f64) -> i32 {
+    value.round().to_i32().expect("fixture coordinate should fit within i32")
 }
 
 impl ObjectDetectionParams {
@@ -177,9 +184,9 @@ pub fn detect_objects(
                     .collect(),
             );
             let suspected_region =
-                relative_rectangle.multiply_with_rectangle(absolute_rectangle.clone());
+                relative_rectangle.multiply_with_rectangle(absolute_rectangle);
             let inverted_suspected_region =
-                inverted_relative_rectangle.multiply_with_rectangle(absolute_rectangle.clone());
+                inverted_relative_rectangle.multiply_with_rectangle(absolute_rectangle);
             let combined_regions = combine_boxes(vec![
                 suspected_region,
                 absolute_rectangle,
@@ -187,7 +194,7 @@ pub fn detect_objects(
             ]);
             let relative_combined_region = WrappedRelativeRectangle::new_from_rectangles(
                 combined_regions,
-                surrounding_rectangle.clone(),
+                surrounding_rectangle,
             );
             let next_mosaic_candidates = bucketed_mosaics.get_similar_mosaics_from_rectangle(
                 &traced_current_mosaic.clone(),
@@ -214,7 +221,7 @@ pub fn detect_objects(
                         .into_iter()
                         .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
                         .collect(),
-                    object_detection_params.trace_params.clone(),
+                    object_detection_params.trace_params,
                 );
                 if current_candidate_reference_object_trace.compare_with(
                     object_detection_params.target_similarity,
@@ -224,7 +231,7 @@ pub fn detect_objects(
                             .into_iter()
                             .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
                             .collect(),
-                        object_detection_params.trace_params.clone(),
+                        object_detection_params.trace_params,
                     ),
                 ) >= object_detection_params.target_similarity
                 {
@@ -362,7 +369,7 @@ mod tests {
         corners.map(|(local_x, local_y)| {
             let rotated_x = center_x + local_x * cos_angle - local_y * sin_angle;
             let rotated_y = center_y + local_x * sin_angle + local_y * cos_angle;
-            (rotated_x.round() as i32, rotated_y.round() as i32)
+            (i32_from_f64(rotated_x), i32_from_f64(rotated_y))
         })
     }
 
@@ -376,10 +383,10 @@ mod tests {
     fn fill_circle(image: &WrappedRgbImage, circle: &ColoredTestCircle) {
         image.fill_circle(
             (
-                circle.center.x.round() as i32,
-                circle.center.y.round() as i32,
+                i32_from_f64(circle.center.x),
+                i32_from_f64(circle.center.y),
             ),
-            circle.radius.round() as i32,
+            i32_from_f64(circle.radius),
             rgb_from_name(circle.color),
         );
     }
@@ -418,7 +425,7 @@ mod tests {
         let connected_slices = find_connected_slices(&mut slices.clone());
         deduce_mosaics(connected_slices, math_rectangle)
             .into_iter()
-            .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params.clone()))
+            .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params))
             .collect()
     }
 

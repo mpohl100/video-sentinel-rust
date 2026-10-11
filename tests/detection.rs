@@ -1,20 +1,14 @@
 #![warn(clippy::pedantic)]
 #![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    clippy::float_cmp,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::must_use_candidate,
     clippy::needless_pass_by_value,
-    clippy::similar_names,
     clippy::too_many_lines,
-    clippy::unreadable_literal
+    clippy::unused_async_trait_impl
 )]
 
 use rs_math3d::Vec3d;
+use num_traits::ToPrimitive;
 use video_sentinel::bucketed_mosaics::BucketedMosaics;
 use video_sentinel::eye::TileParams;
 use video_sentinel::math::AnonymizedCoordinateSystem;
@@ -45,6 +39,10 @@ struct ColoredTestCircle {
     center: Vec3d,
     radius: f64,
     color: &'static str,
+}
+
+fn i32_from_f64(value: f64) -> i32 {
+    value.round().to_i32().expect("fixture coordinate should fit within i32")
 }
 
 #[derive(Default, Clone)]
@@ -87,7 +85,7 @@ fn rotated_rectangle_vertices(rectangle: &ColoredTestRectangle) -> [(i32, i32); 
     corners.map(|(local_x, local_y)| {
         let rotated_x = center_x + local_x * cos_angle - local_y * sin_angle;
         let rotated_y = center_y + local_x * sin_angle + local_y * cos_angle;
-        (rotated_x.round() as i32, rotated_y.round() as i32)
+        (i32_from_f64(rotated_x), i32_from_f64(rotated_y))
     })
 }
 
@@ -101,10 +99,10 @@ fn fill_rotated_rectangle(image: &WrappedRgbImage, rectangle: &ColoredTestRectan
 fn fill_circle(image: &WrappedRgbImage, circle: &ColoredTestCircle) {
     image.fill_circle(
         (
-            circle.center.x.round() as i32,
-            circle.center.y.round() as i32,
+            i32_from_f64(circle.center.x),
+            i32_from_f64(circle.center.y),
         ),
-        circle.radius.round() as i32,
+        i32_from_f64(circle.radius),
         rgb_from_name(circle.color),
     );
 }
@@ -214,7 +212,7 @@ fn deduce_all_mosaics(image: WrappedRgbImage, do_grayscale: bool) -> Vec<TracedR
     let connected_slices = find_connected_slices(&mut slices.clone());
     deduce_mosaics(connected_slices, math_rectangle)
         .into_iter()
-        .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params.clone()))
+        .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params))
         .collect()
 }
 

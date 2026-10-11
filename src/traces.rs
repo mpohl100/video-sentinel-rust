@@ -8,6 +8,7 @@ use crate::math::Rectangle;
 use crate::math::RegionedAngle;
 use crate::mosaics::WrappedMosaic;
 
+use num_traits::ToPrimitive;
 use rs_math3d::Vec3d;
 use smallvec::SmallVec;
 use std::fmt::Write as _;
@@ -15,6 +16,19 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 static TRACE_DEBUG: AtomicBool = AtomicBool::new(false);
+
+fn f64_from_usize(value: usize) -> f64 {
+    value
+        .to_f64()
+        .expect("usize value should convert to f64 for trace calculations")
+}
+
+#[cfg(test)]
+fn usize_from_f64(value: f64) -> usize {
+    value
+        .to_usize()
+        .expect("trace coordinate should fit within usize")
+}
 
 pub fn set_trace_debug(enabled: bool) {
     TRACE_DEBUG.store(enabled, Ordering::Relaxed);
@@ -56,7 +70,7 @@ struct RatioLine {
     slices: Vec<PolarSlice>,
 }
 
-#[derive(Clone, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
 pub struct TraceParams {
     num_skeleton: usize,
     close_slice_threshold: f64,
@@ -110,7 +124,7 @@ impl Trace {
                 let coordinated_regioned_angle = CoordinatedRegionedAngle::new(
                     coordinate_system,
                     RegionedAngle::new(
-                        (i as f64) * (360.0 / params.num_skeleton as f64),
+                        f64_from_usize(i) * (360.0 / f64_from_usize(params.num_skeleton)),
                         0.0,
                         360.0,
                     ),
@@ -152,7 +166,7 @@ impl Trace {
                 let coordinated_regioned_angle = CoordinatedRegionedAngle::new(
                     coordinate_system,
                     RegionedAngle::new(
-                        (i as f64) * (360.0 / params.num_skeleton as f64),
+                        f64_from_usize(i) * (360.0 / f64_from_usize(params.num_skeleton)),
                         0.0,
                         360.0,
                     ),
@@ -318,7 +332,7 @@ fn compare_with_rotation(
         total_similarity += similarity;
     }
 
-    let similarity = total_similarity / line_count as f64;
+    let similarity = total_similarity / f64_from_usize(line_count);
     if trace_debug_enabled() {
         println!("trace.compare_with average_similarity={similarity:.8} line_count={line_count}");
     }
@@ -426,7 +440,7 @@ fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> SmallVec<[TaggedRatio; 
     for i in 0..interesting_points.len() - 1 {
         let from = interesting_points[i];
         let to = interesting_points[i + 1];
-        if from == to {
+        if (from - to).abs() < f64::EPSILON {
             continue; // skip zero-length intervals
         }
         let current_midpoint = f64::midpoint(from, to);
@@ -998,7 +1012,7 @@ mod tests {
     }
 
     fn annotated_slice(x1: f64, y: usize, x2: f64) -> AnnotatedSlice {
-        AnnotatedSlice::new(Slice::new(point(x1, y as f64), point(x2, y as f64)), y)
+        AnnotatedSlice::new(Slice::new(point(x1, f64_from_usize(y)), point(x2, f64_from_usize(y))), y)
     }
 
     fn mosaic_from_lines(lines: &[(usize, &[(f64, f64)])]) -> WrappedMosaic {
@@ -1020,8 +1034,8 @@ mod tests {
         end_x: f64,
     ) {
         let slice = Slice::new(
-            point(start_x, line_number as f64),
-            point(end_x, line_number as f64),
+            point(start_x, f64_from_usize(line_number)),
+            point(end_x, f64_from_usize(line_number)),
         );
         slice_matrix.add(SliceLine::new(
             line_number,
@@ -1039,7 +1053,7 @@ mod tests {
         let start_x = top_left.x;
         let end_x = bottom_right.x - 1.0;
 
-        for y in top_left.y as usize..bottom_right.y as usize {
+        for y in usize_from_f64(top_left.y)..usize_from_f64(bottom_right.y) {
             add_horizontal_slice(&mut slice_matrix, y, start_x, end_x);
         }
 
@@ -1048,12 +1062,12 @@ mod tests {
 
     fn circle_slice_matrix(width: u32, height: u32, center: Vec3d, radius: f64) -> SliceMatrix {
         let mut slice_matrix = SliceMatrix::new(blank_image(width, height));
-        let start_y = (center.y - radius).floor().max(0.0) as usize;
-        let end_y = (center.y + radius).ceil().min(f64::from(height)) as usize;
+        let start_y = usize_from_f64((center.y - radius).floor().max(0.0));
+        let end_y = usize_from_f64((center.y + radius).ceil().min(f64::from(height)));
         let max_x = f64::from(width.saturating_sub(1));
 
         for y in start_y..end_y {
-            let dy = y as f64 - center.y;
+            let dy = f64_from_usize(y) - center.y;
             let x_offset = (radius * radius - dy * dy).max(0.0).sqrt();
             let start_x = (center.x - x_offset).ceil().max(0.0);
             let end_x = (center.x + x_offset).floor().min(max_x);
@@ -1202,7 +1216,7 @@ mod tests {
         assert_float_eq(compare_lines(&identical_left, &identical_right), 1.0);
         assert_float_eq(
             compare_lines(&identical_left, &partial),
-            -0.9999999999999989,
+            -0.999_999_999_999_998_9,
         );
     }
 
@@ -1221,7 +1235,7 @@ mod tests {
 
         assert_float_eq(
             compare_lines(&ratio_line_1, &ratio_line_2),
-            0.8666666666666667,
+            0.866_666_666_666_666_7,
         );
     }
 
@@ -1232,7 +1246,7 @@ mod tests {
 
         assert_float_eq(
             compare_lines(&ratio_line_1, &ratio_line_2),
-            0.7142857142857143,
+            0.714_285_714_285_714_3,
         );
     }
 
@@ -1296,7 +1310,7 @@ mod tests {
 
         let radius = deduce_longest_radius(&mosaics, center);
 
-        assert_float_eq(radius, 4.038873605350878);
+        assert_float_eq(radius, 4.038_873_605_350_878);
     }
 
     #[test]
@@ -1307,7 +1321,7 @@ mod tests {
 
         assert_float_eq(
             area,
-            std::f64::consts::PI * 4.038873605350878 * 4.038873605350878,
+            std::f64::consts::PI * 4.038_873_605_350_878 * 4.038_873_605_350_878,
         );
     }
 
@@ -1346,42 +1360,42 @@ mod tests {
         );
 
         let expected = [
-            Some((0.0, 0.74153578)),
-            Some((0.0, 0.75297516)),
-            Some((0.0, 0.78912589)),
-            Some((0.0, 0.85625176)),
-            Some((0.0, 0.96800621)),
-            Some((0.0, 0.96800621)),
-            Some((0.0, 0.85625176)),
-            Some((0.0, 0.78912589)),
-            Some((0.0, 0.75297516)),
-            Some((0.0, 0.74153578)),
-            Some((0.0, 0.75297516)),
-            Some((0.0, 0.78912589)),
-            Some((0.0, 0.85625176)),
-            Some((0.0, 0.96800621)),
-            Some((0.0, 0.96800621)),
-            Some((0.0, 0.85625176)),
-            Some((0.0, 0.78912589)),
-            Some((0.0, 0.75297516)),
-            Some((0.0, 0.74153578)),
-            Some((0.0, 0.75297516)),
-            Some((0.0, 0.78912589)),
-            Some((0.0, 0.85625176)),
-            Some((0.0, 0.96800621)),
-            Some((0.0, 0.87581514)),
-            Some((0.0, 0.77470398)),
-            Some((0.0, 0.71397105)),
-            Some((0.0, 0.68126324)),
-            Some((0.0, 0.67091332)),
-            Some((0.0, 0.68126324)),
-            Some((0.0, 0.71397105)),
-            Some((0.0, 0.77470398)),
-            Some((0.0, 0.87581514)),
-            Some((0.0, 0.96800621)),
-            Some((0.0, 0.85625176)),
-            Some((0.0, 0.78912589)),
-            Some((0.0, 0.75297516)),
+            Some((0.0, 0.741_535_78)),
+            Some((0.0, 0.752_975_16)),
+            Some((0.0, 0.789_125_89)),
+            Some((0.0, 0.856_251_76)),
+            Some((0.0, 0.968_006_21)),
+            Some((0.0, 0.968_006_21)),
+            Some((0.0, 0.856_251_76)),
+            Some((0.0, 0.789_125_89)),
+            Some((0.0, 0.752_975_16)),
+            Some((0.0, 0.741_535_78)),
+            Some((0.0, 0.752_975_16)),
+            Some((0.0, 0.789_125_89)),
+            Some((0.0, 0.856_251_76)),
+            Some((0.0, 0.968_006_21)),
+            Some((0.0, 0.968_006_21)),
+            Some((0.0, 0.856_251_76)),
+            Some((0.0, 0.789_125_89)),
+            Some((0.0, 0.752_975_16)),
+            Some((0.0, 0.741_535_78)),
+            Some((0.0, 0.752_975_16)),
+            Some((0.0, 0.789_125_89)),
+            Some((0.0, 0.856_251_76)),
+            Some((0.0, 0.968_006_21)),
+            Some((0.0, 0.875_815_14)),
+            Some((0.0, 0.774_703_98)),
+            Some((0.0, 0.713_971_05)),
+            Some((0.0, 0.681_263_24)),
+            Some((0.0, 0.670_913_32)),
+            Some((0.0, 0.681_263_24)),
+            Some((0.0, 0.713_971_05)),
+            Some((0.0, 0.774_703_98)),
+            Some((0.0, 0.875_815_14)),
+            Some((0.0, 0.968_006_21)),
+            Some((0.0, 0.856_251_76)),
+            Some((0.0, 0.789_125_89)),
+            Some((0.0, 0.752_975_16)),
         ];
 
         assert_trace_matches_expected_lines(&trace, &expected);
@@ -1400,42 +1414,42 @@ mod tests {
         );
 
         let expected = [
-            Some((0.0, 0.96287213)),
-            Some((0.0, 0.97772598)),
-            Some((0.0, 0.98370134)),
-            Some((0.0, 0.97847756)),
-            Some((0.0, 1.00568049)),
-            Some((0.0, 1.00568049)),
-            Some((0.0, 0.97847756)),
-            Some((0.0, 0.98370134)),
-            Some((0.0, 0.97772598)),
-            Some((0.0, 0.96287213)),
-            Some((0.00049884, 0.97772598)),
-            Some((0.00052279, 0.98370134)),
-            Some((0.00056726, 0.97847756)),
-            Some((0.00064130, 1.00568049)),
-            Some((0.00076427, 1.00439790)),
-            Some((0.00098252, 0.97734304)),
-            Some((0.00143635, 0.98265576)),
-            Some((0.00282906, 0.97672830)),
-            Some((0.0, 0.96188960)),
-            Some((0.0, 0.97672830)),
-            Some((0.0, 0.98265576)),
-            Some((0.0, 0.97734304)),
-            Some((0.0, 0.95414594)),
-            Some((0.0, 0.95414594)),
-            Some((0.0, 0.92290311)),
-            Some((0.0, 0.94168999)),
-            Some((0.0, 0.93763922)),
-            Some((0.0, 0.96188960)),
-            Some((0.00282906, 0.93763922)),
-            Some((0.00143635, 0.94168999)),
-            Some((0.00098252, 0.92486815)),
-            Some((0.00076427, 0.95897153)),
-            Some((0.00064130, 0.95542853)),
-            Some((0.00056726, 0.97847756)),
-            Some((0.00052279, 0.98370134)),
-            Some((0.00049884, 0.97772598)),
+            Some((0.0, 0.962_872_13)),
+            Some((0.0, 0.977_725_98)),
+            Some((0.0, 0.983_701_34)),
+            Some((0.0, 0.978_477_56)),
+            Some((0.0, 1.005_680_49)),
+            Some((0.0, 1.005_680_49)),
+            Some((0.0, 0.978_477_56)),
+            Some((0.0, 0.983_701_34)),
+            Some((0.0, 0.977_725_98)),
+            Some((0.0, 0.962_872_13)),
+            Some((0.000_498_84, 0.977_725_98)),
+            Some((0.000_522_79, 0.983_701_34)),
+            Some((0.000_567_26, 0.978_477_56)),
+            Some((0.000_641_30, 1.005_680_49)),
+            Some((0.000_764_27, 1.004_397_90)),
+            Some((0.000_982_52, 0.977_343_04)),
+            Some((0.001_436_35, 0.982_655_76)),
+            Some((0.002_829_06, 0.976_728_30)),
+            Some((0.0, 0.961_889_60)),
+            Some((0.0, 0.976_728_30)),
+            Some((0.0, 0.982_655_76)),
+            Some((0.0, 0.977_343_04)),
+            Some((0.0, 0.954_145_94)),
+            Some((0.0, 0.954_145_94)),
+            Some((0.0, 0.922_903_11)),
+            Some((0.0, 0.941_689_99)),
+            Some((0.0, 0.937_639_22)),
+            Some((0.0, 0.961_889_60)),
+            Some((0.002_829_06, 0.937_639_22)),
+            Some((0.001_436_35, 0.941_689_99)),
+            Some((0.000_982_52, 0.924_868_15)),
+            Some((0.000_764_27, 0.958_971_53)),
+            Some((0.000_641_30, 0.955_428_53)),
+            Some((0.000_567_26, 0.978_477_56)),
+            Some((0.000_522_79, 0.983_701_34)),
+            Some((0.000_498_84, 0.977_725_98)),
         ];
 
         assert_trace_matches_expected_lines(&trace, &expected);
@@ -1454,42 +1468,42 @@ mod tests {
         );
 
         let expected = [
-            Some((0.0, 0.48145692)),
-            Some((0.0, 0.48888417)),
-            Some((0.0, 0.51235575)),
-            Some((0.0, 0.55593857)),
-            Some((0.0, 0.61282964)),
-            Some((0.0, 0.74276962)),
-            Some((0.0, 0.96025752)),
-            Some((0.0, 0.97813371)),
-            Some((0.0, 0.93332432)),
-            Some((0.0, 0.91914503)),
-            Some((0.0, 0.93332432)),
-            Some((0.0, 0.97813371)),
-            Some((0.0, 0.96025752)),
-            Some((0.0, 0.74276962)),
-            Some((0.0, 0.61282964)),
-            Some((0.0, 0.55593857)),
-            Some((0.0, 0.51235575)),
-            Some((0.0, 0.48888417)),
-            Some((0.0, 0.48145692)),
-            Some((0.0, 0.48888417)),
-            Some((0.0, 0.51235575)),
-            Some((0.0, 0.55593857)),
-            Some((0.0, 0.61282964)),
-            Some((0.0, 0.74276962)),
-            Some((0.0, 0.96025752)),
-            Some((0.0, 0.88497812)),
-            Some((0.0, 0.84443629)),
-            Some((0.0, 0.83160741)),
-            Some((0.0, 0.84443629)),
-            Some((0.0, 0.88497812)),
-            Some((0.0, 0.96025752)),
-            Some((0.0, 0.74276962)),
-            Some((0.0, 0.61282964)),
-            Some((0.0, 0.55593857)),
-            Some((0.0, 0.51235575)),
-            Some((0.0, 0.48888417)),
+            Some((0.0, 0.481_456_92)),
+            Some((0.0, 0.488_884_17)),
+            Some((0.0, 0.512_355_75)),
+            Some((0.0, 0.555_938_57)),
+            Some((0.0, 0.612_829_64)),
+            Some((0.0, 0.742_769_62)),
+            Some((0.0, 0.960_257_52)),
+            Some((0.0, 0.978_133_71)),
+            Some((0.0, 0.933_324_32)),
+            Some((0.0, 0.919_145_03)),
+            Some((0.0, 0.933_324_32)),
+            Some((0.0, 0.978_133_71)),
+            Some((0.0, 0.960_257_52)),
+            Some((0.0, 0.742_769_62)),
+            Some((0.0, 0.612_829_64)),
+            Some((0.0, 0.555_938_57)),
+            Some((0.0, 0.512_355_75)),
+            Some((0.0, 0.488_884_17)),
+            Some((0.0, 0.481_456_92)),
+            Some((0.0, 0.488_884_17)),
+            Some((0.0, 0.512_355_75)),
+            Some((0.0, 0.555_938_57)),
+            Some((0.0, 0.612_829_64)),
+            Some((0.0, 0.742_769_62)),
+            Some((0.0, 0.960_257_52)),
+            Some((0.0, 0.884_978_12)),
+            Some((0.0, 0.844_436_29)),
+            Some((0.0, 0.831_607_41)),
+            Some((0.0, 0.844_436_29)),
+            Some((0.0, 0.884_978_12)),
+            Some((0.0, 0.960_257_52)),
+            Some((0.0, 0.742_769_62)),
+            Some((0.0, 0.612_829_64)),
+            Some((0.0, 0.555_938_57)),
+            Some((0.0, 0.512_355_75)),
+            Some((0.0, 0.488_884_17)),
         ];
 
         assert_trace_matches_expected_lines(&trace, &expected);
@@ -1516,21 +1530,21 @@ mod tests {
         );
 
         let expected = [
-            Some((0.30338898, 0.97403831)),
-            Some((0.31409139, 1.00839867)),
-            Some((0.35129251, 0.67064933)),
-            Some((0.42905681, 0.47422069)),
+            Some((0.303_388_98, 0.974_038_31)),
+            Some((0.314_091_39, 1.008_398_67)),
+            Some((0.351_292_51, 0.670_649_33)),
+            Some((0.429_056_81, 0.474_220_69)),
             None,
             None,
             None,
             None,
             None,
-            Some((0.42905681, 0.47422069)),
-            Some((0.35129251, 0.67064933)),
-            Some((0.31409139, 1.00839867)),
-            Some((0.30338898, 0.97403831)),
-            Some((0.31409139, 1.00839867)),
-            Some((0.35129251, 0.60677797)),
+            Some((0.429_056_81, 0.474_220_69)),
+            Some((0.351_292_51, 0.670_649_33)),
+            Some((0.314_091_39, 1.008_398_67)),
+            Some((0.303_388_98, 0.974_038_31)),
+            Some((0.314_091_39, 1.008_398_67)),
+            Some((0.351_292_51, 0.606_777_97)),
             None,
             None,
             None,
@@ -1538,8 +1552,8 @@ mod tests {
             None,
             None,
             None,
-            Some((0.35129251, 0.60677797)),
-            Some((0.31409139, 1.00839867)),
+            Some((0.351_292_51, 0.606_777_97)),
+            Some((0.314_091_39, 1.008_398_67)),
         ];
 
         assert_trace_matches_expected_lines(&trace, &expected);

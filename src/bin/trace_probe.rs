@@ -1,23 +1,16 @@
 #![warn(clippy::pedantic)]
 #![allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    clippy::float_cmp,
-    clippy::many_single_char_names,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::must_use_candidate,
     clippy::needless_pass_by_value,
-    clippy::similar_names,
     clippy::too_many_lines,
-    clippy::unreadable_literal
+    clippy::unused_async_trait_impl
 )]
 
 use rs_math3d::Vec3d;
 use std::env;
 
+use num_traits::ToPrimitive;
 use video_sentinel::math::{
     AnonymizedCoordinateSystem, CoordinateSystem, CoordinatedPoint, Rectangle as MathRectangle,
 };
@@ -34,6 +27,20 @@ use video_sentinel::traces::{Trace, TraceParams, WrappedTrace, set_trace_debug};
 enum ReferenceBuildMode {
     FromImage,
     FromSliceMatrix,
+}
+
+fn i32_from_f64(value: f64) -> i32 {
+    value.round().to_i32().expect("fixture coordinate should fit within i32")
+}
+
+fn usize_from_f64(value: f64) -> usize {
+    value
+        .to_usize()
+        .expect("fixture coordinate should fit within usize")
+}
+
+fn f64_from_usize(value: usize) -> f64 {
+    value.to_f64().expect("fixture index should fit within f64")
 }
 
 #[derive(Clone, Copy)]
@@ -107,7 +114,7 @@ fn rotated_rectangle_vertices(rectangle: &ColoredTestRectangle) -> [(i32, i32); 
     corners.map(|(local_x, local_y)| {
         let rotated_x = center_x + local_x * cos_angle - local_y * sin_angle;
         let rotated_y = center_y + local_x * sin_angle + local_y * cos_angle;
-        (rotated_x.round() as i32, rotated_y.round() as i32)
+        (i32_from_f64(rotated_x), i32_from_f64(rotated_y))
     })
 }
 
@@ -121,10 +128,10 @@ fn fill_rotated_rectangle(image: &WrappedRgbImage, rectangle: &ColoredTestRectan
 fn fill_circle(image: &WrappedRgbImage, circle: &ColoredTestCircle) {
     image.fill_circle(
         (
-            circle.center.x.round() as i32,
-            circle.center.y.round() as i32,
+            i32_from_f64(circle.center.x),
+            i32_from_f64(circle.center.y),
         ),
-        circle.radius.round() as i32,
+        i32_from_f64(circle.radius),
         rgb_from_name(circle.color),
     );
 }
@@ -297,8 +304,8 @@ fn add_horizontal_slice(
     end_x: f64,
 ) {
     let slice = Slice::new(
-        coordinated_point(start_x, line_number as f64),
-        coordinated_point(end_x, line_number as f64),
+        coordinated_point(start_x, f64_from_usize(line_number)),
+        coordinated_point(end_x, f64_from_usize(line_number)),
     );
     slice_matrix.add(SliceLine::new(
         line_number,
@@ -316,7 +323,7 @@ fn rectangle_slice_matrix(
     let start_x = top_left.x;
     let end_x = bottom_right.x - 1.0;
 
-    for y in top_left.y as usize..bottom_right.y as usize {
+    for y in usize_from_f64(top_left.y)..usize_from_f64(bottom_right.y) {
         add_horizontal_slice(&mut slice_matrix, y, start_x, end_x);
     }
 
@@ -325,12 +332,12 @@ fn rectangle_slice_matrix(
 
 fn circle_slice_matrix(width: u32, height: u32, center: Vec3d, radius: f64) -> SliceMatrix {
     let mut slice_matrix = SliceMatrix::new(blank_image(width, height));
-    let start_y = (center.y - radius).floor().max(0.0) as usize;
-    let end_y = (center.y + radius).ceil().min(f64::from(height)) as usize;
+    let start_y = usize_from_f64((center.y - radius).floor().max(0.0));
+    let end_y = usize_from_f64((center.y + radius).ceil().min(f64::from(height)));
     let max_x = f64::from(width.saturating_sub(1));
 
     for y in start_y..end_y {
-        let dy = y as f64 - center.y;
+        let dy = f64_from_usize(y) - center.y;
         let x_offset = (radius * radius - dy * dy).max(0.0).sqrt();
         let start_x = (center.x - x_offset).ceil().max(0.0);
         let end_x = (center.x + x_offset).floor().min(max_x);
@@ -360,7 +367,7 @@ fn deduce_all_mosaics(image: WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
     let trace_params = TraceParams::new(36, 0.2);
     deduce_mosaics(connected_slices, math_rectangle)
         .into_iter()
-        .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params.clone()))
+        .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params))
         .collect()
 }
 
@@ -388,7 +395,7 @@ fn reference_object_from_slice_matrices(
         id.to_string(),
         deduce_mosaics(slice_matrices, math_rectangle)
             .into_iter()
-            .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params.clone()))
+            .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params))
             .collect(),
     )
 }
@@ -514,7 +521,6 @@ fn trace_cpp_rectangle_reference_object(mode: ReferenceBuildMode) -> ReferenceOb
     }
 }
 
-#[allow(dead_code)]
 fn reference_object_methods_reference_object() -> ReferenceObject {
     let image = create_test_image_with_shapes(
         &ShapesData {
@@ -696,7 +702,7 @@ fn print_reference_object_image_similarities(build_mode: ReferenceBuildMode) {
                 .into_iter()
                 .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
                 .collect(),
-            params.clone(),
+            params,
         ));
 
         for (mosaic_index, mosaic) in scene_mosaics.iter().enumerate() {
@@ -787,7 +793,7 @@ fn print_reference_object_cross_similarities(build_mode: ReferenceBuildMode) {
                 .into_iter()
                 .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
                 .collect(),
-            comparison_params.clone(),
+            comparison_params,
         );
 
         for (right_index, (right_name, right_shape, right_reference_object, _)) in
@@ -799,7 +805,7 @@ fn print_reference_object_cross_similarities(build_mode: ReferenceBuildMode) {
                     .into_iter()
                     .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
                     .collect(),
-                comparison_params.clone(),
+                comparison_params,
             );
             println!(
                 "compare reference[{left_index}]={left_name} ({left_shape}) with reference[{right_index}]={right_name} ({right_shape})",
