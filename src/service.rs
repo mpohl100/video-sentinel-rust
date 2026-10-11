@@ -192,6 +192,7 @@ pub enum AddObjectToBeDetectedResult {
     Success,
     SessionNotFound,
     SessionTypeDoesNotSupportAddingObjectToBeDetected,
+    NoReferenceMosaicsDetected,
 }
 
 pub enum DeleteSessionResult {
@@ -554,7 +555,10 @@ impl Service {
                             WrappedRelativeMosaic::new(mosaic.get_mosaic(), math_rectangle.clone()),
                             object_session.object_detection_params.trace_params.clone(),
                         ))
-                        .collect();
+                        .collect::<Vec<_>>();
+                    if reference_mosaics.is_empty() {
+                        return AddObjectToBeDetectedResult::NoReferenceMosaicsDetected;
+                    }
                     object_session
                         .objects_to_be_detected
                         .push(ReferenceObject::new(object_id, reference_mosaics));
@@ -581,7 +585,7 @@ impl Service {
                         Vec3d::new(0.0, 0.0, 0.0),
                         Vec3d::new(image.width() as f64, image.height() as f64, 0.0),
                     );
-                    self.add_object_to_be_detected_as_image(
+                    return self.add_object_to_be_detected_as_image(
                         session_id,
                         object_id,
                         image,
@@ -590,7 +594,6 @@ impl Service {
                 }
                 _ => return AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected,
             }
-            AddObjectToBeDetectedResult::Success
         } else {
             AddObjectToBeDetectedResult::SessionNotFound
         }
@@ -1012,11 +1015,22 @@ mod tests {
     }
 
     fn object_ascii_art() -> String {
+        [
+            "#######", "#######", "#######", "#######", "#######", "#######", "#######",
+        ]
+        .join("\n")
+    }
+
+    fn empty_object_ascii_art() -> String {
         ["##", "##"].join("\n")
     }
 
     fn tiny_surrounding_rectangle() -> Rectangle {
-        Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(4.0, 4.0, 0.0))
+        Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(2.0, 2.0, 0.0))
+    }
+
+    fn object_image() -> WrappedRgbImage {
+        WrappedRgbImage::new_from_ascii_art(object_ascii_art().as_str())
     }
 
     #[test]
@@ -1316,7 +1330,7 @@ mod tests {
             service.add_object_to_be_detected_as_image(
                 "object".to_string(),
                 "ref-0".to_string(),
-                solid_image([0, 0, 0]),
+                object_image(),
                 tiny_surrounding_rectangle(),
             ),
             AddObjectToBeDetectedResult::Success
@@ -1338,6 +1352,15 @@ mod tests {
                 .len(),
             2
         );
+
+        assert!(matches!(
+            service.add_object_to_be_detected_as_ascii_art(
+                "object".to_string(),
+                "empty-ref".to_string(),
+                empty_object_ascii_art(),
+            ),
+            AddObjectToBeDetectedResult::NoReferenceMosaicsDetected
+        ));
 
         assert!(matches!(
             service.add_object_to_be_detected_as_ascii_art(

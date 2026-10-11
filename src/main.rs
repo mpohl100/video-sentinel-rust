@@ -256,6 +256,9 @@ fn configure_session(service: &mut Service, args: &CliArgs) -> Result<(), Box<dy
                     video_sentinel::service::AddObjectToBeDetectedResult::SessionNotFound => {
                         return Err(format!("session {} not found", args.session_id).into())
                     }
+                    video_sentinel::service::AddObjectToBeDetectedResult::NoReferenceMosaicsDetected => {
+                        return Err("no reference mosaics detected".into())
+                    }
                     video_sentinel::service::AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected => {
                         return Err("session type does not support object configuration".into())
                     }

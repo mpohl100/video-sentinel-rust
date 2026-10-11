@@ -128,7 +128,11 @@ pub fn detect_objects(
     surrounding_rectangle: Rectangle,
     results: Results,
 ) -> Vec<ColoredRectangle> {
-    let traced_biggest_mosaic = reference_object.get_mosaics(1)[0].clone();
+    let first_reference_mosaic = reference_object.get_mosaics(1);
+    if first_reference_mosaic.is_empty() {
+        return Vec::new();
+    }
+    let traced_biggest_mosaic = first_reference_mosaic[0].clone();
     let biggest_trace = traced_biggest_mosaic.get_trace();
     let biggest_candidates = bucketed_mosaics.get_all_similar_mosaics(&traced_biggest_mosaic);
     let mut candidates = biggest_candidates
