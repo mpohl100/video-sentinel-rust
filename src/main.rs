@@ -1,3 +1,17 @@
+#![warn(clippy::pedantic)]
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::must_use_candidate,
+    clippy::needless_pass_by_value,
+    clippy::similar_names,
+    clippy::too_many_lines
+)]
+
 use std::error::Error;
 use std::path::PathBuf;
 
@@ -228,8 +242,7 @@ fn configure_session(service: &mut Service, args: &CliArgs) -> Result<(), Box<dy
                 let object_id = file
                     .file_stem()
                     .and_then(|stem| stem.to_str())
-                    .map(ToOwned::to_owned)
-                    .unwrap_or_else(|| format!("object-{index}"));
+                    .map_or_else(|| format!("object-{index}"), ToOwned::to_owned);
 
                 match service.add_object_to_be_detected_as_image(
                     args.session_id.clone(),

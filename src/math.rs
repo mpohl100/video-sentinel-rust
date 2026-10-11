@@ -17,10 +17,12 @@ impl PartialEq for Line {
 }
 
 impl Line {
+    #[must_use]
     pub fn new(start: Vec3d, end: Vec3d) -> Self {
         Self { start, end }
     }
 
+    #[must_use]
     pub fn intersects(&self, other: &Line) -> bool {
         let p = self.start;
         let r = self.end - self.start;
@@ -41,6 +43,7 @@ impl Line {
         (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u)
     }
 
+    #[must_use]
     pub fn get_intersection_point(&self, other: &Line) -> Point {
         let p = self.start;
         let r = self.end - self.start;
@@ -59,6 +62,7 @@ impl Line {
         Point::new(p + r * t)
     }
 
+    #[must_use]
     pub fn angle_between(&self, other: &Line) -> RegionedAngle {
         let v1 = self.end - self.start;
         let v2 = other.end - other.start;
@@ -81,10 +85,12 @@ impl Line {
         }
     }
 
+    #[must_use]
     pub fn get_start(&self) -> Point {
         Point::new(self.start)
     }
 
+    #[must_use]
     pub fn get_end(&self) -> Point {
         Point::new(self.end)
     }
@@ -98,6 +104,7 @@ pub struct RegionedAngle {
 }
 
 impl RegionedAngle {
+    #[must_use]
     pub fn new(degrees: f64, min_degrees: f64, max_degrees: f64) -> Self {
         let mut regioned_angle = Self {
             angle_degrees: degrees,
@@ -108,6 +115,7 @@ impl RegionedAngle {
         regioned_angle
     }
 
+    #[must_use]
     pub fn new_from_points(
         start: Vec3d,
         end: Vec3d,
@@ -126,6 +134,7 @@ impl RegionedAngle {
         regioned_angle
     }
 
+    #[must_use]
     pub fn new_from_lines(line1: Line, line2: Line, min_degrees: f64, max_degrees: f64) -> Self {
         let angle_radians = line1.angle_between(&line2).radians();
         let angle_degrees = angle_radians.to_degrees();
@@ -134,18 +143,22 @@ impl RegionedAngle {
         regioned_angle
     }
 
+    #[must_use]
     pub fn radians(&self) -> f64 {
         self.angle_degrees.to_radians()
     }
 
+    #[must_use]
     pub fn get_min_degrees(&self) -> f64 {
         self.min_degrees
     }
 
+    #[must_use]
     pub fn get_max_degrees(&self) -> f64 {
         self.max_degrees
     }
 
+    #[must_use]
     pub fn add_angle(&self, other: RegionedAngle) -> RegionedAngle {
         let new_angle_degrees = self.angle_degrees + other.angle_degrees;
         let mut result = Self::new(new_angle_degrees, self.min_degrees, self.max_degrees);
@@ -162,6 +175,7 @@ impl RegionedAngle {
         }
     }
 
+    #[must_use]
     pub fn inverted(&self) -> Self {
         Self::new(-self.angle_degrees, self.min_degrees, self.max_degrees)
     }
@@ -182,14 +196,17 @@ impl PartialEq for Point {
 }
 
 impl Point {
+    #[must_use]
     pub fn new(point: Vec3d) -> Self {
         Self { point }
     }
 
+    #[must_use]
     pub fn get_x(&self) -> f64 {
         self.point.x
     }
 
+    #[must_use]
     pub fn get_y(&self) -> f64 {
         self.point.y
     }
@@ -201,6 +218,7 @@ pub struct Rectangle {
 }
 
 impl Rectangle {
+    #[must_use]
     pub fn new(top_left: Vec3d, bottom_right: Vec3d) -> Self {
         let points = vec![
             Point { point: top_left },
@@ -211,6 +229,7 @@ impl Rectangle {
         Self { points }
     }
 
+    #[must_use]
     pub fn get_intersection_line(&self, line: Line) -> Option<Line> {
         let mut intersection_points = Vec::new();
         for rect_line in &self.get_lines() {
@@ -251,6 +270,7 @@ impl Rectangle {
         }
     }
 
+    #[must_use]
     pub fn contains_point(&self, point: Vec3d) -> bool {
         let top_left = self.get_top_left();
         let bottom_right = self.get_bottom_right();
@@ -260,34 +280,41 @@ impl Rectangle {
             || point.y > bottom_right.y)
     }
 
+    #[must_use]
     pub fn get_area(&self) -> f64 {
         let width = (self.points[1].point.x - self.points[0].point.x).abs();
         let height = (self.points[1].point.y - self.points[0].point.y).abs();
         width * height
     }
 
+    #[must_use]
     pub fn get_center(&self) -> Vec3d {
-        let center_x = (self.points[0].point.x + self.points[1].point.x) / 2.0;
-        let center_y = (self.points[0].point.y + self.points[1].point.y) / 2.0;
+        let center_x = f64::midpoint(self.points[0].point.x, self.points[1].point.x);
+        let center_y = f64::midpoint(self.points[0].point.y, self.points[1].point.y);
         Vec3d::new(center_x, center_y, 0.0)
     }
 
+    #[must_use]
     pub fn get_top_left(&self) -> Vec3d {
         self.points[0].point
     }
 
+    #[must_use]
     pub fn get_bottom_right(&self) -> Vec3d {
         self.points[1].point
     }
 
+    #[must_use]
     pub fn get_width(&self) -> f64 {
         (self.points[1].point.x - self.points[0].point.x).abs()
     }
 
+    #[must_use]
     pub fn get_height(&self) -> f64 {
         (self.points[1].point.y - self.points[0].point.y).abs()
     }
 
+    #[must_use]
     pub fn get_lines(&self) -> Vec<Line> {
         let top_left = self.get_top_left();
         let bottom_right = self.get_bottom_right();
@@ -301,6 +328,7 @@ impl Rectangle {
         vec![line1, line2, line3, line4]
     }
 
+    #[must_use]
     pub fn intersects(&self, other: &Rectangle) -> bool {
         for line1 in &self.get_lines() {
             for line2 in &other.get_lines() {
@@ -312,6 +340,7 @@ impl Rectangle {
         false
     }
 
+    #[must_use]
     pub fn overlaps(&self, other: &Rectangle) -> bool {
         let self_top_left = self.get_top_left();
         let self_bottom_right = self.get_bottom_right();
@@ -325,6 +354,7 @@ impl Rectangle {
     }
 }
 
+#[must_use]
 pub fn expand_rectangle(rectangle: &Rectangle, expansion: f64) -> Rectangle {
     let top_left = rectangle.get_top_left();
     let bottom_right = rectangle.get_bottom_right();
@@ -348,15 +378,18 @@ impl PartialEq for Circle {
 }
 
 impl Circle {
+    #[must_use]
     pub fn new(center: Vec3d, radius: f64) -> Self {
         Self { center, radius }
     }
 
+    #[must_use]
     pub fn intersects(&self, other: &Circle) -> bool {
         let center_diff = self.center - other.center;
         center_diff.length() < (self.radius + other.radius)
     }
 
+    #[must_use]
     pub fn get_bounding_box(&self) -> Rectangle {
         let top_left = Vec3d::new(
             self.center.x - self.radius,
@@ -371,14 +404,17 @@ impl Circle {
         Rectangle::new(top_left, bottom_right)
     }
 
+    #[must_use]
     pub fn get_area(&self) -> f64 {
         std::f64::consts::PI * self.radius * self.radius
     }
 
+    #[must_use]
     pub fn get_center(&self) -> Vec3d {
         self.center
     }
 
+    #[must_use]
     pub fn get_radius(&self) -> f64 {
         self.radius
     }
@@ -392,6 +428,7 @@ pub struct CoordinateSystem {
 }
 
 impl CoordinateSystem {
+    #[must_use]
     pub fn new(origin: Vec3d, x_axis: Vec3d, y_axis: Vec3d) -> Self {
         Self {
             origin,
@@ -418,6 +455,7 @@ impl CoordinateSystem {
         self.y_axis = new_y_axis;
     }
 
+    #[must_use]
     pub fn to_local(&self, point: CoordinatedPoint) -> CoordinatedPoint {
         let global_point = point.coordinate_system.to_global(point.clone());
         let local_coordinates = self.to_local_coordinates(global_point.get_local_point());
@@ -427,6 +465,7 @@ impl CoordinateSystem {
         )
     }
 
+    #[must_use]
     pub fn convert_from_global(&self, point: Vec3d) -> CoordinatedPoint {
         let local_coordinates = self.to_local_coordinates(point);
         CoordinatedPoint::new(
@@ -435,6 +474,7 @@ impl CoordinateSystem {
         )
     }
 
+    #[must_use]
     pub fn to_global(&self, point: CoordinatedPoint) -> Vec3d {
         let local = point.local_coordinates;
         self.origin + self.x_axis * local.x + self.y_axis * local.y
@@ -449,6 +489,7 @@ impl CoordinateSystem {
         Vec3d::new(x, y, 0.0)
     }
 
+    #[must_use]
     pub fn get_angle_between(&self, other: &AnonymizedCoordinateSystem) -> RegionedAngle {
         let self_x_axis = self.x_axis;
         let other_x_axis = match other {
@@ -480,6 +521,7 @@ pub struct WrappedCoordinateSystem {
 }
 
 impl WrappedCoordinateSystem {
+    #[must_use]
     pub fn new(origin: Vec3d, x_axis: Vec3d, y_axis: Vec3d) -> Self {
         let coordinate_system = CoordinateSystem::new(origin, x_axis, y_axis);
         Self {
@@ -492,21 +534,25 @@ impl WrappedCoordinateSystem {
         cs.rotate(angle);
     }
 
+    #[must_use]
     pub fn to_local(&self, point: CoordinatedPoint) -> CoordinatedPoint {
         let cs = self.coordinate_system.lock().unwrap();
         cs.to_local(point)
     }
 
+    #[must_use]
     pub fn from_global(&self, point: Vec3d) -> CoordinatedPoint {
         let cs = self.coordinate_system.lock().unwrap();
         cs.convert_from_global(point)
     }
 
+    #[must_use]
     pub fn to_global(&self, point: CoordinatedPoint) -> Vec3d {
         let cs = self.coordinate_system.lock().unwrap();
         cs.to_global(point)
     }
 
+    #[must_use]
     pub fn get_angle_between(&self, other: &AnonymizedCoordinateSystem) -> RegionedAngle {
         let CoordinateSystem { x_axis, .. } = &self.coordinate_system.lock().unwrap().clone();
         let self_x_axis = *x_axis;
@@ -522,6 +568,7 @@ impl WrappedCoordinateSystem {
         RegionedAngle::new(cross.z.atan2(dot).to_degrees(), -180.0, 180.0)
     }
 
+    #[must_use]
     pub fn duplicate(&self) -> Self {
         let cs = self.coordinate_system.lock().unwrap();
         WrappedCoordinateSystem::new(cs.origin, cs.x_axis, cs.y_axis)
@@ -545,10 +592,12 @@ pub enum AnonymizedCoordinateSystem {
 }
 
 impl AnonymizedCoordinateSystem {
+    #[must_use]
     pub fn new_direct(coordinate_system: CoordinateSystem) -> Self {
         AnonymizedCoordinateSystem::Direct(coordinate_system)
     }
 
+    #[must_use]
     pub fn new_indirect(coordinate_system: CoordinateSystem) -> Self {
         AnonymizedCoordinateSystem::Indirect(WrappedCoordinateSystem::new(
             coordinate_system.origin,
@@ -568,6 +617,7 @@ impl AnonymizedCoordinateSystem {
         }
     }
 
+    #[must_use]
     pub fn duplicate(&self) -> Self {
         match self {
             AnonymizedCoordinateSystem::Direct(cs) => {
@@ -579,6 +629,7 @@ impl AnonymizedCoordinateSystem {
         }
     }
 
+    #[must_use]
     pub fn to_global(&self, point: CoordinatedPoint) -> CoordinatedPoint {
         match self {
             AnonymizedCoordinateSystem::Direct(cs) => {
@@ -604,6 +655,7 @@ impl AnonymizedCoordinateSystem {
         }
     }
 
+    #[must_use]
     pub fn to_local(&self, global_point: CoordinatedPoint) -> CoordinatedPoint {
         match self {
             AnonymizedCoordinateSystem::Direct(cs) => cs.to_local(global_point),
@@ -611,6 +663,7 @@ impl AnonymizedCoordinateSystem {
         }
     }
 
+    #[must_use]
     pub fn from_global(&self, global_point: CoordinatedPoint) -> CoordinatedPoint {
         let global_coordinates = global_point.get_local_point();
         match self {
@@ -621,6 +674,7 @@ impl AnonymizedCoordinateSystem {
         }
     }
 
+    #[must_use]
     pub fn get_angle_between(&self, other: AnonymizedCoordinateSystem) -> RegionedAngle {
         match self {
             AnonymizedCoordinateSystem::Direct(cs) => cs.get_angle_between(&other),
@@ -634,7 +688,7 @@ impl AnonymizedCoordinateSystem {
         match self {
             AnonymizedCoordinateSystem::Direct(cs) => cs.align_x_axis_with(&other),
             AnonymizedCoordinateSystem::Indirect(wrapped_cs) => {
-                wrapped_cs.align_x_axis_with(&other)
+                wrapped_cs.align_x_axis_with(&other);
             }
         }
     }
@@ -656,6 +710,7 @@ impl PartialEq for CoordinatedPoint {
 }
 
 impl CoordinatedPoint {
+    #[must_use]
     pub fn new(coordinate_system: AnonymizedCoordinateSystem, local_coordinates: Vec3d) -> Self {
         Self {
             coordinate_system,
@@ -663,10 +718,12 @@ impl CoordinatedPoint {
         }
     }
 
+    #[must_use]
     pub fn get_coordinate_system(&self) -> AnonymizedCoordinateSystem {
         self.coordinate_system.clone()
     }
 
+    #[must_use]
     pub fn to_global_point(&self) -> CoordinatedPoint {
         let global_coordinate_system =
             AnonymizedCoordinateSystem::new_direct(CoordinateSystem::new(
@@ -677,6 +734,7 @@ impl CoordinatedPoint {
         self.convert_to(global_coordinate_system)
     }
 
+    #[must_use]
     pub fn get_local_point(&self) -> Vec3d {
         self.local_coordinates
     }
@@ -693,6 +751,7 @@ impl CoordinatedPoint {
         self.local_coordinates.z = z;
     }
 
+    #[must_use]
     pub fn convert_to(&self, coordinate_system: AnonymizedCoordinateSystem) -> CoordinatedPoint {
         let global_point = self
             .coordinate_system
@@ -711,11 +770,13 @@ impl CoordinatedPoint {
         CoordinatedPoint::new(coordinate_system, local_coordinates)
     }
 
+    #[must_use]
     pub fn plus(&self, other: Vec3d) -> CoordinatedPoint {
         let new_local = self.local_coordinates + other;
         CoordinatedPoint::new(self.coordinate_system.clone(), new_local)
     }
 
+    #[must_use]
     pub fn rotate(&self, around: CoordinatedPoint, angle: RegionedAngle) -> CoordinatedPoint {
         let around_local = around.convert_to(self.coordinate_system.clone());
         let translated_x = self.local_coordinates.x - around_local.local_coordinates.x;
@@ -732,20 +793,24 @@ impl CoordinatedPoint {
         CoordinatedPoint::new(self.coordinate_system.clone(), new_local)
     }
 
+    #[must_use]
     pub fn distance_to(&self, other: CoordinatedPoint) -> f64 {
         let global_self = self.coordinate_system.to_global(self.clone());
         let global_other = other.coordinate_system.to_global(other.clone());
         (global_self.get_local_point() - global_other.get_local_point()).length()
     }
 
+    #[must_use]
     pub fn get_x(&self) -> f64 {
         self.local_coordinates.x
     }
 
+    #[must_use]
     pub fn get_y(&self) -> f64 {
         self.local_coordinates.y
     }
 
+    #[must_use]
     pub fn get_z(&self) -> f64 {
         self.local_coordinates.z
     }
@@ -758,14 +823,17 @@ pub struct CoordinatedLine {
 }
 
 impl CoordinatedLine {
+    #[must_use]
     pub fn new(start: CoordinatedPoint, end: CoordinatedPoint) -> Self {
         Self { start, end }
     }
 
+    #[must_use]
     pub fn length(&self) -> f64 {
         self.start.distance_to(self.end.clone())
     }
 
+    #[must_use]
     pub fn convert_to(&self, coordinate_system: AnonymizedCoordinateSystem) -> CoordinatedLine {
         CoordinatedLine {
             start: self.start.convert_to(coordinate_system.clone()),
@@ -773,16 +841,19 @@ impl CoordinatedLine {
         }
     }
 
+    #[must_use]
     pub fn get_line(&self) -> Line {
         self.to_global_line()
     }
 
+    #[must_use]
     pub fn to_global_line(&self) -> Line {
         let global_start = self.start.coordinate_system.to_global(self.start.clone());
         let global_end = self.end.coordinate_system.to_global(self.end.clone());
         Line::new(global_start.get_local_point(), global_end.get_local_point())
     }
 
+    #[must_use]
     pub fn get_intersection_point(&self, other: CoordinatedLine) -> Option<CoordinatedPoint> {
         let global_line1 = self.to_global_line();
         let global_line2 = other.to_global_line();
@@ -806,16 +877,19 @@ impl CoordinatedLine {
         }
     }
 
+    #[must_use]
     pub fn intersects(&self, other: CoordinatedLine) -> bool {
         let global_line1 = self.to_global_line();
         let global_line2 = other.to_global_line();
         global_line1.intersects(&global_line2)
     }
 
+    #[must_use]
     pub fn get_start(&self) -> CoordinatedPoint {
         self.start.clone()
     }
 
+    #[must_use]
     pub fn get_end(&self) -> CoordinatedPoint {
         self.end.clone()
     }
@@ -829,6 +903,7 @@ pub struct CoordinatedRectangle {
 }
 
 impl CoordinatedRectangle {
+    #[must_use]
     pub fn new(top_left: CoordinatedPoint, bottom_right: CoordinatedPoint) -> Self {
         let points = vec![top_left, bottom_right];
         let mut rect = Self {
@@ -841,6 +916,7 @@ impl CoordinatedRectangle {
         rect
     }
 
+    #[must_use]
     pub fn new_from_rectangle(
         rectangle: Rectangle,
         coordinate_system: AnonymizedCoordinateSystem,
@@ -870,6 +946,7 @@ impl CoordinatedRectangle {
         rect
     }
 
+    #[must_use]
     pub fn convert_to(
         &self,
         coordinate_system: AnonymizedCoordinateSystem,
@@ -888,30 +965,35 @@ impl CoordinatedRectangle {
         rect
     }
 
+    #[must_use]
     pub fn get_local_rectangle(&self) -> Rectangle {
         let tl = self.points[0].get_local_point();
         let br = self.points[1].get_local_point();
         Rectangle::new(tl, br)
     }
 
+    #[must_use]
     pub fn to_global_rectangle(&self) -> Rectangle {
         let tl = self.points[0].to_global_point().get_local_point();
         let br = self.points[1].to_global_point().get_local_point();
         Rectangle::new(tl, br)
     }
 
+    #[must_use]
     pub fn overlaps(&self, other: &CoordinatedRectangle) -> bool {
         let global_rectangle1 = self.to_global_rectangle();
         let global_rectangle2 = other.to_global_rectangle();
         global_rectangle1.overlaps(&global_rectangle2)
     }
 
+    #[must_use]
     pub fn intersects(&self, other: &CoordinatedRectangle) -> bool {
         let global_rectangle1 = self.to_global_rectangle();
         let global_rectangle2 = other.to_global_rectangle();
         global_rectangle1.intersects(&global_rectangle2)
     }
 
+    #[must_use]
     pub fn get_intersection_line(&self, line: CoordinatedLine) -> Option<CoordinatedLine> {
         let global_rectangle = self.to_global_rectangle();
         let global_line = line.to_global_line();
@@ -934,10 +1016,12 @@ impl CoordinatedRectangle {
             })
     }
 
+    #[must_use]
     pub fn get_top_left(&self) -> &CoordinatedPoint {
         &self.points[0]
     }
 
+    #[must_use]
     pub fn get_top_right(&self) -> &CoordinatedPoint {
         self.cached_top_right.as_ref().unwrap()
     }
@@ -956,6 +1040,7 @@ impl CoordinatedRectangle {
         }
     }
 
+    #[must_use]
     pub fn get_bottom_left(&self) -> &CoordinatedPoint {
         self.cached_bottom_left.as_ref().unwrap()
     }
@@ -974,6 +1059,7 @@ impl CoordinatedRectangle {
         }
     }
 
+    #[must_use]
     pub fn get_bottom_right(&self) -> &CoordinatedPoint {
         &self.points[1]
     }
@@ -986,10 +1072,12 @@ pub struct CoordinatedCircle {
 }
 
 impl CoordinatedCircle {
+    #[must_use]
     pub fn new(center: CoordinatedPoint, radius: f64) -> Self {
         Self { center, radius }
     }
 
+    #[must_use]
     pub fn convert_to(
         &self,
         wrapped_coordinate_system: AnonymizedCoordinateSystem,
@@ -1000,25 +1088,30 @@ impl CoordinatedCircle {
         }
     }
 
+    #[must_use]
     pub fn to_global_circle(&self) -> Circle {
         let global_center = self.center.coordinate_system.to_global(self.center.clone());
         Circle::new(global_center.get_local_point(), self.radius)
     }
 
+    #[must_use]
     pub fn intersects(&self, other: &CoordinatedCircle) -> bool {
         let global_circle1 = self.to_global_circle();
         let global_circle2 = other.to_global_circle();
         global_circle1.intersects(&global_circle2)
     }
 
+    #[must_use]
     pub fn get_center(&self) -> CoordinatedPoint {
         self.center.clone()
     }
 
+    #[must_use]
     pub fn get_radius(&self) -> f64 {
         self.radius
     }
 
+    #[must_use]
     pub fn get_bounding_box(&self) -> CoordinatedRectangle {
         let top_left = CoordinatedPoint::new(
             self.center.coordinate_system.clone(),
@@ -1039,16 +1132,19 @@ impl CoordinatedCircle {
         CoordinatedRectangle::new(top_left, bottom_right)
     }
 
+    #[must_use]
     pub fn get_area(&self) -> f64 {
         std::f64::consts::PI * self.radius * self.radius
     }
 
+    #[must_use]
     pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
         let global_center = self.center.coordinate_system.to_global(self.center.clone());
         let global_point = point.coordinate_system.to_global(point.clone());
         (global_center.get_local_point() - global_point.get_local_point()).length() <= self.radius
     }
 
+    #[must_use]
     pub fn get_intersection_line(&self, line: CoordinatedLine) -> Option<CoordinatedLine> {
         let global_circle = self.to_global_circle();
         let global_line = line.to_global_line();
@@ -1109,6 +1205,7 @@ pub struct CoordinatedRegionedAngle {
 }
 
 impl CoordinatedRegionedAngle {
+    #[must_use]
     pub fn new(
         coordinate_system: AnonymizedCoordinateSystem,
         regioned_angle: RegionedAngle,
@@ -1119,6 +1216,7 @@ impl CoordinatedRegionedAngle {
         }
     }
 
+    #[must_use]
     pub fn new_from_lines(
         line1: CoordinatedLine,
         line2: CoordinatedLine,
@@ -1133,6 +1231,7 @@ impl CoordinatedRegionedAngle {
         CoordinatedRegionedAngle::new(line1.start.coordinate_system.clone(), regioned_angle)
     }
 
+    #[must_use]
     pub fn convert_to(
         &self,
         coordinate_system: AnonymizedCoordinateSystem,
@@ -1148,22 +1247,27 @@ impl CoordinatedRegionedAngle {
         CoordinatedRegionedAngle::new(coordinate_system, new_regioned_angle)
     }
 
+    #[must_use]
     pub fn get_regioned_angle(&self) -> RegionedAngle {
         self.regioned_angle.clone()
     }
 
+    #[must_use]
     pub fn get_coordinate_system(&self) -> AnonymizedCoordinateSystem {
         self.coordinate_system.clone()
     }
 
+    #[must_use]
     pub fn get_angle_degrees(&self) -> f64 {
         self.regioned_angle.angle_degrees
     }
 
+    #[must_use]
     pub fn get_min_degrees(&self) -> f64 {
         self.regioned_angle.min_degrees
     }
 
+    #[must_use]
     pub fn get_max_degrees(&self) -> f64 {
         self.regioned_angle.max_degrees
     }
@@ -1176,15 +1280,18 @@ pub struct PolarCoordinates {
 }
 
 impl PolarCoordinates {
+    #[must_use]
     pub fn new(radius: f64, angle: CoordinatedRegionedAngle) -> Self {
         Self { radius, angle }
     }
 
+    #[must_use]
     pub fn convert_to(&self, coordinate_system: AnonymizedCoordinateSystem) -> PolarCoordinates {
         let new_angle = self.angle.convert_to(coordinate_system);
         PolarCoordinates::new(self.radius, new_angle)
     }
 
+    #[must_use]
     pub fn to_cartesian(&self) -> CoordinatedPoint {
         let angle_radians = self.angle.get_regioned_angle().radians();
         let x = self.radius * angle_radians.cos();
@@ -1192,14 +1299,17 @@ impl PolarCoordinates {
         CoordinatedPoint::new(self.angle.get_coordinate_system(), Vec3d::new(x, y, 0.0))
     }
 
+    #[must_use]
     pub fn get_radius(&self) -> f64 {
         self.radius
     }
 
+    #[must_use]
     pub fn get_angle(&self) -> CoordinatedRegionedAngle {
         self.angle.clone()
     }
 
+    #[must_use]
     pub fn get_coordinate_system(&self) -> AnonymizedCoordinateSystem {
         self.angle.get_coordinate_system()
     }

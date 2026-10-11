@@ -16,6 +16,7 @@ pub struct TileParams {
 }
 
 impl TileParams {
+    #[must_use]
     pub fn new(relative_tile_x: f64, relative_tile_y: f64) -> Self {
         assert!(relative_tile_x > 0.0, "relative_tile_x must be positive");
         assert!(relative_tile_y > 0.0, "relative_tile_y must be positive");
@@ -27,10 +28,12 @@ impl TileParams {
         }
     }
 
+    #[must_use]
     pub fn relative_tile_x(&self) -> f64 {
         self.relative_tile_x
     }
 
+    #[must_use]
     pub fn relative_tile_y(&self) -> f64 {
         self.relative_tile_y
     }
@@ -45,6 +48,7 @@ pub struct EyeParams {
 }
 
 impl EyeParams {
+    #[must_use]
     pub fn new(
         tile_params: TileParams,
         bucket_delta: f64,
@@ -60,6 +64,7 @@ impl EyeParams {
     }
 }
 
+#[must_use]
 pub fn deduce_bucketed_mosaics(
     mosaics: Vec<AnonymizedMosaic>,
     surrounding_rectangle: Rectangle,
@@ -72,7 +77,7 @@ pub fn deduce_bucketed_mosaics(
         surrounding_rectangle.get_top_left(),
         surrounding_rectangle.get_bottom_right(),
     );
-    for mosaic in mosaics.into_iter() {
+    for mosaic in mosaics {
         bucketed_mosaics.add_mosaic(TracedRelativeMosaic::new(
             WrappedRelativeMosaic::new(mosaic.get_mosaic(), absolute_rectangle.clone()),
             trace_params.clone(),
@@ -171,10 +176,8 @@ fn deduce_rectangle_for_next_mosaic(
 }
 
 fn deduce_color(previous_bounding_box: Rectangle, next_bounding_box: Rectangle) -> Color {
-    match previous_bounding_box.overlaps(&next_bounding_box) {
-        true => Color::Blue,
-        false => Color::Blue,
-    }
+    let _overlaps = previous_bounding_box.overlaps(&next_bounding_box);
+    Color::Blue
 }
 
 fn are_mosaics_similar(

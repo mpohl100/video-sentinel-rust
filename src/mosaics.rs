@@ -21,6 +21,7 @@ pub struct CachedRelativeData {
 }
 
 impl CachedRelativeData {
+    #[must_use]
     pub fn new(
         bounding_box: CoordinatedRectangle,
         bounding_circle: CoordinatedCircle,
@@ -37,22 +38,27 @@ impl CachedRelativeData {
         }
     }
 
+    #[must_use]
     pub fn get_bounding_box(&self) -> CoordinatedRectangle {
         self.bounding_box.clone()
     }
 
+    #[must_use]
     pub fn get_bounding_circle(&self) -> CoordinatedCircle {
         self.bounding_circle.clone()
     }
 
+    #[must_use]
     pub fn get_center_of_mass(&self) -> CoordinatedPoint {
         self.center_of_mass.clone()
     }
 
+    #[must_use]
     pub fn get_area(&self) -> f64 {
         self.area
     }
 
+    #[must_use]
     pub fn get_average_color_vec(&self) -> Vec3d {
         self.average_color
     }
@@ -304,37 +310,44 @@ pub struct WrappedMosaic {
 }
 
 impl WrappedMosaic {
+    #[must_use]
     pub fn new(slice_matrix: SliceMatrix) -> Self {
         Self {
             mosaic: Arc::new(Mutex::new(Mosaic::new(slice_matrix))),
         }
     }
 
+    #[must_use]
     pub fn get_bounding_box(&self) -> CoordinatedRectangle {
         let mut mosaic = self.mosaic.lock().unwrap();
         mosaic.get_bounding_box()
     }
 
+    #[must_use]
     pub fn get_bounding_circle(&self) -> CoordinatedCircle {
         let mut mosaic = self.mosaic.lock().unwrap();
         mosaic.get_bounding_circle()
     }
 
+    #[must_use]
     pub fn get_center_of_mass(&self) -> CoordinatedPoint {
         let mut mosaic = self.mosaic.lock().unwrap();
         mosaic.get_center_of_mass()
     }
 
+    #[must_use]
     pub fn get_area(&self) -> f64 {
         let mut mosaic = self.mosaic.lock().unwrap();
         mosaic.get_area()
     }
 
+    #[must_use]
     pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
         let mosaic = self.mosaic.lock().unwrap();
         mosaic.contains_point(point)
     }
 
+    #[must_use]
     pub fn deduce_longest_distance_point(
         &self,
         point: CoordinatedPoint,
@@ -342,11 +355,13 @@ impl WrappedMosaic {
         let mosaic = self.mosaic.lock().unwrap();
         mosaic.deduce_longest_distance_point(point)
     }
+    #[must_use]
     pub fn get_slice_matrix(&self) -> SliceMatrix {
         let mosaic = self.mosaic.lock().unwrap();
         mosaic.slice_matrix.clone()
     }
 
+    #[must_use]
     pub fn get_average_color(&self) -> Vec3d {
         let mut mosaic = self.mosaic.lock().unwrap();
         mosaic.get_average_color()
@@ -359,47 +374,56 @@ pub struct WrappedRelativeMosaic {
 }
 
 impl WrappedRelativeMosaic {
+    #[must_use]
     pub fn new(mosaic: WrappedMosaic, absolute_rectangle: Rectangle) -> Self {
         Self {
             relative_mosaic: Arc::new(Mutex::new(RelativeMosaic::new(mosaic, absolute_rectangle))),
         }
     }
 
+    #[must_use]
     pub fn get_bounding_box(&self) -> CoordinatedRectangle {
         let mut relative_mosaic = self.relative_mosaic.lock().unwrap();
         relative_mosaic.get_bounding_box()
     }
 
+    #[must_use]
     pub fn get_bounding_circle(&self) -> CoordinatedCircle {
         let mut relative_mosaic = self.relative_mosaic.lock().unwrap();
         relative_mosaic.get_bounding_circle()
     }
 
+    #[must_use]
     pub fn get_center_of_mass(&self) -> CoordinatedPoint {
         let mut relative_mosaic = self.relative_mosaic.lock().unwrap();
         relative_mosaic.get_center_of_mass()
     }
 
+    #[must_use]
     pub fn get_area(&self) -> f64 {
         let mut relative_mosaic = self.relative_mosaic.lock().unwrap();
         relative_mosaic.get_area()
     }
 
+    #[must_use]
     pub fn get_average_color(&self) -> Vec3d {
         let mut relative_mosaic = self.relative_mosaic.lock().unwrap();
         relative_mosaic.get_average_color()
     }
 
+    #[must_use]
     pub fn get_absolute_rectangle(&self) -> Rectangle {
         let relative_mosaic = self.relative_mosaic.lock().unwrap();
         relative_mosaic.get_absolute_rectangle()
     }
 
+    #[must_use]
     pub fn get_mosaic(&self) -> WrappedMosaic {
         let relative_mosaic = self.relative_mosaic.lock().unwrap();
         relative_mosaic.get_mosaic()
     }
 
+    #[must_use]
     pub fn shares_identity_with(&self, other: &WrappedRelativeMosaic) -> bool {
         Arc::ptr_eq(&self.relative_mosaic, &other.relative_mosaic)
     }
@@ -420,6 +444,7 @@ pub enum AnonymizedMosaic {
 }
 
 impl AnonymizedMosaic {
+    #[must_use]
     pub fn new(
         results: Results,
         mosaic: WrappedMosaic,
@@ -433,6 +458,7 @@ impl AnonymizedMosaic {
         }
     }
 
+    #[must_use]
     pub fn get_mosaic(&self) -> WrappedMosaic {
         match self {
             AnonymizedMosaic::Absolute(mosaic) => mosaic.clone(),
@@ -440,6 +466,7 @@ impl AnonymizedMosaic {
         }
     }
 
+    #[must_use]
     pub fn get_bounding_box(&self) -> CoordinatedRectangle {
         match self {
             AnonymizedMosaic::Absolute(mosaic) => mosaic.get_bounding_box(),
@@ -447,6 +474,7 @@ impl AnonymizedMosaic {
         }
     }
 
+    #[must_use]
     pub fn get_bounding_circle(&self) -> CoordinatedCircle {
         match self {
             AnonymizedMosaic::Absolute(mosaic) => mosaic.get_bounding_circle(),
@@ -454,6 +482,7 @@ impl AnonymizedMosaic {
         }
     }
 
+    #[must_use]
     pub fn get_center_of_mass(&self) -> CoordinatedPoint {
         match self {
             AnonymizedMosaic::Absolute(mosaic) => mosaic.get_center_of_mass(),
@@ -461,6 +490,7 @@ impl AnonymizedMosaic {
         }
     }
 
+    #[must_use]
     pub fn get_area(&self) -> f64 {
         match self {
             AnonymizedMosaic::Absolute(mosaic) => mosaic.get_area(),
@@ -468,6 +498,7 @@ impl AnonymizedMosaic {
         }
     }
 
+    #[must_use]
     pub fn get_average_color(&self) -> Vec3d {
         match self {
             AnonymizedMosaic::Absolute(mosaic) => mosaic.get_average_color(),
@@ -615,7 +646,10 @@ mod tests {
         let mut relative_mosaic =
             RelativeMosaic::new(wrapped_mosaic.clone(), absolute_rectangle.clone());
 
-        assert!(relative_mosaic.get_mosaic().get_area() == wrapped_mosaic.get_area());
+        assert_eq!(
+            relative_mosaic.get_mosaic().get_area(),
+            wrapped_mosaic.get_area()
+        );
         assert!(relative_mosaic.get_absolute_rectangle() == absolute_rectangle);
         assert_vec_eq(
             relative_mosaic
@@ -666,7 +700,10 @@ mod tests {
             wrapped_relative.get_average_color(),
             Vec3d::new(1.0, 2.0, 3.0),
         );
-        assert!(wrapped_relative.get_mosaic().get_area() == wrapped_mosaic.get_area());
+        assert_eq!(
+            wrapped_relative.get_mosaic().get_area(),
+            wrapped_mosaic.get_area()
+        );
     }
 
     #[test]

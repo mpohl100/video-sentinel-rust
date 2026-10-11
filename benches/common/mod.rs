@@ -308,7 +308,7 @@ fn object_detection_params_input() -> ObjectDetectionParamsInput {
 pub fn surrounding_rectangle(image: &WrappedRgbImage) -> Rectangle {
     Rectangle::new(
         Vec3d::new(0.0, 0.0, 0.0),
-        Vec3d::new(image.width() as f64, image.height() as f64, 0.0),
+        Vec3d::new(f64::from(image.width()), f64::from(image.height()), 0.0),
     )
 }
 
@@ -564,8 +564,8 @@ fn rgb_from_name(color: &str) -> [u8; 3] {
 }
 
 fn rotated_rectangle_vertices(rectangle: &ColoredTestRectangle) -> [(i32, i32); 4] {
-    let center_x = (rectangle.top_left.x + rectangle.bottom_right.x) / 2.0;
-    let center_y = (rectangle.top_left.y + rectangle.bottom_right.y) / 2.0;
+    let center_x = f64::midpoint(rectangle.top_left.x, rectangle.bottom_right.x);
+    let center_y = f64::midpoint(rectangle.top_left.y, rectangle.bottom_right.y);
     let half_width = (rectangle.bottom_right.x - rectangle.top_left.x) / 2.0;
     let half_height = (rectangle.bottom_right.y - rectangle.top_left.y) / 2.0;
     let angle = rectangle.rotation_angle_degrees.to_radians();

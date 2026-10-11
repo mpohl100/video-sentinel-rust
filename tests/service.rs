@@ -1,3 +1,19 @@
+#![warn(clippy::pedantic)]
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::float_cmp,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::must_use_candidate,
+    clippy::needless_pass_by_value,
+    clippy::similar_names,
+    clippy::too_many_lines,
+    clippy::unreadable_literal
+)]
+
 use std::path::PathBuf;
 use std::sync::{Once, OnceLock};
 
@@ -23,7 +39,7 @@ use video_sentinel::slices::WrappedRgbImage;
 
 type TestSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
-const FETCH_SESSION_STATE: &str = r#"
+const FETCH_SESSION_STATE: &str = r"
 query FetchSessionState($sessionId: String!) {
   getOrdinarySession(sessionId: $sessionId) {
     basicParams {
@@ -100,9 +116,9 @@ query FetchSessionState($sessionId: String!) {
   getBucketDelta(sessionId: $sessionId)
   getTargetSimilarity(sessionId: $sessionId)
 }
-"#;
+";
 
-const GET_RECTANGLES: &str = r#"
+const GET_RECTANGLES: &str = r"
 mutation GetRectangles($sessionId: String!, $image: Upload!) {
   getRectangles(sessionId: $sessionId, image: $image) {
     boundingBox {
@@ -153,9 +169,9 @@ mutation GetRectangles($sessionId: String!, $image: Upload!) {
     results
   }
 }
-"#;
+";
 
-const CREATE_ORDINARY_SESSION: &str = r#"
+const CREATE_ORDINARY_SESSION: &str = r"
 mutation CreateOrdinarySession(
   $sessionId: String!
   $basicParams: BasicParamsInputGql!
@@ -163,9 +179,9 @@ mutation CreateOrdinarySession(
 ) {
   createOrdinarySession(sessionId: $sessionId, basicParams: $basicParams, results: $results)
 }
-"#;
+";
 
-const CREATE_EYE_SESSION: &str = r#"
+const CREATE_EYE_SESSION: &str = r"
 mutation CreateEyeSession(
   $sessionId: String!
   $basicParams: BasicParamsInputGql!
@@ -179,9 +195,9 @@ mutation CreateEyeSession(
     results: $results
   )
 }
-"#;
+";
 
-const CREATE_OBJECT_SESSION: &str = r#"
+const CREATE_OBJECT_SESSION: &str = r"
 mutation CreateObjectSession(
   $sessionId: String!
   $basicParams: BasicParamsInputGql!
@@ -195,45 +211,45 @@ mutation CreateObjectSession(
     results: $results
   )
 }
-"#;
+";
 
-const UPDATE_BASIC_PARAMS: &str = r#"
+const UPDATE_BASIC_PARAMS: &str = r"
 mutation UpdateBasicParams($sessionId: String!, $basicParams: BasicParamsInputGql!) {
   updateBasicParams(sessionId: $sessionId, basicParams: $basicParams)
 }
-"#;
+";
 
-const UPDATE_TILE_PARAMS: &str = r#"
+const UPDATE_TILE_PARAMS: &str = r"
 mutation UpdateTileParams($sessionId: String!, $tileParams: TileParamsInputGql!) {
   updateTileParams(sessionId: $sessionId, tileParams: $tileParams)
 }
-"#;
+";
 
-const UPDATE_TRACE_PARAMS: &str = r#"
+const UPDATE_TRACE_PARAMS: &str = r"
 mutation UpdateTraceParams($sessionId: String!, $traceParams: TraceParamsInputGql!) {
   updateTraceParams(sessionId: $sessionId, traceParams: $traceParams)
 }
-"#;
+";
 
-const UPDATE_BUCKET_DELTA: &str = r#"
+const UPDATE_BUCKET_DELTA: &str = r"
 mutation UpdateBucketDelta($sessionId: String!, $bucketDelta: Float!) {
   updateBucketDelta(sessionId: $sessionId, bucketDelta: $bucketDelta)
 }
-"#;
+";
 
-const UPDATE_TARGET_SIMILARITY: &str = r#"
+const UPDATE_TARGET_SIMILARITY: &str = r"
 mutation UpdateTargetSimilarity($sessionId: String!, $targetSimilarity: Float!) {
   updateTargetSimilarity(sessionId: $sessionId, targetSimilarity: $targetSimilarity)
 }
-"#;
+";
 
-const UPDATE_EYE_PARAMS: &str = r#"
+const UPDATE_EYE_PARAMS: &str = r"
 mutation UpdateEyeParams($sessionId: String!, $eyeParams: EyeParamsInputGql!) {
   updateEyeParams(sessionId: $sessionId, eyeParams: $eyeParams)
 }
-"#;
+";
 
-const UPDATE_OBJECT_DETECTION_PARAMS: &str = r#"
+const UPDATE_OBJECT_DETECTION_PARAMS: &str = r"
 mutation UpdateObjectDetectionParams(
   $sessionId: String!
   $objectDetectionParams: ObjectDetectionParamsInputGql!
@@ -243,9 +259,9 @@ mutation UpdateObjectDetectionParams(
     objectDetectionParams: $objectDetectionParams
   )
 }
-"#;
+";
 
-const ADD_OBJECT_AS_IMAGE: &str = r#"
+const ADD_OBJECT_AS_IMAGE: &str = r"
 mutation AddObjectToBeDetectedAsImage(
   $sessionId: String!
   $objectId: String!
@@ -259,9 +275,9 @@ mutation AddObjectToBeDetectedAsImage(
     surroundingRectangle: $surroundingRectangle
   )
 }
-"#;
+";
 
-const ADD_OBJECT_AS_ASCII_ART: &str = r#"
+const ADD_OBJECT_AS_ASCII_ART: &str = r"
 mutation AddObjectToBeDetectedAsAsciiArt(
   $sessionId: String!
   $objectId: String!
@@ -273,19 +289,19 @@ mutation AddObjectToBeDetectedAsAsciiArt(
     asciiArt: $asciiArt
   )
 }
-"#;
+";
 
-const DELETE_SESSION: &str = r#"
+const DELETE_SESSION: &str = r"
 mutation DeleteSession($sessionId: String!) {
   deleteSession(sessionId: $sessionId)
 }
-"#;
+";
 
-const DELETE_REFERENCE_OBJECT: &str = r#"
+const DELETE_REFERENCE_OBJECT: &str = r"
 mutation DeleteReferenceObject($sessionId: String!, $objectId: String!) {
   deleteReferenceObject(sessionId: $sessionId, objectId: $objectId)
 }
-"#;
+";
 
 static VIDEO_RS_INIT: Once = Once::new();
 static EXAMPLE_FRAMES: OnceLock<Vec<ExampleFrame>> = OnceLock::new();
@@ -559,8 +575,8 @@ fn full_frame_rectangle_json(frame: &ExampleFrame) -> Value {
     json!({
         "topLeft": { "x": 0.0, "y": 0.0, "z": 0.0 },
         "bottomRight": {
-            "x": frame.width as f64,
-            "y": frame.height as f64,
+            "x": f64::from(frame.width),
+            "y": f64::from(frame.height),
             "z": 0.0,
         },
     })

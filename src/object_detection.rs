@@ -1,4 +1,3 @@
-use core::panic;
 use rs_math3d::Vec3d;
 
 use crate::bucketed_mosaics::BucketedMosaics;
@@ -19,6 +18,7 @@ pub struct ReferenceObject {
 }
 
 impl ReferenceObject {
+    #[must_use]
     pub fn new(object_id: String, mosaics: Vec<TracedRelativeMosaic>) -> Self {
         let mut mosaics = mosaics;
         mosaics.sort_by(|a, b| {
@@ -38,14 +38,17 @@ impl ReferenceObject {
         ReferenceObject { object_id, mosaics }
     }
 
+    #[must_use]
     pub fn get_mosaics(&self, until_index: usize) -> Vec<TracedRelativeMosaic> {
         self.mosaics[..until_index.min(self.mosaics.len())].to_vec()
     }
 
+    #[must_use]
     pub fn get_id(&self) -> String {
         self.object_id.clone()
     }
 
+    #[must_use]
     pub fn get_surrounding_bounding_box(&self) -> Rectangle {
         let mut min_x = f64::INFINITY;
         let mut min_y = f64::INFINITY;
@@ -67,9 +70,10 @@ impl ReferenceObject {
     }
 
     fn get_relative_rectangle_to_smallest(&self) -> RelativeRectangle {
-        if self.mosaics.len() < 2 {
-            panic!("At least 2 mosaics are required to calculate the relative rectangle");
-        }
+        assert!(
+            self.mosaics.len() >= 2,
+            "At least 2 mosaics are required to calculate the relative rectangle"
+        );
         let smallest_bounding_box = Rectangle::new_from_math_rectangle(
             self.mosaics
                 .last()
@@ -106,6 +110,7 @@ pub struct ObjectDetectionParams {
 }
 
 impl ObjectDetectionParams {
+    #[must_use]
     pub fn new(
         tile_params: TileParams,
         bucket_delta: f64,
@@ -121,6 +126,7 @@ impl ObjectDetectionParams {
     }
 }
 
+#[must_use]
 pub fn detect_objects(
     reference_object: ReferenceObject,
     bucketed_mosaics: &BucketedMosaics,
@@ -339,8 +345,8 @@ mod tests {
     }
 
     fn rotated_rectangle_vertices(rectangle: &ColoredTestRectangle) -> [(i32, i32); 4] {
-        let center_x = (rectangle.top_left.x + rectangle.bottom_right.x) / 2.0;
-        let center_y = (rectangle.top_left.y + rectangle.bottom_right.y) / 2.0;
+        let center_x = f64::midpoint(rectangle.top_left.x, rectangle.bottom_right.x);
+        let center_y = f64::midpoint(rectangle.top_left.y, rectangle.bottom_right.y);
         let half_width = (rectangle.bottom_right.x - rectangle.top_left.x) / 2.0;
         let half_height = (rectangle.bottom_right.y - rectangle.top_left.y) / 2.0;
         let angle = rectangle.rotation_angle_degrees.to_radians();
@@ -398,8 +404,8 @@ mod tests {
     }
 
     fn surrounding_rectangle(image: &WrappedRgbImage) -> Rectangle {
-        let width = image.width() as f64;
-        let height = image.height() as f64;
+        let width = f64::from(image.width());
+        let height = f64::from(image.height());
         Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(width, height, 0.0))
     }
 

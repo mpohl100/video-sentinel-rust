@@ -9,6 +9,7 @@ pub struct TracedMosaic {
 }
 
 impl TracedMosaic {
+    #[must_use]
     pub fn new(mosaic: WrappedMosaic, trace_params: TraceParams) -> Self {
         let trace = WrappedTrace::new(Trace::new_from_mosaic(mosaic.clone(), trace_params));
         TracedMosaic {
@@ -17,10 +18,12 @@ impl TracedMosaic {
         }
     }
 
+    #[must_use]
     pub fn get_mosaic(&self) -> &WrappedMosaic {
         &self.mosaics
     }
 
+    #[must_use]
     pub fn get_trace(&self) -> &WrappedTrace {
         &self.trace
     }
@@ -33,6 +36,7 @@ pub struct TracedRelativeMosaic {
 }
 
 impl TracedRelativeMosaic {
+    #[must_use]
     pub fn new(relative_mosaic: WrappedRelativeMosaic, trace_params: TraceParams) -> Self {
         let trace = WrappedTrace::new(Trace::new_from_mosaic(
             relative_mosaic.get_mosaic().clone(),
@@ -44,10 +48,12 @@ impl TracedRelativeMosaic {
         }
     }
 
+    #[must_use]
     pub fn get_relative_mosaic(&self) -> WrappedRelativeMosaic {
         self.relative_mosaic.clone()
     }
 
+    #[must_use]
     pub fn get_trace(&self) -> &WrappedTrace {
         &self.trace
     }

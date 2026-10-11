@@ -1,3 +1,20 @@
+#![warn(clippy::pedantic)]
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::float_cmp,
+    clippy::many_single_char_names,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::must_use_candidate,
+    clippy::needless_pass_by_value,
+    clippy::similar_names,
+    clippy::too_many_lines,
+    clippy::unreadable_literal
+)]
+
 use rs_math3d::Vec3d;
 use std::env;
 
@@ -73,8 +90,8 @@ fn rgb_from_name(color: &str) -> [u8; 3] {
 }
 
 fn rotated_rectangle_vertices(rectangle: &ColoredTestRectangle) -> [(i32, i32); 4] {
-    let center_x = (rectangle.top_left.x + rectangle.bottom_right.x) / 2.0;
-    let center_y = (rectangle.top_left.y + rectangle.bottom_right.y) / 2.0;
+    let center_x = f64::midpoint(rectangle.top_left.x, rectangle.bottom_right.x);
+    let center_y = f64::midpoint(rectangle.top_left.y, rectangle.bottom_right.y);
     let half_width = (rectangle.bottom_right.x - rectangle.top_left.x) / 2.0;
     let half_height = (rectangle.bottom_right.y - rectangle.top_left.y) / 2.0;
     let angle = rectangle.rotation_angle_degrees.to_radians();
@@ -201,8 +218,8 @@ fn object_detection_scene_shapes() -> ShapesData {
 
 fn rectangle_midpoint(rectangle: &ColoredTestRectangle) -> Vec3d {
     Vec3d::new(
-        (rectangle.top_left.x + rectangle.bottom_right.x) / 2.0,
-        (rectangle.top_left.y + rectangle.bottom_right.y) / 2.0,
+        f64::midpoint(rectangle.top_left.x, rectangle.bottom_right.x),
+        f64::midpoint(rectangle.top_left.y, rectangle.bottom_right.y),
         0.0,
     )
 }
@@ -309,8 +326,8 @@ fn rectangle_slice_matrix(
 fn circle_slice_matrix(width: u32, height: u32, center: Vec3d, radius: f64) -> SliceMatrix {
     let mut slice_matrix = SliceMatrix::new(blank_image(width, height));
     let start_y = (center.y - radius).floor().max(0.0) as usize;
-    let end_y = (center.y + radius).ceil().min(height as f64) as usize;
-    let max_x = width.saturating_sub(1) as f64;
+    let end_y = (center.y + radius).ceil().min(f64::from(height)) as usize;
+    let max_x = f64::from(width.saturating_sub(1));
 
     for y in start_y..end_y {
         let dy = y as f64 - center.y;
@@ -326,8 +343,8 @@ fn circle_slice_matrix(width: u32, height: u32, center: Vec3d, radius: f64) -> S
 }
 
 fn surrounding_rectangle(image: &WrappedRgbImage) -> Rectangle {
-    let width = image.width() as f64;
-    let height = image.height() as f64;
+    let width = f64::from(image.width());
+    let height = f64::from(image.height());
     Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(width, height, 0.0))
 }
 
