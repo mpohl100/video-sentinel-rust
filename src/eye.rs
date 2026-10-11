@@ -71,26 +71,46 @@ impl EyeParams {
     }
 }
 
-#[must_use]
-pub fn deduce_bucketed_mosaics(
+pub async fn deduce_bucketed_mosaics(
     mosaics: Vec<AnonymizedMosaic>,
     surrounding_rectangle: Rectangle,
     tile_params: TileParams,
     bucket_delta: f64,
     trace_params: TraceParams,
-) -> BucketedMosaics {
+) -> Result<BucketedMosaics, String> {
     let mut bucketed_mosaics = BucketedMosaics::new(tile_params, bucket_delta);
     let absolute_rectangle = MathRectangle::new(
         surrounding_rectangle.get_top_left(),
         surrounding_rectangle.get_bottom_right(),
     );
-    for mosaic in mosaics {
-        bucketed_mosaics.add_mosaic(&TracedRelativeMosaic::new(
-            WrappedRelativeMosaic::new(mosaic.get_mosaic(), absolute_rectangle.clone()),
-            trace_params,
-        ));
+    let mut join_set = JoinSet::new();
+
+    for (index, mosaic) in mosaics.into_iter().enumerate() {
+        let absolute_rectangle = absolute_rectangle.clone();
+        join_set.spawn_blocking(move || {
+            (
+                index,
+                TracedRelativeMosaic::new(
+                    WrappedRelativeMosaic::new(mosaic.get_mosaic(), absolute_rectangle),
+                    trace_params,
+                ),
+            )
+        });
     }
-    bucketed_mosaics
+
+    let mut traced_mosaics = Vec::new();
+    while let Some(joined_result) = join_set.join_next().await {
+        let indexed_traced_mosaic = joined_result
+            .map_err(|error| format!("failed to join bucketed mosaic task: {error}"))?;
+        traced_mosaics.push(indexed_traced_mosaic);
+    }
+    traced_mosaics.sort_by_key(|(index, _)| *index);
+
+    for (_, traced_mosaic) in traced_mosaics {
+        bucketed_mosaics.add_mosaic(&traced_mosaic);
+    }
+
+    Ok(bucketed_mosaics)
 }
 
 pub async fn deduce_rectangles(
@@ -279,8 +299,8 @@ mod tests {
         let _ = TileParams::new(0.5, 1.5);
     }
 
-    #[test]
-    fn deduce_bucketed_mosaics_makes_inserted_mosaic_retrievable() {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn deduce_bucketed_mosaics_makes_inserted_mosaic_retrievable() {
         let surrounding_rectangle = sample_surrounding_rectangle();
         let mosaic =
             mosaic_from_ranges(&[(3, 3.0, 5.0), (4, 3.0, 5.0), (5, 3.0, 5.0)], [40, 50, 60]);
@@ -291,7 +311,9 @@ mod tests {
             TileParams::new(0.5, 0.5),
             0.25,
             traced_params,
-        );
+        )
+        .await
+        .expect("deduce_bucketed_mosaics should succeed");
         let wrapped = TracedRelativeMosaic::new(
             WrappedRelativeMosaic::new(
                 mosaic.get_mosaic(),
@@ -336,7 +358,9 @@ mod tests {
             TileParams::new(0.5, 0.5),
             0.25,
             TraceParams::new(12, 0.2),
-        );
+        )
+        .await
+        .expect("deduce_bucketed_mosaics should succeed");
 
         let rectangles = deduce_rectangles(
             bucketed,
@@ -378,7 +402,9 @@ mod tests {
             TileParams::new(0.5, 0.5),
             0.25,
             TraceParams::new(12, 0.2),
-        );
+        )
+        .await
+        .expect("deduce_bucketed_mosaics should succeed");
 
         let rectangles = deduce_rectangles(
             bucketed,

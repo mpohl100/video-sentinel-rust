@@ -366,13 +366,15 @@ pub fn eye_pipeline_fixture() -> EyePipelineFixture {
     let current_mosaics = ordinary_mosaics(&current_image, Results::Relative);
     let previous_mosaics = ordinary_mosaics(&previous_image, Results::Relative);
     let eye_params = eye_params();
-    let previous_bucketed_mosaics = deduce_bucketed_mosaics(
-        previous_mosaics,
-        surrounding_rectangle,
-        eye_params.tile_params,
-        eye_params.bucket_delta,
-        eye_params.trace_params,
-    );
+    let previous_bucketed_mosaics = benchmark_runtime()
+        .block_on(deduce_bucketed_mosaics(
+            previous_mosaics,
+            surrounding_rectangle,
+            eye_params.tile_params,
+            eye_params.bucket_delta,
+            eye_params.trace_params,
+        ))
+        .expect("eye pipeline fixture should build bucketed mosaics");
     EyePipelineFixture {
         previous_bucketed_mosaics,
         next_mosaics: current_mosaics,
@@ -504,22 +506,24 @@ pub fn detection_fixture() -> &'static DetectionFixture {
             TraceParams::new(12, 0.2),
             0.8,
         );
-        let bucketed_mosaics = deduce_bucketed_mosaics(
-            scene_mosaics
-                .iter()
-                .map(|mosaic| {
-                    AnonymizedMosaic::new(
-                        Results::Absolute,
-                        mosaic.get_relative_mosaic().get_mosaic(),
-                        Some(mosaic.get_relative_mosaic()),
-                    )
-                })
-                .collect(),
-            surrounding_rectangle,
-            object_detection_params.tile_params,
-            object_detection_params.bucket_delta,
-            object_detection_params.trace_params,
-        );
+        let bucketed_mosaics = benchmark_runtime()
+            .block_on(deduce_bucketed_mosaics(
+                scene_mosaics
+                    .iter()
+                    .map(|mosaic| {
+                        AnonymizedMosaic::new(
+                            Results::Absolute,
+                            mosaic.get_relative_mosaic().get_mosaic(),
+                            Some(mosaic.get_relative_mosaic()),
+                        )
+                    })
+                    .collect(),
+                surrounding_rectangle,
+                object_detection_params.tile_params,
+                object_detection_params.bucket_delta,
+                object_detection_params.trace_params,
+            ))
+            .expect("detection fixture should build bucketed mosaics");
         let query_mosaic = scene_mosaics[0].clone();
         DetectionFixture {
             surrounding_rectangle,
