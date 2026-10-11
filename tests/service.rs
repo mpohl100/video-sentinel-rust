@@ -438,7 +438,6 @@ fn load_example_frames() -> Vec<ExampleFrame> {
     });
 
     let video_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("video-sentinel-cpp")
         .join("video")
         .join("BillardTakeoff.mp4");
 
