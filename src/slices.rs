@@ -1,5 +1,3 @@
-use std::f64;
-
 use rs_math3d::Vector;
 use rs_math3d::{FloatVector, Vec3d, Vector3};
 
