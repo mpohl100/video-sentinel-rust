@@ -19,7 +19,7 @@ struct CliArgs {
     port: u16,
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() {
     if let Err(error) = run().await {
         eprintln!("error: {error}");

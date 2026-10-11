@@ -13,6 +13,7 @@ use opencv::imgcodecs;
 use opencv::imgproc;
 use opencv::prelude::*;
 use rs_math3d::Vec3d;
+use tokio::runtime::{Builder, Runtime};
 use video_rs::{Decoder, Frame};
 use video_sentinel::eye::{EyeParams, TileParams, deduce_bucketed_mosaics, deduce_rectangles};
 use video_sentinel::math::{
@@ -34,6 +35,7 @@ static VIDEO_RS_INIT: Once = Once::new();
 static EXAMPLE_VIDEO: OnceLock<ExampleVideoData> = OnceLock::new();
 static TRACE_FIXTURE: OnceLock<TraceFixture> = OnceLock::new();
 static DETECTION_FIXTURE: OnceLock<DetectionFixture> = OnceLock::new();
+static BENCHMARK_RUNTIME: OnceLock<Runtime> = OnceLock::new();
 
 #[derive(Clone)]
 pub struct ExampleFrame {
@@ -98,6 +100,16 @@ pub fn criterion_config() -> Criterion {
         .warm_up_time(Duration::from_millis(250))
         .measurement_time(Duration::from_secs(1))
         .without_plots()
+}
+
+pub fn benchmark_runtime() -> &'static Runtime {
+    BENCHMARK_RUNTIME.get_or_init(|| {
+        Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .expect("benchmark tokio runtime should build")
+    })
 }
 
 pub fn bench_with_setup<S, O, Setup, Routine>(
@@ -226,7 +238,11 @@ pub fn object_service() -> Service {
 
 fn first_rectangle_from_ordinary(image: &WrappedRgbImage) -> Rectangle {
     let service = ordinary_service();
-    match service.get_rectangles("ordinary".to_string(), image.clone(), None) {
+    match benchmark_runtime().block_on(service.get_rectangles(
+        "ordinary".to_string(),
+        image.clone(),
+        None,
+    )) {
         GetRectanglesResult::Success(rectangles) => {
             rectangles
                 .into_iter()
@@ -502,15 +518,16 @@ pub fn detect_objects_for_fixture(
     )
 }
 
-pub fn deduce_rectangles_for_fixture(
+pub async fn deduce_rectangles_for_fixture(
     fixture: EyePipelineFixture,
-) -> Vec<video_sentinel::slices::ColoredRectangle> {
+) -> Result<Vec<video_sentinel::slices::ColoredRectangle>, String> {
     deduce_rectangles(
         fixture.previous_bucketed_mosaics,
         fixture.next_mosaics,
         fixture.eye_params,
         fixture.surrounding_rectangle,
     )
+    .await
 }
 
 fn wrapped_rgb_image_from_frame(frame: Frame) -> WrappedRgbImage {

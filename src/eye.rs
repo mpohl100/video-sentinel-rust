@@ -6,6 +6,8 @@ use crate::slices::Color;
 use crate::slices::{ColoredRectangle, Rectangle};
 use crate::traced_mosaics::TracedRelativeMosaic;
 use crate::traces::TraceParams;
+use std::sync::Arc;
+use tokio::task::JoinSet;
 
 #[derive(Clone, PartialEq)]
 pub struct TileParams {
@@ -79,59 +81,93 @@ pub fn deduce_bucketed_mosaics(
     bucketed_mosaics
 }
 
-pub fn deduce_rectangles(
+pub async fn deduce_rectangles(
     previous_bucketed_mosaics: BucketedMosaics,
     next_mosaics: Vec<AnonymizedMosaic>,
     eye_params: EyeParams,
     surrounding_rectangle: Rectangle,
-) -> Vec<ColoredRectangle> {
-    let mut results = Vec::new();
+) -> Result<Vec<ColoredRectangle>, String> {
     let absolute_rectangle = MathRectangle::new(
         surrounding_rectangle.get_top_left(),
         surrounding_rectangle.get_bottom_right(),
     );
-    for next_mosaic in next_mosaics.into_iter() {
-        let wrapped_next_mosaic =
-            WrappedRelativeMosaic::new(next_mosaic.get_mosaic(), absolute_rectangle.clone());
-        let traced_next_mosaic =
-            TracedRelativeMosaic::new(wrapped_next_mosaic.clone(), eye_params.trace_params.clone());
-        let potentially_similar_mosaics =
-            previous_bucketed_mosaics.get_potentially_similar_mosaics(&traced_next_mosaic);
-        let mut current_color = Color::Red;
-        for previous_mosaic in potentially_similar_mosaics.into_iter() {
-            if are_mosaics_similar(
-                &previous_mosaic,
-                &traced_next_mosaic,
-                eye_params.target_similarity,
-            ) {
-                let color = deduce_color(
-                    Rectangle::new_from_math_rectangle(
-                        previous_mosaic
-                            .get_relative_mosaic()
-                            .get_bounding_box()
-                            .to_global_rectangle(),
-                    ),
-                    Rectangle::new_from_math_rectangle(
-                        traced_next_mosaic
-                            .get_relative_mosaic()
-                            .get_bounding_box()
-                            .to_global_rectangle(),
-                    ),
-                );
-                if current_color != Color::Blue {
-                    current_color = color;
-                }
+    let previous_bucketed_mosaics = Arc::new(previous_bucketed_mosaics);
+    let eye_params = Arc::new(eye_params);
+    let mut join_set = JoinSet::new();
+
+    for (index, next_mosaic) in next_mosaics.into_iter().enumerate() {
+        let previous_bucketed_mosaics = Arc::clone(&previous_bucketed_mosaics);
+        let eye_params = Arc::clone(&eye_params);
+        let absolute_rectangle = absolute_rectangle.clone();
+        join_set.spawn_blocking(move || {
+            (
+                index,
+                deduce_rectangle_for_next_mosaic(
+                    previous_bucketed_mosaics.as_ref(),
+                    next_mosaic,
+                    eye_params.as_ref(),
+                    absolute_rectangle,
+                ),
+            )
+        });
+    }
+
+    let mut indexed_results = Vec::new();
+    while let Some(joined_result) = join_set.join_next().await {
+        let indexed_rectangle =
+            joined_result.map_err(|error| format!("failed to join eye mosaic task: {error}"))?;
+        indexed_results.push(indexed_rectangle);
+    }
+    indexed_results.sort_by_key(|(index, _)| *index);
+    Ok(indexed_results
+        .into_iter()
+        .map(|(_, rectangle)| rectangle)
+        .collect())
+}
+
+fn deduce_rectangle_for_next_mosaic(
+    previous_bucketed_mosaics: &BucketedMosaics,
+    next_mosaic: AnonymizedMosaic,
+    eye_params: &EyeParams,
+    absolute_rectangle: MathRectangle,
+) -> ColoredRectangle {
+    let wrapped_next_mosaic =
+        WrappedRelativeMosaic::new(next_mosaic.get_mosaic(), absolute_rectangle);
+    let traced_next_mosaic =
+        TracedRelativeMosaic::new(wrapped_next_mosaic.clone(), eye_params.trace_params.clone());
+    let potentially_similar_mosaics =
+        previous_bucketed_mosaics.get_potentially_similar_mosaics(&traced_next_mosaic);
+    let mut current_color = Color::Red;
+    for previous_mosaic in potentially_similar_mosaics {
+        if are_mosaics_similar(
+            &previous_mosaic,
+            &traced_next_mosaic,
+            eye_params.target_similarity,
+        ) {
+            let color = deduce_color(
+                Rectangle::new_from_math_rectangle(
+                    previous_mosaic
+                        .get_relative_mosaic()
+                        .get_bounding_box()
+                        .to_global_rectangle(),
+                ),
+                Rectangle::new_from_math_rectangle(
+                    traced_next_mosaic
+                        .get_relative_mosaic()
+                        .get_bounding_box()
+                        .to_global_rectangle(),
+                ),
+            );
+            if current_color != Color::Blue {
+                current_color = color;
             }
         }
-        results.push(ColoredRectangle::new(
-            Rectangle::new_from_math_rectangle(
-                next_mosaic.get_bounding_box().to_global_rectangle(),
-            ),
-            current_color,
-            vec![next_mosaic],
-        ));
     }
-    results
+    ColoredRectangle::new(
+        Rectangle::new_from_math_rectangle(next_mosaic.get_bounding_box().to_global_rectangle()),
+        current_color,
+        vec![next_mosaic],
+    )
 }
 
 fn deduce_color(previous_bounding_box: Rectangle, next_bounding_box: Rectangle) -> Color {
@@ -278,8 +314,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn deduce_rectangles_marks_identical_mosaics_blue() {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn deduce_rectangles_marks_identical_mosaics_blue() {
         let surrounding_rectangle = sample_surrounding_rectangle();
         let previous =
             mosaic_from_ranges(&[(3, 3.0, 5.0), (4, 3.0, 5.0), (5, 3.0, 5.0)], [70, 80, 90]);
@@ -302,7 +338,9 @@ mod tests {
                 0.9,
             ),
             surrounding_rectangle,
-        );
+        )
+        .await
+        .expect("deduce_rectangles should succeed");
 
         assert_eq!(rectangles.len(), 1);
         assert!(rectangles[0].get_color() == Color::Red);
@@ -313,8 +351,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn deduce_rectangles_keeps_red_when_similarity_threshold_is_unreachable() {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn deduce_rectangles_keeps_red_when_similarity_threshold_is_unreachable() {
         let surrounding_rectangle = sample_surrounding_rectangle();
         let previous = mosaic_from_ranges(
             &[(3, 3.0, 5.0), (4, 3.0, 5.0), (5, 3.0, 5.0)],
@@ -342,7 +380,9 @@ mod tests {
                 1.1,
             ),
             surrounding_rectangle,
-        );
+        )
+        .await
+        .expect("deduce_rectangles should succeed");
 
         assert_eq!(rectangles.len(), 1);
         assert!(rectangles[0].get_color() == Color::Red);

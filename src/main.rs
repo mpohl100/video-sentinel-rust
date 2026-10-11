@@ -87,14 +87,15 @@ struct ObjectDetectionArgs {
     object_rectangles: Vec<String>,
 }
 
-fn main() {
-    if let Err(error) = run() {
+#[tokio::main(flavor = "multi_thread", worker_threads = 4)]
+async fn main() {
+    if let Err(error) = run().await {
         eprintln!("error: {error}");
         std::process::exit(1);
     }
 }
 
-fn run() -> Result<(), Box<dyn Error>> {
+async fn run() -> Result<(), Box<dyn Error>> {
     let args = CliArgs::parse();
 
     video_rs::init()?;
@@ -132,11 +133,14 @@ fn run() -> Result<(), Box<dyn Error>> {
             _ => None,
         };
 
-        let enriched_mosaics = match service.get_rectangles(
-            args.session_id.clone(),
-            wrapped_rgb_image.clone(),
-            previous_for_service,
-        ) {
+        let enriched_mosaics = match service
+            .get_rectangles(
+                args.session_id.clone(),
+                wrapped_rgb_image.clone(),
+                previous_for_service,
+            )
+            .await
+        {
             GetRectanglesResult::Success(mosaics) => mosaics,
             GetRectanglesResult::SessionNotFound => {
                 return Err(format!("session {} not found", args.session_id).into());
@@ -144,6 +148,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             GetRectanglesResult::PreviousImageRequiredForEyeSession => {
                 return Err("eye session requires a previous frame".into());
             }
+            GetRectanglesResult::ComputationFailed(error) => return Err(error.into()),
         };
 
         let output_image = wrapped_rgb_image.clone();

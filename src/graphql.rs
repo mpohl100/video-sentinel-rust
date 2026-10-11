@@ -610,9 +610,17 @@ impl MutationRoot {
             .transpose()?;
 
         let service = app_state(ctx)?.service;
-        let service = service.lock().await;
+        let session = {
+            let service = service.lock().await;
+            service.get_session(&session_id)
+        };
 
-        match service.get_rectangles(session_id, image, previous_image) {
+        let session = match session {
+            Some(session) => session,
+            None => return Err(message_error("Session not found")),
+        };
+
+        match Service::get_rectangles_for_session(session, image, previous_image).await {
             GetRectanglesResult::Success(mosaics) => {
                 Ok(mosaics.into_iter().map(Into::into).collect())
             }
@@ -620,6 +628,7 @@ impl MutationRoot {
             GetRectanglesResult::PreviousImageRequiredForEyeSession => {
                 Err(message_error("Previous image required for eye session"))
             }
+            GetRectanglesResult::ComputationFailed(error) => Err(message_error(&error)),
         }
     }
 

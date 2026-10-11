@@ -23,6 +23,8 @@ use crate::traces::TraceParams;
 
 use rs_math3d::Vec3d;
 use std::collections::BTreeMap;
+use std::sync::Arc;
+use tokio::task::JoinSet;
 
 #[derive(Clone)]
 pub struct BasicParamsInput {
@@ -211,6 +213,7 @@ pub enum GetRectanglesResult {
     Success(Vec<EnrichedMosaic>),
     SessionNotFound,
     PreviousImageRequiredForEyeSession,
+    ComputationFailed(String),
 }
 
 pub struct Service {
@@ -707,29 +710,50 @@ impl Service {
         }
     }
 
-    pub fn get_rectangles(
+    pub fn get_session(&self, session_id: &String) -> Option<Session> {
+        self.sessions.get(session_id).cloned()
+    }
+
+    pub async fn get_rectangles(
         &self,
         session_id: String,
         image: WrappedRgbImage,
         previous_image: Option<WrappedRgbImage>,
     ) -> GetRectanglesResult {
-        let (results, mosaics) = match self.sessions.get(&session_id) {
-            Some(Session::Eye(eye_session)) => match previous_image {
+        let session = match self.get_session(&session_id) {
+            Some(session) => session,
+            None => return GetRectanglesResult::SessionNotFound,
+        };
+        Self::get_rectangles_for_session(session, image, previous_image).await
+    }
+
+    pub async fn get_rectangles_for_session(
+        session: Session,
+        image: WrappedRgbImage,
+        previous_image: Option<WrappedRgbImage>,
+    ) -> GetRectanglesResult {
+        let (results, mosaics) = match session {
+            Session::Eye(eye_session) => match previous_image {
                 Some(previous_image) => (
                     eye_session.results,
-                    calculate_eye(eye_session, image, previous_image),
+                    match calculate_eye(&eye_session, image, previous_image).await {
+                        Ok(mosaics) => mosaics,
+                        Err(error) => return GetRectanglesResult::ComputationFailed(error),
+                    },
                 ),
                 None => return GetRectanglesResult::PreviousImageRequiredForEyeSession,
             },
-            Some(Session::Object(object_session)) => (
+            Session::Object(object_session) => (
                 object_session.results,
-                calculate_object(object_session, image),
+                match calculate_object(&object_session, image).await {
+                    Ok(mosaics) => mosaics,
+                    Err(error) => return GetRectanglesResult::ComputationFailed(error),
+                },
             ),
-            Some(Session::Ordinary(ordinary_session)) => (
+            Session::Ordinary(ordinary_session) => (
                 ordinary_session.results,
-                calculate_ordinary(ordinary_session, image),
+                calculate_ordinary(&ordinary_session, image),
             ),
-            None => return GetRectanglesResult::SessionNotFound,
         };
         GetRectanglesResult::Success(
             mosaics
@@ -873,11 +897,11 @@ fn calculate_ordinary(
         .collect()
 }
 
-fn calculate_eye(
+async fn calculate_eye(
     eye_session: &EyeSession,
     image: WrappedRgbImage,
     previous_image: WrappedRgbImage,
-) -> Vec<ColoredAnonymizedMosaic> {
+) -> Result<Vec<ColoredAnonymizedMosaic>, String> {
     let image_width = image.width() as f64;
     let image_height = image.height() as f64;
     let surrounding_rectangle = Rectangle::new(
@@ -903,20 +927,21 @@ fn calculate_eye(
         current_mosaics,
         eye_session.eye_params.clone(),
         surrounding_rectangle.clone(),
-    );
-    rectangles
+    )
+    .await?;
+    Ok(rectangles
         .into_iter()
         .map(|colored_rectangle| ColoredAnonymizedMosaic {
             color: colored_rectangle.get_color(),
             mosaic: colored_rectangle.get_mosaics()[0].clone(),
         })
-        .collect()
+        .collect())
 }
 
-fn calculate_object(
+async fn calculate_object(
     object_session: &ObjectSession,
     image: WrappedRgbImage,
-) -> Vec<ColoredAnonymizedMosaic> {
+) -> Result<Vec<ColoredAnonymizedMosaic>, String> {
     let image_width = image.width() as f64;
     let image_height = image.height() as f64;
     let surrounding_rectangle = Rectangle::new(
@@ -928,30 +953,55 @@ fn calculate_object(
         object_session.results,
         image,
     );
-    let bucketed_mosaics = deduce_bucketed_mosaics(
+    let bucketed_mosaics = Arc::new(deduce_bucketed_mosaics(
         current_mosaics.clone(),
         surrounding_rectangle.clone(),
         object_session.object_detection_params.tile_params.clone(),
         object_session.object_detection_params.bucket_delta,
         object_session.object_detection_params.trace_params.clone(),
-    );
-    let mut rectangles = Vec::new();
-    for reference_object in object_session.objects_to_be_detected.clone().into_iter() {
-        rectangles.extend(detect_objects(
-            reference_object.clone(),
-            &bucketed_mosaics,
-            object_session.object_detection_params.clone(),
-            surrounding_rectangle.clone(),
-            object_session.results,
-        ));
+    ));
+    let object_detection_params = Arc::new(object_session.object_detection_params.clone());
+    let reference_objects = object_session.objects_to_be_detected.clone();
+    let mut join_set = JoinSet::new();
+
+    for (index, reference_object) in reference_objects.into_iter().enumerate() {
+        let bucketed_mosaics = Arc::clone(&bucketed_mosaics);
+        let object_detection_params = Arc::clone(&object_detection_params);
+        let surrounding_rectangle = surrounding_rectangle.clone();
+        let results = object_session.results;
+        join_set.spawn_blocking(move || {
+            (
+                index,
+                detect_objects(
+                    reference_object,
+                    bucketed_mosaics.as_ref(),
+                    object_detection_params.as_ref().clone(),
+                    surrounding_rectangle,
+                    results,
+                ),
+            )
+        });
     }
-    rectangles
+
+    let mut indexed_rectangles = Vec::new();
+    while let Some(joined_result) = join_set.join_next().await {
+        let indexed_group = joined_result
+            .map_err(|error| format!("failed to join object detection task: {error}"))?;
+        indexed_rectangles.push(indexed_group);
+    }
+    indexed_rectangles.sort_by_key(|(index, _)| *index);
+
+    let rectangles: Vec<_> = indexed_rectangles
+        .into_iter()
+        .flat_map(|(_, rectangles)| rectangles)
+        .collect();
+    Ok(rectangles
         .into_iter()
         .map(|colored_rectangle| ColoredAnonymizedMosaic {
             color: colored_rectangle.get_color(),
             mosaic: colored_rectangle.get_mosaics()[0].clone(),
         })
-        .collect()
+        .collect())
 }
 
 #[cfg(test)]
@@ -1404,8 +1454,8 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn service_rectangles_and_enrichment_helpers_return_expected_shapes() {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn service_rectangles_and_enrichment_helpers_return_expected_shapes() {
         let mut service = Service::new();
         service.create_ordinary_session(
             "ordinary".to_string(),
@@ -1420,11 +1470,15 @@ mod tests {
         );
 
         assert!(matches!(
-            service.get_rectangles("missing".to_string(), solid_image([255, 255, 255]), None),
+            service
+                .get_rectangles("missing".to_string(), solid_image([255, 255, 255]), None)
+                .await,
             GetRectanglesResult::SessionNotFound
         ));
         assert!(matches!(
-            service.get_rectangles("eye".to_string(), solid_image([255, 255, 255]), None),
+            service
+                .get_rectangles("eye".to_string(), solid_image([255, 255, 255]), None)
+                .await,
             GetRectanglesResult::PreviousImageRequiredForEyeSession
         ));
 
@@ -1448,11 +1502,13 @@ mod tests {
             deduce_enriched_mosaic(relative_mosaics[0].clone(), Color::Blue, Results::Relative);
 
         assert!(matches!(
-            service.get_rectangles(
-                "ordinary".to_string(),
-                larger_solid_image([255, 255, 255]),
-                None,
-            ),
+            service
+                .get_rectangles(
+                    "ordinary".to_string(),
+                    larger_solid_image([255, 255, 255]),
+                    None,
+                )
+                .await,
             GetRectanglesResult::Success(_)
         ));
         assert!(enriched_absolute.color == Color::Green);
