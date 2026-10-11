@@ -36,7 +36,9 @@ fn i32_from_usize(value: usize) -> i32 {
 }
 
 fn u32_from_i32(value: i32) -> u32 {
-    value.to_u32().expect("i32 coordinate should be non-negative")
+    value
+        .to_u32()
+        .expect("i32 coordinate should be non-negative")
 }
 
 fn u32_from_usize(value: usize) -> u32 {
@@ -102,7 +104,7 @@ impl PartialEq for Slice {
 
 impl Slice {
     #[must_use]
-    pub fn new(start: CoordinatedPoint, end: CoordinatedPoint) -> Self {
+    pub fn new(start: &CoordinatedPoint, end: &CoordinatedPoint) -> Self {
         let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
@@ -158,7 +160,7 @@ impl Slice {
     }
 
     #[must_use]
-    pub fn convert_to(&self, coordinate_system: AnonymizedCoordinateSystem) -> Slice {
+    pub fn convert_to(&self, coordinate_system: &AnonymizedCoordinateSystem) -> Slice {
         Slice {
             global_rectangle: CoordinatedRectangle::new(
                 self.global_rectangle
@@ -288,8 +290,8 @@ impl SliceLine {
                 let new_end = previous_end.max(slice.slice.get_end().get_x());
                 *previous = AnnotatedSlice::new(
                     Slice::new(
-                        previous.slice.get_start().clone(),
-                        CoordinatedPoint::new(
+                        previous.slice.get_start(),
+                        &CoordinatedPoint::new(
                             previous.slice.get_end().get_coordinate_system().clone(),
                             Vec3d::new(new_end, previous.slice.get_end().get_y(), 0.0),
                         ),
@@ -307,7 +309,7 @@ impl SliceLine {
         for slice in &mut self.slices {
             let new_start = slice.slice.get_start().plus(Vec3d::new(-pixels, 0.0, 0.0));
             let new_end = slice.slice.get_end().plus(Vec3d::new(pixels, 0.0, 0.0));
-            *slice = AnnotatedSlice::new(Slice::new(new_start, new_end), slice.line_number);
+            *slice = AnnotatedSlice::new(Slice::new(&new_start, &new_end), slice.line_number);
         }
     }
 
@@ -654,7 +656,7 @@ impl SliceMatrix {
     #[must_use]
     pub fn deduce_longest_distance_point(
         &self,
-        point: CoordinatedPoint,
+        point: &CoordinatedPoint,
     ) -> Option<CoordinatedPoint> {
         let mut longest_distance = 0.0;
         let mut longest_distance_point = None;
@@ -668,10 +670,10 @@ impl SliceMatrix {
                 let mut bottom_right_corner = inner_slice.get_end().clone();
                 bottom_right_corner.set_y(bottom_right_corner.get_y() + 1.0);
 
-                let top_left_distance = point.distance_to(top_left_corner.clone());
-                let bottom_left_distance = point.distance_to(bottom_left_corner.clone());
-                let top_right_distance = point.distance_to(top_right_corner.clone());
-                let bottom_right_distance = point.distance_to(bottom_right_corner.clone());
+                let top_left_distance = point.distance_to(top_left_corner);
+                let bottom_left_distance = point.distance_to(&bottom_left_corner);
+                let top_right_distance = point.distance_to(top_right_corner);
+                let bottom_right_distance = point.distance_to(&bottom_right_corner);
 
                 if top_left_distance > longest_distance {
                     longest_distance = top_left_distance;
@@ -781,7 +783,7 @@ impl SliceMatrix {
         }
     }
 
-    pub fn remove_slices(&mut self, line: SliceLine) {
+    pub fn remove_slices(&mut self, line: &SliceLine) {
         if let Some(existing_line) = self
             .lines
             .iter_mut()
@@ -835,14 +837,22 @@ impl SliceMatrix {
                 tl.y = tl.y.min(left_point.get_y());
                 br.x = br.x.max(right_point.get_x());
                 br.y = br.y.max(right_point.get_y());
-                for x in u32_from_i32(left_point.get_x().to_i32().expect("x coordinate should fit i32"))
-                    ..=u32_from_i32(right_point.get_x().to_i32().expect("x coordinate should fit i32"))
+                for x in u32_from_i32(
+                    left_point
+                        .get_x()
+                        .to_i32()
+                        .expect("x coordinate should fit i32"),
+                )
+                    ..=u32_from_i32(
+                        right_point
+                            .get_x()
+                            .to_i32()
+                            .expect("x coordinate should fit i32"),
+                    )
                 {
                     colors.push(unsafe {
-                        rgb_reader.pixel_unchecked(
-                            usize_from_u32(x),
-                            usize_from_f64(left_point.get_y()),
-                        )
+                        rgb_reader
+                            .pixel_unchecked(usize_from_u32(x), usize_from_f64(left_point.get_y()))
                     });
                 }
             }
@@ -891,7 +901,7 @@ impl SliceMatrix {
     }
 
     #[must_use]
-    pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
+    pub fn contains_point(&self, point: &CoordinatedPoint) -> bool {
         let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
@@ -956,7 +966,7 @@ impl SliceMatrix {
                     slice.line_number = line_number;
                     let new_start = slice.slice.get_start().plus(Vec3d::new(0.0, delta, 0.0));
                     let new_end = slice.slice.get_end().plus(Vec3d::new(0.0, delta, 0.0));
-                    slice.slice = Slice::new(new_start, new_end);
+                    slice.slice = Slice::new(&new_start, &new_end);
                 }
                 borrowed_neighbors[index].push(upper);
             }
@@ -967,7 +977,7 @@ impl SliceMatrix {
                     slice.line_number = line_number;
                     let new_start = slice.slice.get_start().plus(Vec3d::new(0.0, delta, 0.0));
                     let new_end = slice.slice.get_end().plus(Vec3d::new(0.0, delta, 0.0));
-                    slice.slice = Slice::new(new_start, new_end);
+                    slice.slice = Slice::new(&new_start, &new_end);
                 }
                 borrowed_neighbors[index].push(lower);
             }
@@ -982,7 +992,7 @@ impl SliceMatrix {
                 slice.line_number -= 1;
                 let new_start = slice.slice.get_start().plus(Vec3d::new(0.0, -1.0, 0.0));
                 let new_end = slice.slice.get_end().plus(Vec3d::new(0.0, -1.0, 0.0));
-                slice.slice = Slice::new(new_start, new_end);
+                slice.slice = Slice::new(&new_start, &new_end);
             }
             let mut new_top_line = SliceLine::new(first_line.line_number - 1, new_top_slices);
             new_top_line.merge_overlapping_slices();
@@ -996,7 +1006,7 @@ impl SliceMatrix {
                 slice.line_number += 1;
                 let new_start = slice.slice.get_start().plus(Vec3d::new(0.0, 1.0, 0.0));
                 let new_end = slice.slice.get_end().plus(Vec3d::new(0.0, 1.0, 0.0));
-                slice.slice = Slice::new(new_start, new_end);
+                slice.slice = Slice::new(&new_start, &new_end);
             }
             let mut new_bottom_line = SliceLine::new(last_line.line_number + 1, new_bottom_slices);
             new_bottom_line.merge_overlapping_slices();
@@ -1109,7 +1119,7 @@ impl Rectangle {
     }
 
     #[must_use]
-    pub fn new_from_math_rectangle(rectangle: MathRectangle) -> Self {
+    pub fn new_from_math_rectangle(rectangle: &MathRectangle) -> Self {
         Self {
             top_left: rectangle.get_top_left(),
             bottom_right: rectangle.get_bottom_right(),
@@ -1399,7 +1409,7 @@ fn emplace_current_slice(
 ) {
     if let Some(slice) = current_slice.take() {
         let annotated_slice = AnnotatedSlice::new(
-            Slice::new(slice.get_slice().get_start(), slice.get_slice().get_end()),
+            Slice::new(&slice.get_slice().get_start(), &slice.get_slice().get_end()),
             current_line.get_line_number(),
         );
         // the slices will be sorted and unique by construction here
@@ -1409,7 +1419,7 @@ fn emplace_current_slice(
 
 #[must_use]
 pub fn calculate_slices(
-    image: WrappedRgbImage,
+    image: &WrappedRgbImage,
     rectangle: Rectangle,
     params: BasicParams,
 ) -> SliceMatrix {
@@ -1439,9 +1449,13 @@ pub fn calculate_slices(
 
         let gradient_threshold = f64::from(params.gradient_threshold);
         let threshold_squared = gradient_threshold * gradient_threshold;
-        for y in usize_from_f64(rectangle.top_left.y) + 2..usize_from_f64(rectangle.bottom_right.y) - 2 {
+        for y in
+            usize_from_f64(rectangle.top_left.y) + 2..usize_from_f64(rectangle.bottom_right.y) - 2
+        {
             let mut current_line = SliceLine::new(y, Vec::new());
-            for x in usize_from_f64(rectangle.top_left.x) + 2..usize_from_f64(rectangle.bottom_right.x) - 2 {
+            for x in usize_from_f64(rectangle.top_left.x) + 2
+                ..usize_from_f64(rectangle.bottom_right.x) - 2
+            {
                 let gradient = compute_smoothed_gradient_squared(&gray_reader, x, y);
                 if gradient <= threshold_squared {
                     if current_slice.is_none() {
@@ -1479,13 +1493,17 @@ pub fn calculate_slices(
         }
         slice_matrix
     } else {
-        let rgb_reader = RgbPixelReader::new(&image).expect("failed to access RGB image");
+        let rgb_reader = RgbPixelReader::new(image).expect("failed to access RGB image");
         let mut current_slice = None;
         let gradient_threshold = f64::from(params.gradient_threshold);
         let threshold_squared = gradient_threshold * gradient_threshold;
-        for y in usize_from_f64(rectangle.top_left.y) + 2..usize_from_f64(rectangle.bottom_right.y) - 2 {
+        for y in
+            usize_from_f64(rectangle.top_left.y) + 2..usize_from_f64(rectangle.bottom_right.y) - 2
+        {
             let mut current_line = SliceLine::new(y, Vec::new());
-            for x in usize_from_f64(rectangle.top_left.x) + 2..usize_from_f64(rectangle.bottom_right.x) - 2 {
+            for x in usize_from_f64(rectangle.top_left.x) + 2
+                ..usize_from_f64(rectangle.bottom_right.x) - 2
+            {
                 let gradient_0 = compute_smoothed_gradient_channel(&rgb_reader, x, y, 0);
                 let gradient_1 = compute_smoothed_gradient_channel(&rgb_reader, x, y, 1);
                 let gradient_2 = compute_smoothed_gradient_channel(&rgb_reader, x, y, 2);
@@ -1549,7 +1567,7 @@ fn go_direction(
             let tl_slice = slice_matrix.get_top_left_slice();
             if let Some(tl_slice) = tl_slice {
                 connected_matrix.add_slices(tl_slice.clone());
-                slice_matrix.remove_slices(tl_slice.clone());
+                slice_matrix.remove_slices(&tl_slice);
             } else {
                 return false;
             }
@@ -1563,7 +1581,7 @@ fn go_direction(
                 let touching_slices = slice_matrix.find_touching_slices(line, -1);
                 if let Some(touching_slices) = touching_slices {
                     connected_matrix.add_slices(touching_slices.clone());
-                    slice_matrix.remove_slices(touching_slices.clone());
+                    slice_matrix.remove_slices(&touching_slices);
                     added_something = true;
                     current_line = touching_slices.get_line_number();
                 } else {
@@ -1580,7 +1598,7 @@ fn go_direction(
             let tl_slice = slice_matrix.get_top_left_slice();
             if let Some(tl_slice) = tl_slice {
                 connected_matrix.add_slices(tl_slice.clone());
-                slice_matrix.remove_slices(tl_slice.clone());
+                slice_matrix.remove_slices(&tl_slice);
             } else {
                 return false;
             }
@@ -1594,7 +1612,7 @@ fn go_direction(
                 let touching_slices = slice_matrix.find_touching_slices(line, 1);
                 if let Some(touching_slices) = touching_slices {
                     connected_matrix.add_slices(touching_slices.clone());
-                    slice_matrix.remove_slices(touching_slices.clone());
+                    slice_matrix.remove_slices(&touching_slices);
                     added_something = true;
                     current_line = touching_slices.get_line_number();
                 } else {
@@ -1698,7 +1716,7 @@ mod tests {
     }
 
     fn slice(x1: f64, y: f64, x2: f64) -> Slice {
-        Slice::new(point(x1, y), point(x2, y))
+        Slice::new(&point(x1, y), &point(x2, y))
     }
 
     fn preliminary_annotated_slice(
@@ -1720,7 +1738,9 @@ mod tests {
     fn slice_line(line_number: usize, ranges: &[(f64, f64)]) -> SliceLine {
         let slices = ranges
             .iter()
-            .map(|(start, end)| annotated_slice(*start, f64_from_usize(line_number), *end, line_number))
+            .map(|(start, end)| {
+                annotated_slice(*start, f64_from_usize(line_number), *end, line_number)
+            })
             .collect();
         SliceLine::new(line_number, slices)
     }
@@ -1740,11 +1760,11 @@ mod tests {
     #[test]
     fn slice_methods_cover_equality_and_coordinate_conversion() {
         let translated_slice = Slice::new(
-            point_in(translated_coordinate_system(), 2.0, 3.0),
-            point_in(translated_coordinate_system(), 5.0, 3.0),
+            &point_in(translated_coordinate_system(), 2.0, 3.0),
+            &point_in(translated_coordinate_system(), 5.0, 3.0),
         );
-        let global_slice = Slice::new(point(12.0, -2.0), point(15.0, -2.0));
-        let rotated = translated_slice.convert_to(rotated_coordinate_system());
+        let global_slice = Slice::new(&point(12.0, -2.0), &point(15.0, -2.0));
+        let rotated = translated_slice.convert_to(&rotated_coordinate_system());
 
         assert!(translated_slice == global_slice);
         assert_vec_eq(
@@ -1877,12 +1897,12 @@ mod tests {
                 .find_touching_slices(matrix.get_line(2).unwrap(), -1)
                 .is_none()
         );
-        assert!(matrix.contains_point(point(2.0, 1.0)));
-        assert!(!matrix.contains_point(point(5.0, 1.0)));
+        assert!(matrix.contains_point(&point(2.0, 1.0)));
+        assert!(!matrix.contains_point(&point(5.0, 1.0)));
         assert_eq!(matrix.get_slice_lines().len(), 3);
 
         let longest = matrix
-            .deduce_longest_distance_point(point(0.0, 0.0))
+            .deduce_longest_distance_point(&point(0.0, 0.0))
             .unwrap();
         let bounding = matrix.get_bounding_box();
         let cached = matrix.calculate_cached_data();
@@ -1908,7 +1928,10 @@ mod tests {
             cached.get_center_of_mass().get_local_point(),
             Vec3d::new(5.333_333_333_333_333, 2.333_333_333_333_333_5, 0.0),
         );
-        assert_float_eq(cached.get_bounding_circle().get_radius(), 5.906_681_715_556_45);
+        assert_float_eq(
+            cached.get_bounding_circle().get_radius(),
+            5.906_681_715_556_45,
+        );
         assert_float_eq(cached.get_area(), 9.0);
         assert_vec_eq(cached.get_average_color_vec(), Vec3d::new(10.0, 20.0, 30.0));
     }
@@ -1924,10 +1947,10 @@ mod tests {
         assert_eq!(matrix.get_slice_lines()[1].get_slices().len(), 2);
         assert_eq!(matrix.get_slice_lines()[2].get_line_number(), 3);
 
-        matrix.remove_slices(slice_line(2, &[(2.0, 4.0)]));
+        matrix.remove_slices(&slice_line(2, &[(2.0, 4.0)]));
         assert_eq!(matrix.get_line(2).unwrap().get_slices().len(), 1);
 
-        matrix.remove_slices(slice_line(2, &[(5.0, 5.0)]));
+        matrix.remove_slices(&slice_line(2, &[(5.0, 5.0)]));
         assert!(matrix.get_line(2).is_none());
     }
 
@@ -1968,7 +1991,7 @@ mod tests {
         let math_rectangle =
             MathRectangle::new(Vec3d::new(2.0, 3.0, 0.0), Vec3d::new(6.0, 8.0, 0.0));
         let rectangle = Rectangle::new(Vec3d::new(1.0, 2.0, 0.0), Vec3d::new(4.0, 5.0, 0.0));
-        let from_math = Rectangle::new_from_math_rectangle(math_rectangle);
+        let from_math = Rectangle::new_from_math_rectangle(&math_rectangle);
         let from_dims = Rectangle::new_from_dims(Vec3d::new(10.0, 20.0, 0.0), 3.0, 4.0);
         let relative = RelativeRectangle::new_from_rectangles(
             Rectangle::new(Vec3d::new(1.0, 2.0, 0.0), Vec3d::new(3.0, 5.0, 0.0)),
@@ -1999,7 +2022,10 @@ mod tests {
         assert_vec_eq(relative.top_left, Vec3d::new(0.1, 0.2, 0.0));
         assert_vec_eq(relative.dims, Vec3d::new(0.3, 0.4, 0.0));
         assert_vec_eq(inverted.top_left, Vec3d::new(0.6, 0.4, 0.0));
-        assert_vec_eq(inverted.dims, Vec3d::new(0.300_000_000_000_000_04, 0.4, 0.0));
+        assert_vec_eq(
+            inverted.dims,
+            Vec3d::new(0.300_000_000_000_000_04, 0.4, 0.0),
+        );
         assert_vec_eq(multiplied.get_top_left(), Vec3d::new(11.0, 22.0, 0.0));
         assert_vec_eq(multiplied.get_bottom_right(), Vec3d::new(14.0, 26.0, 0.0));
     }
@@ -2102,9 +2128,8 @@ mod tests {
         let ascii = "#######\n#######\n#######\n#######\n#######\n#######\n#######";
         let image = WrappedRgbImage::new_from_ascii_art(ascii);
         let rectangle = Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(7.0, 7.0, 0.0));
-        let grayscale =
-            calculate_slices(image.clone(), rectangle, BasicParams::new(true, 0));
-        let color = calculate_slices(image, rectangle, BasicParams::new(false, 0));
+        let grayscale = calculate_slices(&image, rectangle, BasicParams::new(true, 0));
+        let color = calculate_slices(&image, rectangle, BasicParams::new(false, 0));
 
         assert_eq!(grayscale.get_slice_lines().len(), 3);
         assert_eq!(grayscale.get_slice_lines()[0].get_line_number(), 2);
@@ -2141,7 +2166,7 @@ mod tests {
             "#######\n#######\n#######\n#######\n#######\n#######\n#######",
         );
         let _ = calculate_slices(
-            image,
+            &image,
             Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(8.0, 7.0, 0.0)),
             BasicParams::new(true, 0),
         );

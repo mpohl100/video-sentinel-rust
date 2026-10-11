@@ -36,15 +36,22 @@ pub static DETECTION_FIXTURE: OnceLock<DetectionFixture> = OnceLock::new();
 static BENCHMARK_RUNTIME: OnceLock<Runtime> = OnceLock::new();
 
 fn i32_from_f64(value: f64) -> i32 {
-    value.round().to_i32().expect("fixture coordinate should fit within i32")
+    value
+        .round()
+        .to_i32()
+        .expect("fixture coordinate should fit within i32")
 }
 
 fn u32_from_usize(value: usize) -> u32 {
-    value.to_u32().expect("fixture dimension should fit within u32")
+    value
+        .to_u32()
+        .expect("fixture dimension should fit within u32")
 }
 
 fn u64_from_u128(value: u128) -> u64 {
-    value.to_u64().expect("benchmark duration should fit within u64 nanoseconds")
+    value
+        .to_u64()
+        .expect("benchmark duration should fit within u64 nanoseconds")
 }
 
 #[derive(Clone)]
@@ -185,7 +192,7 @@ pub fn load_example_video() -> ExampleVideoData {
         .take(3)
         .map(|frame_result| {
             let (_timestamp, frame) = frame_result.expect("example frame should decode");
-            let image = wrapped_rgb_image_from_frame(frame);
+            let image = wrapped_rgb_image_from_frame(&frame);
             ExampleFrame {
                 jpeg: Arc::new(jpeg_bytes_from_image(&image)),
                 image,
@@ -199,11 +206,7 @@ pub fn load_example_video() -> ExampleVideoData {
 pub fn ordinary_service() -> Service {
     let mut service = Service::new();
     assert!(matches!(
-        service.create_ordinary_session(
-            "ordinary",
-            basic_params_input(),
-            Results::Absolute
-        ),
+        service.create_ordinary_session("ordinary", basic_params_input(), Results::Absolute),
         video_sentinel::service::CreateOrdinarySessionResult::Success
     ));
     service
@@ -243,7 +246,7 @@ pub fn object_service() -> Service {
         service.add_object_to_be_detected_as_image(
             "object",
             "billard-reference",
-            frames[0].image.clone(),
+            &frames[0].image,
             reference_rectangle,
         ),
         AddObjectToBeDetectedResult::Success
@@ -254,9 +257,7 @@ pub fn object_service() -> Service {
 #[must_use]
 pub fn first_rectangle_from_ordinary(image: &WrappedRgbImage) -> Rectangle {
     let mut service = ordinary_service();
-    match benchmark_runtime()
-        .block_on(service.get_rectangles("ordinary", image.clone()))
-    {
+    match benchmark_runtime().block_on(service.get_rectangles("ordinary", image.clone())) {
         GetRectanglesResult::Success(rectangles) => {
             rectangles
                 .into_iter()
@@ -337,13 +338,13 @@ pub fn surrounding_rectangle(image: &WrappedRgbImage) -> Rectangle {
 }
 
 #[must_use]
-pub fn ordinary_mosaics(image: WrappedRgbImage, results: Results) -> Vec<AnonymizedMosaic> {
-    let rectangle = surrounding_rectangle(&image);
-    let slices = calculate_slices(image.clone(), rectangle, basic_params());
+pub fn ordinary_mosaics(image: &WrappedRgbImage, results: Results) -> Vec<AnonymizedMosaic> {
+    let rectangle = surrounding_rectangle(image);
+    let slices = calculate_slices(image, rectangle, basic_params());
     let connected_slices = find_connected_slices(&mut slices.clone());
     deduce_mosaics(
         connected_slices,
-        MathRectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right()),
+        &MathRectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right()),
     )
     .into_iter()
     .map(|wrapped_relative_mosaic| {
@@ -362,8 +363,8 @@ pub fn eye_pipeline_fixture() -> EyePipelineFixture {
     let current_image = frames[2].image.clone();
     let previous_image = frames[1].image.clone();
     let surrounding_rectangle = surrounding_rectangle(&current_image);
-    let current_mosaics = ordinary_mosaics(current_image, Results::Relative);
-    let previous_mosaics = ordinary_mosaics(previous_image, Results::Relative);
+    let current_mosaics = ordinary_mosaics(&current_image, Results::Relative);
+    let previous_mosaics = ordinary_mosaics(&previous_image, Results::Relative);
     let eye_params = eye_params();
     let previous_bucketed_mosaics = deduce_bucketed_mosaics(
         previous_mosaics,
@@ -417,19 +418,19 @@ pub fn trace_fixture() -> &'static TraceFixture {
             160,
         );
         let primary_mosaic =
-            deduce_mosaic_at_position(reference_image, Vec3d::new(40.0, 40.0, 0.0))
+            deduce_mosaic_at_position(&reference_image, Vec3d::new(40.0, 40.0, 0.0))
                 .expect("trace fixture primary mosaic should exist")
                 .get_relative_mosaic()
                 .get_mosaic();
         let secondary_mosaic =
-            deduce_mosaic_at_position(comparison_image, Vec3d::new(42.0, 38.0, 0.0))
+            deduce_mosaic_at_position(&comparison_image, Vec3d::new(42.0, 38.0, 0.0))
                 .expect("trace fixture secondary mosaic should exist")
                 .get_relative_mosaic()
                 .get_mosaic();
         let params = trace_params();
         TraceFixture {
-            primary_trace: Trace::new_from_mosaic(primary_mosaic.clone(), params),
-            secondary_trace: Trace::new_from_mosaic(secondary_mosaic.clone(), params),
+            primary_trace: Trace::new_from_mosaic(&primary_mosaic, params),
+            secondary_trace: Trace::new_from_mosaic(&secondary_mosaic, params),
             primary_mosaic,
             secondary_mosaic,
         }
@@ -491,11 +492,11 @@ pub fn detection_fixture() -> &'static DetectionFixture {
             180,
         );
         let reference_object = reference_object_from_positions(
-            reference_image,
+            &reference_image,
             &[Vec3d::new(20.0, 20.0, 0.0), Vec3d::new(46.0, 18.0, 0.0)],
             "double-rect",
         );
-        let scene_mosaics = deduce_all_mosaics(scene_image.clone());
+        let scene_mosaics = deduce_all_mosaics(&scene_image);
         let surrounding_rectangle = surrounding_rectangle(&scene_image);
         let object_detection_params = ObjectDetectionParams::new(
             TileParams::new(0.25, 0.5),
@@ -535,7 +536,7 @@ pub fn detect_objects_for_fixture(
     fixture: &DetectionFixture,
 ) -> Vec<video_sentinel::slices::ColoredRectangle> {
     detect_objects(
-        fixture.reference_object.clone(),
+        &fixture.reference_object,
         &fixture.bucketed_mosaics,
         fixture.object_detection_params,
         fixture.surrounding_rectangle,
@@ -555,7 +556,7 @@ pub async fn deduce_rectangles_for_fixture(
     .await
 }
 
-fn wrapped_rgb_image_from_frame(frame: Frame) -> WrappedRgbImage {
+fn wrapped_rgb_image_from_frame(frame: &Frame) -> WrappedRgbImage {
     let (height, width, channels) = frame.dim();
     assert_eq!(channels, 3, "benchmark video frames should have 3 channels");
     let data = if let Some(slice) = frame.as_slice_memory_order() {
@@ -620,10 +621,7 @@ fn fill_rotated_rectangle(image: &WrappedRgbImage, rectangle: &ColoredTestRectan
 
 fn fill_circle(image: &WrappedRgbImage, circle: &ColoredTestCircle) {
     image.fill_circle(
-        (
-            i32_from_f64(circle.center.x),
-            i32_from_f64(circle.center.y),
-        ),
+        (i32_from_f64(circle.center.x), i32_from_f64(circle.center.y)),
         i32_from_f64(circle.radius),
         rgb_from_name(circle.color),
     );
@@ -644,20 +642,20 @@ fn create_test_image_with_shapes(
     image
 }
 
-fn deduce_all_mosaics(image: WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
+fn deduce_all_mosaics(image: &WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
     let trace_params = trace_params();
-    let rectangle = surrounding_rectangle(&image);
+    let rectangle = surrounding_rectangle(image);
     let math_rectangle = MathRectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right());
-    let slices = calculate_slices(image.clone(), rectangle, basic_params());
+    let slices = calculate_slices(image, rectangle, basic_params());
     let connected_slices = find_connected_slices(&mut slices.clone());
-    deduce_mosaics(connected_slices, math_rectangle)
+    deduce_mosaics(connected_slices, &math_rectangle)
         .into_iter()
         .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params))
         .collect()
 }
 
 fn deduce_mosaic_at_position(
-    image: WrappedRgbImage,
+    image: &WrappedRgbImage,
     position: Vec3d,
 ) -> Option<TracedRelativeMosaic> {
     let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
@@ -667,20 +665,23 @@ fn deduce_mosaic_at_position(
     ));
     deduce_all_mosaics(image).into_iter().find(|mosaic| {
         mosaic.get_relative_mosaic().get_mosaic().contains_point(
-            video_sentinel::math::CoordinatedPoint::new(global_coordinate_system.clone(), position),
+            &video_sentinel::math::CoordinatedPoint::new(
+                global_coordinate_system.clone(),
+                position,
+            ),
         )
     })
 }
 
 fn reference_object_from_positions(
-    image: WrappedRgbImage,
+    image: &WrappedRgbImage,
     positions: &[Vec3d],
     id: &str,
 ) -> ReferenceObject {
     let mosaics = positions
         .iter()
         .map(|position| {
-            deduce_mosaic_at_position(image.clone(), *position)
+            deduce_mosaic_at_position(image, *position)
                 .expect("benchmark reference object mosaic should exist")
         })
         .collect();

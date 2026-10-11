@@ -85,7 +85,7 @@ pub fn deduce_bucketed_mosaics(
         surrounding_rectangle.get_bottom_right(),
     );
     for mosaic in mosaics {
-        bucketed_mosaics.add_mosaic(TracedRelativeMosaic::new(
+        bucketed_mosaics.add_mosaic(&TracedRelativeMosaic::new(
             WrappedRelativeMosaic::new(mosaic.get_mosaic(), absolute_rectangle.clone()),
             trace_params,
         ));
@@ -158,13 +158,13 @@ fn deduce_rectangle_for_next_mosaic(
         ) {
             let color = deduce_color(
                 Rectangle::new_from_math_rectangle(
-                    previous_mosaic
+                    &previous_mosaic
                         .get_relative_mosaic()
                         .get_bounding_box()
                         .to_global_rectangle(),
                 ),
                 Rectangle::new_from_math_rectangle(
-                    traced_next_mosaic
+                    &traced_next_mosaic
                         .get_relative_mosaic()
                         .get_bounding_box()
                         .to_global_rectangle(),
@@ -176,7 +176,7 @@ fn deduce_rectangle_for_next_mosaic(
         }
     }
     ColoredRectangle::new(
-        Rectangle::new_from_math_rectangle(next_mosaic.get_bounding_box().to_global_rectangle()),
+        Rectangle::new_from_math_rectangle(&next_mosaic.get_bounding_box().to_global_rectangle()),
         current_color,
         vec![next_mosaic],
     )
@@ -229,7 +229,7 @@ mod tests {
     }
 
     fn annotated_slice(x1: f64, y: f64, x2: f64, line_number: usize) -> AnnotatedSlice {
-        AnnotatedSlice::new(Slice::new(point(x1, y), point(x2, y)), line_number)
+        AnnotatedSlice::new(Slice::new(&point(x1, y), &point(x2, y)), line_number)
     }
 
     fn mosaic_from_ranges(ranges: &[(usize, f64, f64)], color: [u8; 3]) -> AnonymizedMosaic {
@@ -356,7 +356,7 @@ mod tests {
         assert!(rectangles[0].get_color() == Color::Red);
         assert_float_eq(
             rectangles[0].get_rectangle().get_area(),
-            Rectangle::new_from_math_rectangle(next.get_bounding_box().to_global_rectangle())
+            Rectangle::new_from_math_rectangle(&next.get_bounding_box().to_global_rectangle())
                 .get_area(),
         );
     }

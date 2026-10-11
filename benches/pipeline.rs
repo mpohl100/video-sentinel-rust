@@ -2,7 +2,6 @@
 #![allow(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::needless_pass_by_value,
     clippy::too_many_lines,
     clippy::unused_async_trait_impl
 )]
@@ -28,7 +27,7 @@ fn pipeline_benchmarks(c: &mut criterion::Criterion) {
     let frames = example_video().frames.clone();
     let frame = frames[0].image.clone();
     let frame_rectangle = surrounding_rectangle(&frame);
-    let frame_slices = calculate_slices(frame.clone(), frame_rectangle, basic_params());
+    let frame_slices = calculate_slices(&frame, frame_rectangle, basic_params());
     let connected_slices = find_connected_slices(&mut frame_slices.clone());
 
     let mut group = c.benchmark_group("pipeline");
@@ -39,7 +38,7 @@ fn pipeline_benchmarks(c: &mut criterion::Criterion) {
         Duration::from_millis(400),
         || frame.clone(),
         |image: WrappedRgbImage| {
-            calculate_slices(image, frame_rectangle, basic_params())
+            calculate_slices(&image, frame_rectangle, basic_params())
                 .get_slice_lines()
                 .len()
         },
@@ -61,7 +60,7 @@ fn pipeline_benchmarks(c: &mut criterion::Criterion) {
         |slice_matrices| {
             deduce_mosaics(
                 slice_matrices,
-                video_sentinel::math::Rectangle::new(
+                &video_sentinel::math::Rectangle::new(
                     frame_rectangle.get_top_left(),
                     frame_rectangle.get_bottom_right(),
                 ),
@@ -76,7 +75,7 @@ fn pipeline_benchmarks(c: &mut criterion::Criterion) {
         "traces_new_from_mosaic",
         Duration::from_millis(2),
         || trace_fixture.primary_mosaic.clone(),
-        |mosaic| Trace::new_from_mosaic(mosaic, common::trace_params()),
+        |mosaic| Trace::new_from_mosaic(&mosaic, common::trace_params()),
     );
 
     bench_with_setup(
@@ -154,7 +153,7 @@ fn pipeline_benchmarks(c: &mut criterion::Criterion) {
     );
 
     let object_mosaics_inputs = (
-        ordinary_mosaics(frames[2].image.clone(), Results::Absolute),
+        ordinary_mosaics(&frames[2].image, Results::Absolute),
         surrounding_rectangle(&frames[2].image),
         object_detection_params(),
     );

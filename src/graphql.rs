@@ -816,7 +816,7 @@ impl MutationRoot {
         match service.add_object_to_be_detected_as_image(
             &session_id,
             &object_id,
-            wrapped_image,
+            &wrapped_image,
             surrounding_rectangle.into(),
         ) {
             AddObjectToBeDetectedResult::Success => Ok(true),

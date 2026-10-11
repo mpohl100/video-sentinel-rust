@@ -35,7 +35,9 @@ fn usize_from_u32(value: u32) -> usize {
 }
 
 fn f64_from_usize(value: usize) -> f64 {
-    value.to_f64().expect("image dimension should fit within f64")
+    value
+        .to_f64()
+        .expect("image dimension should fit within f64")
 }
 
 fn u8_from_f64(value: f64) -> u8 {
@@ -566,7 +568,7 @@ impl Service {
         &mut self,
         session_id: &str,
         object_id: &str,
-        image: WrappedRgbImage,
+        image: &WrappedRgbImage,
         surrounding_rectangle: Rectangle,
     ) -> AddObjectToBeDetectedResult {
         if let Some(session) = self.sessions.get_mut(session_id) {
@@ -576,15 +578,18 @@ impl Service {
                         surrounding_rectangle.get_top_left(),
                         surrounding_rectangle.get_bottom_right(),
                     );
-                    let mosaics =
-                        calculate_ordinary_mosaics(object_session.basic_params, Results::Absolute,image);
+                    let mosaics = calculate_ordinary_mosaics(
+                        object_session.basic_params,
+                        Results::Absolute,
+                        image,
+                    );
                     let reference_mosaics = mosaics
                         .into_iter()
                         .filter(|mosaic| {
                             let coordinated_bounding_box = mosaic.get_bounding_box();
                             let global_bounding_box = coordinated_bounding_box.to_global_rectangle();
                             let bounding_box =
-                                Rectangle::new_from_math_rectangle(global_bounding_box);
+                                Rectangle::new_from_math_rectangle(&global_bounding_box);
                             bounding_box.overlaps(&surrounding_rectangle)
                         })
                         .map(|mosaic| TracedRelativeMosaic::new(
@@ -624,7 +629,7 @@ impl Service {
                     self.add_object_to_be_detected_as_image(
                         session_id,
                         object_id,
-                        image,
+                        &image,
                         surrounding_rectangle,
                     )
                 }
@@ -698,9 +703,7 @@ impl Service {
     #[must_use]
     pub fn get_basic_params(&self, session_id: &str) -> Option<BasicParams> {
         match self.sessions.get(session_id) {
-            Some(Session::Ordinary(ordinary_session)) => {
-                Some(ordinary_session.basic_params)
-            }
+            Some(Session::Ordinary(ordinary_session)) => Some(ordinary_session.basic_params),
             Some(Session::Eye(eye_session)) => Some(eye_session.basic_params),
             Some(Session::Object(object_session)) => Some(object_session.basic_params),
             None => None,
@@ -770,8 +773,7 @@ impl Service {
                 let computation = calculate_eye(&eye_session, image).await;
                 match computation {
                     Ok((mosaics, new_cache)) => {
-                        if let Some(Session::Eye(eye_session)) = self.sessions.get_mut(session_id)
-                        {
+                        if let Some(Session::Eye(eye_session)) = self.sessions.get_mut(session_id) {
                             eye_session.cached_previous_mosaics = Some(new_cache);
                         }
                         GetRectanglesResult::Success(
@@ -779,7 +781,7 @@ impl Service {
                                 .into_iter()
                                 .map(|colored_relative_mosaic| {
                                     deduce_enriched_mosaic(
-                                        colored_relative_mosaic.mosaic,
+                                        &colored_relative_mosaic.mosaic,
                                         colored_relative_mosaic.color,
                                         results,
                                     )
@@ -797,7 +799,7 @@ impl Service {
                             .into_iter()
                             .map(|colored_relative_mosaic| {
                                 deduce_enriched_mosaic(
-                                    colored_relative_mosaic.mosaic,
+                                    &colored_relative_mosaic.mosaic,
                                     colored_relative_mosaic.color,
                                     object_session.results,
                                 )
@@ -808,11 +810,11 @@ impl Service {
                 }
             }
             Session::Ordinary(ordinary_session) => GetRectanglesResult::Success(
-                calculate_ordinary(&ordinary_session, image)
+                calculate_ordinary(&ordinary_session, &image)
                     .into_iter()
                     .map(|colored_relative_mosaic| {
                         deduce_enriched_mosaic(
-                            colored_relative_mosaic.mosaic,
+                            &colored_relative_mosaic.mosaic,
                             colored_relative_mosaic.color,
                             ordinary_session.results,
                         )
@@ -826,7 +828,7 @@ impl Service {
 fn calculate_ordinary_mosaics(
     basic_params: BasicParams,
     results: Results,
-    image: WrappedRgbImage,
+    image: &WrappedRgbImage,
 ) -> Vec<AnonymizedMosaic> {
     let width = usize_from_u32(image.width());
     let height = usize_from_u32(image.height());
@@ -834,11 +836,11 @@ fn calculate_ordinary_mosaics(
         Vec3d::new(0.0, 0.0, 0.0),
         Vec3d::new(f64_from_usize(width), f64_from_usize(height), 0.0),
     );
-    let slices = calculate_slices(image.clone(), rectangle, basic_params);
+    let slices = calculate_slices(image, rectangle, basic_params);
     let connected_slices = find_connected_slices(&mut slices.clone());
     deduce_mosaics(
         connected_slices.clone(),
-        crate::math::Rectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right()),
+        &crate::math::Rectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right()),
     )
     .into_iter()
     .map(|wrapped_relative_mosaic| {
@@ -858,7 +860,7 @@ struct ColoredAnonymizedMosaic {
 }
 
 fn deduce_enriched_mosaic(
-    anonymized_mosaic: AnonymizedMosaic,
+    anonymized_mosaic: &AnonymizedMosaic,
     color: Color,
     results: Results,
 ) -> EnrichedMosaic {
@@ -914,7 +916,7 @@ fn deduce_enriched_mosaic(
         .get_center_of_mass()
         .convert_to(global_coordinate_system.clone());
     EnrichedMosaic {
-        bounding_box: slices::Rectangle::new_from_math_rectangle(global_bounding_box),
+        bounding_box: slices::Rectangle::new_from_math_rectangle(&global_bounding_box),
         bounding_circle: Circle {
             center: global_bounding_circle_center,
             radius: bounding_circle.get_radius(),
@@ -934,7 +936,7 @@ fn deduce_enriched_mosaic(
 
 fn calculate_ordinary(
     ordinary_session: &OrdinarySession,
-    image: WrappedRgbImage,
+    image: &WrappedRgbImage,
 ) -> Vec<ColoredAnonymizedMosaic> {
     let mosaics = calculate_ordinary_mosaics(
         ordinary_session.basic_params,
@@ -961,7 +963,7 @@ async fn calculate_eye(
         Vec3d::new(image_width, image_height, 0.0),
     );
     let current_mosaics =
-        calculate_ordinary_mosaics(eye_session.basic_params, eye_session.results, image);
+        calculate_ordinary_mosaics(eye_session.basic_params, eye_session.results, &image);
     let current_bucketed_mosaics = deduce_bucketed_mosaics(
         current_mosaics.clone(),
         surrounding_rectangle,
@@ -1010,11 +1012,8 @@ async fn calculate_object(
         Vec3d::new(0.0, 0.0, 0.0),
         Vec3d::new(image_width, image_height, 0.0),
     );
-    let current_mosaics = calculate_ordinary_mosaics(
-        object_session.basic_params,
-        object_session.results,
-        image,
-    );
+    let current_mosaics =
+        calculate_ordinary_mosaics(object_session.basic_params, object_session.results, &image);
     let bucketed_mosaics = Arc::new(deduce_bucketed_mosaics(
         current_mosaics.clone(),
         surrounding_rectangle,
@@ -1034,7 +1033,7 @@ async fn calculate_object(
             (
                 index,
                 detect_objects(
-                    reference_object,
+                    &reference_object,
                     bucketed_mosaics.as_ref(),
                     *object_detection_params.as_ref(),
                     surrounding_rectangle,
@@ -1149,11 +1148,7 @@ mod tests {
         let mut service = Service::new();
 
         assert!(matches!(
-            service.create_ordinary_session(
-                "ordinary",
-                basic_params_input(),
-                Results::Absolute
-            ),
+            service.create_ordinary_session("ordinary", basic_params_input(), Results::Absolute),
             CreateOrdinarySessionResult::Success
         ));
         assert!(matches!(
@@ -1175,19 +1170,11 @@ mod tests {
             CreateObjectSessionResult::Success
         ));
 
-        assert!(
-            service
-                .get_ordinary_session("ordinary")
-                .is_some()
-        );
+        assert!(service.get_ordinary_session("ordinary").is_some());
         assert!(service.get_eye_session("eye").is_some());
         assert!(service.get_object_session("object").is_some());
         assert!(matches!(
-            service.create_ordinary_session(
-                "ordinary",
-                basic_params_input(),
-                Results::Absolute
-            ),
+            service.create_ordinary_session("ordinary", basic_params_input(), Results::Absolute),
             CreateOrdinarySessionResult::SessionAlreadyExists
         ));
         assert!(matches!(
@@ -1213,11 +1200,7 @@ mod tests {
     #[test]
     fn service_updates_supported_sessions_and_rejects_wrong_types() {
         let mut service = Service::new();
-        service.create_ordinary_session(
-            "ordinary",
-            basic_params_input(),
-            Results::Absolute,
-        );
+        service.create_ordinary_session("ordinary", basic_params_input(), Results::Absolute);
         service.create_eye_session(
             "eye",
             basic_params_input(),
@@ -1241,12 +1224,7 @@ mod tests {
             ),
             UpdateBasicParamsResult::Success
         ));
-        assert!(
-            service
-                .get_basic_params("ordinary")
-                .unwrap()
-                .do_grayscale()
-        );
+        assert!(service.get_basic_params("ordinary").unwrap().do_grayscale());
         assert_eq!(
             service
                 .get_basic_params("ordinary")
@@ -1266,17 +1244,11 @@ mod tests {
             TileParamsUpdateResult::Success
         ));
         assert_float_eq(
-            service
-                .get_tile_params("eye")
-                .unwrap()
-                .relative_tile_x(),
+            service.get_tile_params("eye").unwrap().relative_tile_x(),
             0.25,
         );
         assert_float_eq(
-            service
-                .get_tile_params("eye")
-                .unwrap()
-                .relative_tile_y(),
+            service.get_tile_params("eye").unwrap().relative_tile_y(),
             0.75,
         );
         assert!(matches!(
@@ -1295,10 +1267,7 @@ mod tests {
             TraceParamsUpdateResult::Success
         ));
         assert_eq!(
-            service
-                .get_trace_params("object")
-                .unwrap()
-                .num_skeleton(),
+            service.get_trace_params("object").unwrap().num_skeleton(),
             24
         );
         assert_float_eq(
@@ -1327,12 +1296,7 @@ mod tests {
             service.update_target_similarity("object", 0.82),
             TargetSimilarityUpdateResult::Success
         ));
-        assert_float_eq(
-            service
-                .get_target_similarity("object")
-                .unwrap(),
-            0.82,
-        );
+        assert_float_eq(service.get_target_similarity("object").unwrap(), 0.82);
         assert!(matches!(
             service.update_target_similarity("ordinary", 0.82),
             TargetSimilarityUpdateResult::SessionTypeDoesNotSupportTargetSimilarity
@@ -1357,17 +1321,8 @@ mod tests {
             EyeParamsUpdateResult::Success
         ));
         assert_float_eq(service.get_bucket_delta("eye").unwrap(), 0.3);
-        assert_eq!(
-            service
-                .get_trace_params("eye")
-                .unwrap()
-                .num_skeleton(),
-            30
-        );
-        assert_float_eq(
-            service.get_target_similarity("eye").unwrap(),
-            0.88,
-        );
+        assert_eq!(service.get_trace_params("eye").unwrap().num_skeleton(), 30);
+        assert_float_eq(service.get_target_similarity("eye").unwrap(), 0.88);
         assert!(matches!(
             service.update_eye_params("ordinary", eye_params_input()),
             EyeParamsUpdateResult::SessionTypeDoesNotSupportEyeParams
@@ -1392,32 +1347,17 @@ mod tests {
             ObjectDetectionParamsUpdateResult::Success
         ));
         assert_float_eq(
-            service
-                .get_tile_params("object")
-                .unwrap()
-                .relative_tile_x(),
+            service.get_tile_params("object").unwrap().relative_tile_x(),
             0.4,
         );
-        assert_float_eq(
-            service.get_bucket_delta("object").unwrap(),
-            0.5,
-        );
+        assert_float_eq(service.get_bucket_delta("object").unwrap(), 0.5);
         assert_eq!(
-            service
-                .get_trace_params("object")
-                .unwrap()
-                .num_skeleton(),
+            service.get_trace_params("object").unwrap().num_skeleton(),
             20
         );
-        assert_float_eq(
-            service
-                .get_target_similarity("object")
-                .unwrap(),
-            0.91,
-        );
+        assert_float_eq(service.get_target_similarity("object").unwrap(), 0.91);
         assert!(matches!(
-            service
-                .update_object_detection_params("eye", object_detection_params_input()),
+            service.update_object_detection_params("eye", object_detection_params_input()),
             ObjectDetectionParamsUpdateResult::SessionTypeDoesNotSupportObjectDetectionParams
         ));
     }
@@ -1431,28 +1371,20 @@ mod tests {
             object_detection_params_input(),
             Results::Absolute,
         );
-        service.create_ordinary_session(
-            "ordinary",
-            basic_params_input(),
-            Results::Absolute,
-        );
+        service.create_ordinary_session("ordinary", basic_params_input(), Results::Absolute);
 
         assert!(matches!(
             service.add_object_to_be_detected_as_image(
                 "object",
                 "ref-0",
-                object_image(),
+                &object_image(),
                 tiny_surrounding_rectangle(),
             ),
             AddObjectToBeDetectedResult::Success
         ));
 
         assert!(matches!(
-            service.add_object_to_be_detected_as_ascii_art(
-                "object",
-                "ref-1",
-                &object_ascii_art(),
-            ),
+            service.add_object_to_be_detected_as_ascii_art("object", "ref-1", &object_ascii_art(),),
             AddObjectToBeDetectedResult::Success
         ));
         assert_eq!(
@@ -1518,11 +1450,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn service_rectangles_and_enrichment_helpers_return_expected_shapes() {
         let mut service = Service::new();
-        service.create_ordinary_session(
-            "ordinary",
-            basic_params_input(),
-            Results::Absolute,
-        );
+        service.create_ordinary_session("ordinary", basic_params_input(), Results::Absolute);
         service.create_eye_session(
             "eye",
             basic_params_input(),
@@ -1556,21 +1484,21 @@ mod tests {
         let mosaics = calculate_ordinary_mosaics(
             BasicParams::new(false, 15),
             Results::Absolute,
-            larger_solid_image([255, 255, 255]),
+            &larger_solid_image([255, 255, 255]),
         );
         assert!(!mosaics.is_empty());
 
         let relative_mosaics = calculate_ordinary_mosaics(
             BasicParams::new(false, 15),
             Results::Relative,
-            larger_solid_image([255, 255, 255]),
+            &larger_solid_image([255, 255, 255]),
         );
         assert!(!relative_mosaics.is_empty());
 
         let enriched_absolute =
-            deduce_enriched_mosaic(mosaics[0].clone(), Color::Green, Results::Absolute);
+            deduce_enriched_mosaic(&mosaics[0], Color::Green, Results::Absolute);
         let enriched_relative =
-            deduce_enriched_mosaic(relative_mosaics[0].clone(), Color::Blue, Results::Relative);
+            deduce_enriched_mosaic(&relative_mosaics[0], Color::Blue, Results::Relative);
 
         assert!(matches!(
             service

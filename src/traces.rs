@@ -105,7 +105,7 @@ pub struct Trace {
 
 impl Trace {
     #[must_use]
-    pub fn new_from_mosaic(mosaic: WrappedMosaic, params: TraceParams) -> Self {
+    pub fn new_from_mosaic(mosaic: &WrappedMosaic, params: TraceParams) -> Self {
         let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
@@ -131,8 +131,8 @@ impl Trace {
                 );
                 RatioLine {
                     slices: deduce_slices_from_mosaic(
-                        vec![mosaic.clone()],
-                        coordinated_regioned_angle.clone(),
+                        std::slice::from_ref(mosaic),
+                        &coordinated_regioned_angle,
                         mosaic.get_bounding_circle().get_radius(),
                     ),
                 }
@@ -140,22 +140,22 @@ impl Trace {
             .collect();
         Trace {
             ratio_lines,
-            total_mass: calculate_total_mass(std::slice::from_ref(&mosaic)),
+            total_mass: calculate_total_mass(std::slice::from_ref(mosaic)),
             total_surrounding_circle_area: calculate_total_surrounding_circle_area(
-                std::slice::from_ref(&mosaic),
+                std::slice::from_ref(mosaic),
             ),
         }
     }
 
     #[must_use]
-    pub fn new_from_mosaics(mosaics: Vec<WrappedMosaic>, params: TraceParams) -> Self {
+    pub fn new_from_mosaics(mosaics: &[WrappedMosaic], params: TraceParams) -> Self {
         let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
         ));
         let center_of_mass =
-            calculate_center_of_mass(&mosaics).convert_to(global_coordinate_system.clone());
+            calculate_center_of_mass(mosaics).convert_to(global_coordinate_system.clone());
         let ratio_lines = (0..params.num_skeleton)
             .map(|i| {
                 let coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
@@ -173,17 +173,17 @@ impl Trace {
                 );
                 RatioLine {
                     slices: deduce_slices_from_mosaic(
-                        mosaics.clone(),
-                        coordinated_regioned_angle.clone(),
-                        deduce_longest_radius(&mosaics, center_of_mass.clone()),
+                        mosaics,
+                        &coordinated_regioned_angle,
+                        deduce_longest_radius(mosaics, &center_of_mass),
                     ),
                 }
             })
             .collect();
         Trace {
             ratio_lines,
-            total_mass: calculate_total_mass(&mosaics),
-            total_surrounding_circle_area: calculate_total_surrounding_circle_area(&mosaics),
+            total_mass: calculate_total_mass(mosaics),
+            total_surrounding_circle_area: calculate_total_surrounding_circle_area(mosaics),
         }
     }
 
@@ -297,7 +297,7 @@ fn calculate_total_surrounding_circle_area(mosaics: &[WrappedMosaic]) -> f64 {
     }
 
     let center_of_mass = calculate_center_of_mass(mosaics);
-    let radius = deduce_longest_radius(mosaics, center_of_mass);
+    let radius = deduce_longest_radius(mosaics, &center_of_mass);
 
     std::f64::consts::PI * radius * radius
 }
@@ -468,8 +468,8 @@ fn get_overlaps(line1: &RatioLine, line2: &RatioLine) -> SmallVec<[TaggedRatio; 
 }
 
 fn deduce_slices_from_mosaic(
-    mosaics: Vec<WrappedMosaic>,
-    coordinated_regioned_angle: CoordinatedRegionedAngle,
+    mosaics: &[WrappedMosaic],
+    coordinated_regioned_angle: &CoordinatedRegionedAngle,
     radius: f64,
 ) -> Vec<PolarSlice> {
     // let input_coordinate_system = coordinated_regioned_angle.get_coordinate_system();
@@ -592,9 +592,7 @@ fn deduce_slices_from_mosaic(
         //     point_global.get_y(),
         //     point_global.get_z(),
         // );
-        let contains_point = mosaics
-            .iter()
-            .any(|mosaic| mosaic.contains_point(point.clone()));
+        let contains_point = mosaics.iter().any(|mosaic| mosaic.contains_point(&point));
         // println!("  local contains_point = {}", contains_point);
         if contains_point {
             let global_point = point.convert_to(global_coordinate_system.clone());
@@ -858,7 +856,7 @@ fn deduce_slices_from_mosaic(
     //         slice.get_start().get_angle().get_angle_degrees(),
     //     );
     // }
-    let combined = combine_close_slices(slices);
+    let combined = combine_close_slices(&slices);
     // println!(
     //     "deduce_slices_from_mosaic: post-combine combined.len = {}",
     //     combined.len()
@@ -875,7 +873,7 @@ fn deduce_slices_from_mosaic(
     combined
 }
 
-fn combine_close_slices(slices: Vec<Option<PolarSlice>>) -> Vec<PolarSlice> {
+fn combine_close_slices(slices: &[Option<PolarSlice>]) -> Vec<PolarSlice> {
     if slices.is_empty() {
         return Vec::new();
     }
@@ -930,12 +928,12 @@ fn calculate_center_of_mass(mosaics: &[WrappedMosaic]) -> CoordinatedPoint {
     CoordinatedPoint::new(global_coordinate_system, center_of_mass)
 }
 
-fn deduce_longest_radius(mosaics: &[WrappedMosaic], center_of_mass: CoordinatedPoint) -> f64 {
+fn deduce_longest_radius(mosaics: &[WrappedMosaic], center_of_mass: &CoordinatedPoint) -> f64 {
     let mut longest_radius = 0.0;
     for mosaic in mosaics {
-        let mosaic_longest_distance = mosaic.deduce_longest_distance_point(center_of_mass.clone());
+        let mosaic_longest_distance = mosaic.deduce_longest_distance_point(center_of_mass);
         if let Some(mosaic_longest_distance) = mosaic_longest_distance {
-            let distance = mosaic_longest_distance.distance_to(center_of_mass.clone());
+            let distance = mosaic_longest_distance.distance_to(center_of_mass);
             if distance > longest_radius {
                 longest_radius = distance;
             }
@@ -1012,7 +1010,10 @@ mod tests {
     }
 
     fn annotated_slice(x1: f64, y: usize, x2: f64) -> AnnotatedSlice {
-        AnnotatedSlice::new(Slice::new(point(x1, f64_from_usize(y)), point(x2, f64_from_usize(y))), y)
+        AnnotatedSlice::new(
+            Slice::new(&point(x1, f64_from_usize(y)), &point(x2, f64_from_usize(y))),
+            y,
+        )
     }
 
     fn mosaic_from_lines(lines: &[(usize, &[(f64, f64)])]) -> WrappedMosaic {
@@ -1034,8 +1035,8 @@ mod tests {
         end_x: f64,
     ) {
         let slice = Slice::new(
-            point(start_x, f64_from_usize(line_number)),
-            point(end_x, f64_from_usize(line_number)),
+            &point(start_x, f64_from_usize(line_number)),
+            &point(end_x, f64_from_usize(line_number)),
         );
         slice_matrix.add(SliceLine::new(
             line_number,
@@ -1080,8 +1081,8 @@ mod tests {
     }
 
     fn trace_from_slice_matrices(slice_matrices: Vec<SliceMatrix>, params: TraceParams) -> Trace {
-        let mosaics = slice_matrices.into_iter().map(WrappedMosaic::new).collect();
-        Trace::new_from_mosaics(mosaics, params)
+        let mosaics: Vec<_> = slice_matrices.into_iter().map(WrappedMosaic::new).collect();
+        Trace::new_from_mosaics(&mosaics, params)
     }
 
     fn assert_trace_matches_expected_lines(trace: &Trace, expected: &[Option<(f64, f64)>]) {
@@ -1283,7 +1284,7 @@ mod tests {
             Some(polar_slice(0.6, 0.7)),
         ];
 
-        let combined = combine_close_slices(slices);
+        let combined = combine_close_slices(&slices);
 
         assert_eq!(combined.len(), 2);
         assert_float_eq(combined[0].get_start().get_radius(), 0.1);
@@ -1308,7 +1309,7 @@ mod tests {
         let mosaics = weighted_center_mosaics();
         let center = calculate_center_of_mass(&mosaics);
 
-        let radius = deduce_longest_radius(&mosaics, center);
+        let radius = deduce_longest_radius(&mosaics, &center);
 
         assert_float_eq(radius, 4.038_873_605_350_878);
     }
@@ -1335,8 +1336,8 @@ mod tests {
         ));
 
         let slices = deduce_slices_from_mosaic(
-            vec![mosaic.clone()],
-            CoordinatedRegionedAngle::new(coordinate_system, RegionedAngle::new(45.0, 0.0, 360.0)),
+            std::slice::from_ref(&mosaic),
+            &CoordinatedRegionedAngle::new(coordinate_system, RegionedAngle::new(45.0, 0.0, 360.0)),
             mosaic.get_bounding_circle().get_radius(),
         );
 
@@ -1561,7 +1562,7 @@ mod tests {
 
     #[test]
     fn trace_new_from_mosaic_builds_requested_number_of_ratio_lines() {
-        let trace = Trace::new_from_mosaic(square_mosaic(), TraceParams::new(18, 0.2));
+        let trace = Trace::new_from_mosaic(&square_mosaic(), TraceParams::new(18, 0.2));
         let self_similarity = trace.compare_with(0.0, &trace.clone());
 
         assert_eq!(trace.ratio_lines.len(), 18);
@@ -1571,7 +1572,7 @@ mod tests {
 
     #[test]
     fn trace_compare_with_returns_zero_when_target_similarity_is_unreachable() {
-        let trace = Trace::new_from_mosaic(square_mosaic(), TraceParams::new(18, 0.2));
+        let trace = Trace::new_from_mosaic(&square_mosaic(), TraceParams::new(18, 0.2));
         let self_similarity = trace.compare_with(0.0, &trace.clone());
         let unreachable_similarity = trace.compare_with(self_similarity + EPSILON, &trace.clone());
 
@@ -1580,14 +1581,10 @@ mod tests {
 
     #[test]
     fn trace_new_from_mosaics_combines_multiple_mosaics_and_self_matches() {
-        let combined = Trace::new_from_mosaics(
-            vec![square_mosaic(), translated_square_mosaic()],
-            TraceParams::new(18, 0.2),
-        );
-        let same_family = Trace::new_from_mosaics(
-            vec![translated_square_mosaic(), square_mosaic()],
-            TraceParams::new(18, 0.2),
-        );
+        let combined_mosaics = vec![square_mosaic(), translated_square_mosaic()];
+        let combined = Trace::new_from_mosaics(&combined_mosaics, TraceParams::new(18, 0.2));
+        let same_family_mosaics = vec![translated_square_mosaic(), square_mosaic()];
+        let same_family = Trace::new_from_mosaics(&same_family_mosaics, TraceParams::new(18, 0.2));
         let similarity = combined.compare_with(0.0, &same_family);
         let unreachable_similarity = combined.compare_with(similarity + EPSILON, &same_family);
 

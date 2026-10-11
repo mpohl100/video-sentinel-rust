@@ -2,7 +2,6 @@
 #![allow(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::needless_pass_by_value,
     clippy::too_many_lines,
     clippy::unused_async_trait_impl
 )]

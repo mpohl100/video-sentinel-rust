@@ -100,7 +100,7 @@ impl Mosaic {
 
     pub fn deduce_longest_distance_point(
         &self,
-        point: CoordinatedPoint,
+        point: &CoordinatedPoint,
     ) -> Option<CoordinatedPoint> {
         self.slice_matrix.deduce_longest_distance_point(point)
     }
@@ -112,7 +112,7 @@ impl Mosaic {
         self.cached_data = Some(self.slice_matrix.calculate_cached_data());
     }
 
-    fn contains_point(&self, point: CoordinatedPoint) -> bool {
+    fn contains_point(&self, point: &CoordinatedPoint) -> bool {
         // convert the point to the global coordinate system and check if it is contained in the mosaic
         self.slice_matrix.contains_point(point)
     }
@@ -204,7 +204,7 @@ impl RelativeMosaic {
             self.get_relative_bounding_box(relative_coordinate_system.clone());
         let bounding_circle = self.mosaic.get_bounding_circle();
         let relative_circle_center = Self::map_to_relative_point(
-            bounding_circle.get_center(),
+            &bounding_circle.get_center(),
             &relative_coordinate_system,
             top_left,
             width,
@@ -216,7 +216,7 @@ impl RelativeMosaic {
             .convert_to(relative_coordinate_system.clone())
             .get_local_point();
         let horizontal_relative_radius = Self::map_to_relative_point(
-            CoordinatedPoint::new(
+            &CoordinatedPoint::new(
                 relative_coordinate_system.clone(),
                 circle_center_global + Vec3d::new(radius, 0.0, 0.0),
             ),
@@ -225,9 +225,9 @@ impl RelativeMosaic {
             width,
             height,
         )
-        .distance_to(relative_circle_center.clone());
+        .distance_to(&relative_circle_center);
         let vertical_relative_radius = Self::map_to_relative_point(
-            CoordinatedPoint::new(
+            &CoordinatedPoint::new(
                 relative_coordinate_system.clone(),
                 circle_center_global + Vec3d::new(0.0, radius, 0.0),
             ),
@@ -236,13 +236,13 @@ impl RelativeMosaic {
             width,
             height,
         )
-        .distance_to(relative_circle_center.clone());
+        .distance_to(&relative_circle_center);
         let relative_bounding_circle = CoordinatedCircle::new(
             relative_circle_center,
             horizontal_relative_radius.max(vertical_relative_radius),
         );
         let relative_center_of_mass = Self::map_to_relative_point(
-            self.mosaic.get_center_of_mass(),
+            &self.mosaic.get_center_of_mass(),
             &relative_coordinate_system,
             top_left,
             width,
@@ -259,7 +259,7 @@ impl RelativeMosaic {
     }
 
     fn map_to_relative_point(
-        point: CoordinatedPoint,
+        point: &CoordinatedPoint,
         relative_coordinate_system: &AnonymizedCoordinateSystem,
         top_left: Vec3d,
         width: f64,
@@ -281,10 +281,9 @@ impl RelativeMosaic {
         relative_coordinate_system: AnonymizedCoordinateSystem,
     ) -> CoordinatedRectangle {
         let bounding_box = SliceRectangle::new_from_math_rectangle(
-            self.mosaic.get_bounding_box().to_global_rectangle(),
+            &self.mosaic.get_bounding_box().to_global_rectangle(),
         );
-        let absolute_rectangle =
-            SliceRectangle::new_from_math_rectangle(self.absolute_rectangle.clone());
+        let absolute_rectangle = SliceRectangle::new_from_math_rectangle(&self.absolute_rectangle);
         let unit_scale_reference =
             SliceRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.0, 0.0, 0.0));
         let relative_rectangle =
@@ -342,7 +341,7 @@ impl WrappedMosaic {
     }
 
     #[must_use]
-    pub fn contains_point(&self, point: CoordinatedPoint) -> bool {
+    pub fn contains_point(&self, point: &CoordinatedPoint) -> bool {
         let mosaic = self.mosaic.lock().unwrap();
         mosaic.contains_point(point)
     }
@@ -350,7 +349,7 @@ impl WrappedMosaic {
     #[must_use]
     pub fn deduce_longest_distance_point(
         &self,
-        point: CoordinatedPoint,
+        point: &CoordinatedPoint,
     ) -> Option<CoordinatedPoint> {
         let mosaic = self.mosaic.lock().unwrap();
         mosaic.deduce_longest_distance_point(point)
@@ -509,7 +508,7 @@ impl AnonymizedMosaic {
 
 pub fn deduce_mosaics(
     slice_matrices: Vec<SliceMatrix>,
-    surrounding_rectangle: crate::math::Rectangle,
+    surrounding_rectangle: &crate::math::Rectangle,
 ) -> Vec<WrappedRelativeMosaic> {
     slice_matrices
         .into_iter()
@@ -552,7 +551,7 @@ mod tests {
     }
 
     fn slice(x1: f64, y: f64, x2: f64) -> Slice {
-        Slice::new(point(x1, y), point(x2, y))
+        Slice::new(&point(x1, y), &point(x2, y))
     }
 
     fn annotated_slice(x1: f64, y: f64, x2: f64, line_number: usize) -> AnnotatedSlice {
@@ -626,11 +625,11 @@ mod tests {
             Vec3d::new(2.0, 2.0, 0.0),
         );
         assert_float_eq(mosaic.get_area(), 9.0);
-        assert!(mosaic.contains_point(point(2.0, 2.0)));
-        assert!(!mosaic.contains_point(point(4.0, 4.0)));
+        assert!(mosaic.contains_point(&point(2.0, 2.0)));
+        assert!(!mosaic.contains_point(&point(4.0, 4.0)));
         assert_vec_eq(
             mosaic
-                .deduce_longest_distance_point(point(2.0, 2.0))
+                .deduce_longest_distance_point(&point(2.0, 2.0))
                 .unwrap()
                 .get_local_point(),
             Vec3d::new(1.0, 4.0, 0.0),
@@ -646,7 +645,10 @@ mod tests {
         let mut relative_mosaic =
             RelativeMosaic::new(wrapped_mosaic.clone(), absolute_rectangle.clone());
 
-        assert_float_eq(relative_mosaic.get_mosaic().get_area(), wrapped_mosaic.get_area());
+        assert_float_eq(
+            relative_mosaic.get_mosaic().get_area(),
+            wrapped_mosaic.get_area(),
+        );
         assert!(relative_mosaic.get_absolute_rectangle() == absolute_rectangle);
         assert_vec_eq(
             relative_mosaic
@@ -686,7 +688,7 @@ mod tests {
         );
 
         assert_float_eq(wrapped_mosaic.get_area(), 9.0);
-        assert!(wrapped_mosaic.contains_point(point(2.0, 2.0)));
+        assert!(wrapped_mosaic.contains_point(&point(2.0, 2.0)));
         assert_eq!(wrapped_mosaic.get_slice_matrix().get_slice_lines().len(), 3);
         assert_vec_eq(
             wrapped_mosaic.get_average_color(),
@@ -697,7 +699,10 @@ mod tests {
             wrapped_relative.get_average_color(),
             Vec3d::new(1.0, 2.0, 3.0),
         );
-        assert_float_eq(wrapped_relative.get_mosaic().get_area(), wrapped_mosaic.get_area());
+        assert_float_eq(
+            wrapped_relative.get_mosaic().get_area(),
+            wrapped_mosaic.get_area(),
+        );
     }
 
     #[test]
@@ -708,7 +713,7 @@ mod tests {
             crate::math::Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(10.0, 20.0, 0.0));
         let mosaics = deduce_mosaics(
             vec![first_matrix.clone(), second_matrix.clone()],
-            math_rectangle,
+            &math_rectangle,
         );
         let first_wrapped = mosaics[0].clone();
         let same_wrapper = first_wrapped.clone();

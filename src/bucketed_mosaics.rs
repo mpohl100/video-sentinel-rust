@@ -41,7 +41,7 @@ impl BucketedMosaicsPerSection {
 
     pub fn add_mosaic(&mut self, traced_mosaic: TracedRelativeMosaic) {
         let bounding_box = Rectangle::new_from_math_rectangle(
-            traced_mosaic
+            &traced_mosaic
                 .get_relative_mosaic()
                 .get_bounding_box()
                 .to_global_rectangle(),
@@ -99,7 +99,7 @@ impl BucketedMosaics {
         BucketedMosaics { sections }
     }
 
-    pub fn add_mosaic(&mut self, mosaic: TracedRelativeMosaic) {
+    pub fn add_mosaic(&mut self, mosaic: &TracedRelativeMosaic) {
         for section in &mut self.sections {
             section.add_mosaic(mosaic.clone());
         }
@@ -113,7 +113,7 @@ impl BucketedMosaics {
         let mut mosaics_by_center_of_mass: HashMap<(i64, i64), TracedRelativeMosaic> =
             HashMap::new();
         for section in self.get_overlapping_sections(Rectangle::new_from_math_rectangle(
-            mosaic
+            &mosaic
                 .get_relative_mosaic()
                 .get_bounding_box()
                 .to_global_rectangle(),
@@ -154,7 +154,7 @@ impl BucketedMosaics {
     pub fn get_similar_mosaics_from_rectangle(
         &self,
         mosaic: &TracedRelativeMosaic,
-        region: WrappedRelativeRectangle,
+        region: &WrappedRelativeRectangle,
     ) -> Vec<TracedRelativeMosaic> {
         let mut mosaics_by_center_of_mass: HashMap<(i64, i64), TracedRelativeMosaic> =
             HashMap::new();
@@ -248,11 +248,11 @@ mod tests {
         ));
         AnnotatedSlice::new(
             Slice::new(
-                crate::math::CoordinatedPoint::new(
+                &crate::math::CoordinatedPoint::new(
                     global_coordinate_system.clone(),
                     Vec3d::new(x1, y, 0.0),
                 ),
-                crate::math::CoordinatedPoint::new(
+                &crate::math::CoordinatedPoint::new(
                     global_coordinate_system,
                     Vec3d::new(x2, y, 0.0),
                 ),
@@ -407,7 +407,7 @@ mod tests {
         let mosaic = relative_mosaic(&[(0, &[(0.0, 0.0)]), (1, &[(0.0, 0.0)])]);
         let mut bucketed = BucketedMosaics::new(TileParams::new(0.5, 0.5), 0.5);
 
-        bucketed.add_mosaic(mosaic);
+        bucketed.add_mosaic(&mosaic);
 
         assert_eq!(bucketed.sections[0].bucket.get(&5).unwrap().len(), 1);
         assert!(bucketed.sections[1].bucket.is_empty());
@@ -420,8 +420,8 @@ mod tests {
         let far = relative_mosaic(&[(8, &[(8.0, 8.0)]), (9, &[(8.0, 8.0)])]);
         let mut bucketed = BucketedMosaics::new(TileParams::new(0.5, 0.5), 0.5);
 
-        bucketed.add_mosaic(query.clone());
-        bucketed.add_mosaic(far);
+        bucketed.add_mosaic(&query);
+        bucketed.add_mosaic(&far);
 
         let similar = bucketed.get_potentially_similar_mosaics(&query);
 
@@ -438,7 +438,7 @@ mod tests {
         let query = relative_mosaic(&[(0, &[(0.0, 0.0)]), (1, &[(0.0, 0.0)])]);
         let mut bucketed = BucketedMosaics::new(TileParams::new(0.5, 0.5), 0.5);
 
-        bucketed.add_mosaic(query.clone());
+        bucketed.add_mosaic(&query);
 
         let similar = bucketed.get_all_similar_mosaics(&query);
 
@@ -456,16 +456,16 @@ mod tests {
         let far = relative_mosaic(&[(8, &[(8.0, 8.0)]), (9, &[(8.0, 8.0)])]);
         let mut bucketed = BucketedMosaics::new(TileParams::new(0.5, 0.5), 0.5);
 
-        bucketed.add_mosaic(query.clone());
-        bucketed.add_mosaic(far);
+        bucketed.add_mosaic(&query);
+        bucketed.add_mosaic(&far);
 
         let near_only = bucketed.get_similar_mosaics_from_rectangle(
             &query,
-            global_region(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.2, 0.2, 0.0)),
+            &global_region(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(0.2, 0.2, 0.0)),
         );
         let far_only = bucketed.get_similar_mosaics_from_rectangle(
             &query,
-            global_region(Vec3d::new(0.7, 0.7, 0.0), Vec3d::new(1.0, 1.0, 0.0)),
+            &global_region(Vec3d::new(0.7, 0.7, 0.0), Vec3d::new(1.0, 1.0, 0.0)),
         );
 
         assert_eq!(near_only.len(), 1);
