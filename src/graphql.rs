@@ -589,7 +589,10 @@ impl QueryRoot {
         let service = service.lock().await;
         Ok(service.get_target_similarity(&session_id))
     }
+}
 
+#[Object]
+impl MutationRoot {
     async fn get_rectangles(
         &self,
         ctx: &Context<'_>,
@@ -619,10 +622,7 @@ impl QueryRoot {
             }
         }
     }
-}
 
-#[Object]
-impl MutationRoot {
     async fn create_ordinary_session(
         &self,
         ctx: &Context<'_>,
@@ -829,6 +829,9 @@ impl MutationRoot {
         ) {
             AddObjectToBeDetectedResult::Success => Ok(true),
             AddObjectToBeDetectedResult::SessionNotFound => Err(message_error("Session not found")),
+            AddObjectToBeDetectedResult::NoReferenceMosaicsDetected => {
+                Err(message_error("No reference mosaics detected"))
+            }
             AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected => Err(
                 message_error("Session type does not support adding object to be detected"),
             ),
@@ -847,6 +850,9 @@ impl MutationRoot {
         match service.add_object_to_be_detected_as_ascii_art(session_id, object_id, ascii_art) {
             AddObjectToBeDetectedResult::Success => Ok(true),
             AddObjectToBeDetectedResult::SessionNotFound => Err(message_error("Session not found")),
+            AddObjectToBeDetectedResult::NoReferenceMosaicsDetected => {
+                Err(message_error("No reference mosaics detected"))
+            }
             AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected => Err(
                 message_error("Session type does not support adding object to be detected"),
             ),
