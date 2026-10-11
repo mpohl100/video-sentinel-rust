@@ -158,22 +158,18 @@ impl BucketedMosaics {
     }
 
     fn calculate_regions(tile_params: TileParams) -> Vec<WrappedRelativeRectangle> {
-        let num_steps_x = 1.0 / tile_params.relative_tile_x();
-        let num_steps_y = 1.0 / tile_params.relative_tile_y();
+        let num_steps_x = (1.0 / tile_params.relative_tile_x()).ceil() as usize;
+        let num_steps_y = (1.0 / tile_params.relative_tile_y()).ceil() as usize;
         let mut regions = Vec::new();
-        for i in 0..(num_steps_x as usize) {
-            for j in 0..(num_steps_y as usize) {
+        for i in 0..num_steps_x {
+            for j in 0..num_steps_y {
+                let top_left_x = tile_params.relative_tile_x() * (i as f64);
+                let top_left_y = tile_params.relative_tile_y() * (j as f64);
+                let width = (1.0 - top_left_x).min(tile_params.relative_tile_x());
+                let height = (1.0 - top_left_y).min(tile_params.relative_tile_y());
                 let region = WrappedRelativeRectangle::new(RelativeRectangle::new(
-                    Vector3::new(
-                        tile_params.relative_tile_x() * (i as f64),
-                        tile_params.relative_tile_y() * (j as f64),
-                        0.0,
-                    ),
-                    Vector3::new(
-                        tile_params.relative_tile_x(),
-                        tile_params.relative_tile_y(),
-                        0.0,
-                    ),
+                    Vector3::new(top_left_x, top_left_y, 0.0),
+                    Vector3::new(width, height, 0.0),
                 ));
                 regions.push(region);
             }
@@ -370,6 +366,19 @@ mod tests {
         let bucketed = BucketedMosaics::new(TileParams::new(0.5, 0.5), 0.5);
 
         assert_eq!(bucketed.sections.len(), 4);
+    }
+
+    #[test]
+    fn bucketed_mosaics_new_covers_full_image_when_tiles_do_not_evenly_divide_unit_square() {
+        let bucketed = BucketedMosaics::new(TileParams::new(0.15, 0.35), 0.5);
+
+        assert_eq!(bucketed.sections.len(), 21);
+        assert!(bucketed.sections.iter().any(|section| {
+            section.region.overlaps(&Rectangle::new(
+                Vec3d::new(0.95, 0.95, 0.0),
+                Vec3d::new(1.0, 1.0, 0.0),
+            ))
+        }));
     }
 
     #[test]

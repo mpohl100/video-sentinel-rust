@@ -103,8 +103,8 @@ query FetchSessionState($sessionId: String!) {
 "#;
 
 const GET_RECTANGLES: &str = r#"
-mutation GetRectangles($sessionId: String!, $image: Upload!, $previousImage: Upload) {
-  getRectangles(sessionId: $sessionId, image: $image, previousImage: $previousImage) {
+mutation GetRectangles($sessionId: String!, $image: Upload!) {
+  getRectangles(sessionId: $sessionId, image: $image) {
     boundingBox {
       topLeft {
         x
@@ -638,29 +638,13 @@ fn first_bounding_box(response: &Value) -> Value {
     rectangles[0]["boundingBox"].clone()
 }
 
-async fn get_rectangles(
-    server: &TestServer,
-    session_id: &str,
-    image: &ExampleFrame,
-    previous_image: Option<&ExampleFrame>,
-) -> Value {
-    let mut uploads = vec![UploadPart {
+async fn get_rectangles(server: &TestServer, session_id: &str, image: &ExampleFrame) -> Value {
+    let uploads = vec![UploadPart {
         variable_path: "variables.image",
         file_name: "frame.jpg",
         bytes: &image.jpeg,
         mime: "image/jpeg",
     }];
-    let previous_image_value = if let Some(previous_image) = previous_image {
-        uploads.push(UploadPart {
-            variable_path: "variables.previousImage",
-            file_name: "previous-frame.jpg",
-            bytes: &previous_image.jpeg,
-            mime: "image/jpeg",
-        });
-        Value::Null
-    } else {
-        Value::Null
-    };
 
     server
         .graphql_upload(
@@ -669,7 +653,6 @@ async fn get_rectangles(
             json!({
                 "sessionId": session_id,
                 "image": Value::Null,
-                "previousImage": previous_image_value,
             }),
             &uploads,
         )
@@ -753,7 +736,7 @@ async fn ordinary_session_graphql_roundtrip_covers_success_and_unsupported_opera
     );
 
     for frame in frames {
-        assert_rectangles_payload(&get_rectangles(&server, session_id, frame, None).await);
+        assert_rectangles_payload(&get_rectangles(&server, session_id, frame).await);
     }
 
     let session_state = server
@@ -923,7 +906,6 @@ async fn ordinary_session_graphql_roundtrip_covers_success_and_unsupported_opera
                 json!({
                     "sessionId": session_id,
                     "image": Value::Null,
-                    "previousImage": Value::Null,
                 }),
                 &[UploadPart {
                     variable_path: "variables.image",
@@ -1076,16 +1058,20 @@ async fn eye_session_graphql_roundtrip_requires_previous_frame_and_exposes_eye_q
         "updateEyeParams",
     );
 
-    assert_error_message(
-        &get_rectangles(&server, session_id, &frames[0], None).await,
-        "Previous image required for eye session",
+    let first_eye_response = get_rectangles(&server, session_id, &frames[0]).await;
+    assert_rectangles_payload(&first_eye_response);
+    let first_eye_colors = data(&first_eye_response, "getRectangles")
+        .as_array()
+        .expect("expected eye rectangles array");
+    assert!(
+        first_eye_colors
+            .iter()
+            .all(|rectangle| rectangle["color"] == Value::String("BLUE".to_string()))
     );
-    assert_rectangles_payload(
-        &get_rectangles(&server, session_id, &frames[1], Some(&frames[0])).await,
-    );
-    assert_rectangles_payload(
-        &get_rectangles(&server, session_id, &frames[2], Some(&frames[1])).await,
-    );
+    let second_eye_response = get_rectangles(&server, session_id, &frames[1]).await;
+    assert_rectangles_payload(&second_eye_response);
+    let third_eye_response = get_rectangles(&server, session_id, &frames[2]).await;
+    assert_rectangles_payload(&third_eye_response);
 
     let session_state = server
         .graphql_json(
@@ -1291,7 +1277,7 @@ async fn object_session_graphql_roundtrip_covers_reference_objects_and_detection
     );
 
     for frame in frames {
-        assert_rectangles_payload(&get_rectangles(&server, session_id, frame, None).await);
+        assert_rectangles_payload(&get_rectangles(&server, session_id, frame).await);
     }
 
     assert_bool_success(
@@ -1309,7 +1295,7 @@ async fn object_session_graphql_roundtrip_covers_reference_objects_and_detection
         "createOrdinarySession",
     );
     let reference_source_rectangles =
-        get_rectangles(&server, reference_source_session_id, &frames[0], None).await;
+        get_rectangles(&server, reference_source_session_id, &frames[0]).await;
     let reference_bounding_box = first_bounding_box(&reference_source_rectangles);
     assert_bool_success(
         &add_object_as_image(
@@ -1505,7 +1491,7 @@ async fn missing_session_graphql_operations_return_not_found_after_real_frame_pr
     );
 
     for frame in frames {
-        assert_rectangles_payload(&get_rectangles(&server, existing_session_id, frame, None).await);
+        assert_rectangles_payload(&get_rectangles(&server, existing_session_id, frame).await);
     }
 
     let missing_state = server
@@ -1665,7 +1651,7 @@ async fn missing_session_graphql_operations_return_not_found_after_real_frame_pr
         "Session not found",
     );
     assert_error_message(
-        &get_rectangles(&server, missing_session_id, &frames[0], None).await,
+        &get_rectangles(&server, missing_session_id, &frames[0]).await,
         "Session not found",
     );
 

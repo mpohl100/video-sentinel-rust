@@ -31,7 +31,7 @@ fn get_rectangles_benchmarks(c: &mut criterion::Criterion) {
         },
     );
 
-    let ordinary_service = ordinary_service();
+    let mut ordinary_service = ordinary_service();
     let ordinary_index = Cell::new(0usize);
     bench_with_setup(
         &mut group,
@@ -42,22 +42,15 @@ fn get_rectangles_benchmarks(c: &mut criterion::Criterion) {
             ordinary_index.set((index + 1) % frames.len());
             frames[index].image.clone()
         },
-        |image| match benchmark_runtime().block_on(ordinary_service.get_rectangles(
-            "ordinary".to_string(),
-            image,
-            None,
-        )) {
+        |image| match benchmark_runtime()
+            .block_on(ordinary_service.get_rectangles("ordinary".to_string(), image))
+        {
             GetRectanglesResult::Success(rectangles) => rectangles.len(),
             _ => panic!("ordinary benchmark should succeed"),
         },
     );
 
-    let eye_service = eye_service();
-    let eye_pairs = [
-        (frames[1].image.clone(), frames[0].image.clone()),
-        (frames[2].image.clone(), frames[1].image.clone()),
-        (frames[0].image.clone(), frames[2].image.clone()),
-    ];
+    let mut eye_service = eye_service();
     let eye_index = Cell::new(0usize);
     bench_with_setup(
         &mut group,
@@ -65,20 +58,18 @@ fn get_rectangles_benchmarks(c: &mut criterion::Criterion) {
         Duration::from_secs(5),
         || {
             let index = eye_index.get();
-            eye_index.set((index + 1) % eye_pairs.len());
-            eye_pairs[index].clone()
+            eye_index.set((index + 1) % frames.len());
+            frames[index].image.clone()
         },
-        |(image, previous_image)| match benchmark_runtime().block_on(eye_service.get_rectangles(
-            "eye".to_string(),
-            image,
-            Some(previous_image),
-        )) {
+        |image| match benchmark_runtime()
+            .block_on(eye_service.get_rectangles("eye".to_string(), image))
+        {
             GetRectanglesResult::Success(rectangles) => rectangles.len(),
             _ => panic!("eye benchmark should succeed"),
         },
     );
 
-    let object_service = object_service();
+    let mut object_service = object_service();
     let object_index = Cell::new(0usize);
     bench_with_setup(
         &mut group,
@@ -89,11 +80,9 @@ fn get_rectangles_benchmarks(c: &mut criterion::Criterion) {
             object_index.set((index + 1) % frames.len());
             frames[index].image.clone()
         },
-        |image| match benchmark_runtime().block_on(object_service.get_rectangles(
-            "object".to_string(),
-            image,
-            None,
-        )) {
+        |image| match benchmark_runtime()
+            .block_on(object_service.get_rectangles("object".to_string(), image))
+        {
             GetRectanglesResult::Success(rectangles) => rectangles.len(),
             _ => panic!("object benchmark should succeed"),
         },

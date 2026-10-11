@@ -1,3 +1,4 @@
+use crate::bucketed_mosaics::BucketedMosaics;
 use crate::eye::EyeParams;
 use crate::eye::TileParams;
 use crate::eye::deduce_bucketed_mosaics;
@@ -70,6 +71,7 @@ pub struct OrdinarySession {
 pub struct EyeSession {
     pub basic_params: BasicParams,
     pub eye_params: EyeParams,
+    pub cached_previous_mosaics: Option<BucketedMosaics>,
     pub results: Results,
 }
 
@@ -212,7 +214,6 @@ pub enum DeleteReferenceObjectResult {
 pub enum GetRectanglesResult {
     Success(Vec<EnrichedMosaic>),
     SessionNotFound,
-    PreviousImageRequiredForEyeSession,
     ComputationFailed(String),
 }
 
@@ -291,6 +292,7 @@ impl Service {
             Session::Eye(EyeSession {
                 basic_params,
                 eye_params,
+                cached_previous_mosaics: None,
                 results,
             }),
         );
@@ -357,6 +359,7 @@ impl Service {
                         basic_params_input.do_grayscale,
                         basic_params_input.gradient_threshold,
                     );
+                    eye_session.cached_previous_mosaics = None;
                 }
                 Session::Object(object_session) => {
                     object_session.basic_params = BasicParams::new(
@@ -381,6 +384,7 @@ impl Service {
                 Session::Eye(eye_session) => {
                     eye_session.eye_params.tile_params =
                         TileParams::new(tile_params_input.tile_x, tile_params_input.tile_y);
+                    eye_session.cached_previous_mosaics = None;
                 }
                 Session::Object(object_session) => {
                     object_session.object_detection_params.tile_params =
@@ -406,6 +410,7 @@ impl Service {
                         trace_params_input.num_skeleton,
                         trace_params_input.close_slice_threshold,
                     );
+                    eye_session.cached_previous_mosaics = None;
                 }
                 Session::Object(object_session) => {
                     object_session.object_detection_params.trace_params = TraceParams::new(
@@ -430,6 +435,7 @@ impl Service {
             match session {
                 Session::Eye(eye_session) => {
                     eye_session.eye_params.bucket_delta = bucket_delta;
+                    eye_session.cached_previous_mosaics = None;
                 }
                 Session::Object(object_session) => {
                     object_session.object_detection_params.bucket_delta = bucket_delta;
@@ -451,6 +457,7 @@ impl Service {
             match session {
                 Session::Eye(eye_session) => {
                     eye_session.eye_params.target_similarity = target_similarity;
+                    eye_session.cached_previous_mosaics = None;
                 }
                 Session::Object(object_session) => {
                     object_session.object_detection_params.target_similarity = target_similarity;
@@ -487,6 +494,7 @@ impl Service {
                         trace_params,
                         eye_params_input.target_similarity,
                     );
+                    eye_session.cached_previous_mosaics = None;
                 }
                 _ => return EyeParamsUpdateResult::SessionTypeDoesNotSupportEyeParams,
             }
@@ -715,58 +723,70 @@ impl Service {
     }
 
     pub async fn get_rectangles(
-        &self,
+        &mut self,
         session_id: String,
         image: WrappedRgbImage,
-        previous_image: Option<WrappedRgbImage>,
     ) -> GetRectanglesResult {
         let session = match self.get_session(&session_id) {
             Some(session) => session,
             None => return GetRectanglesResult::SessionNotFound,
         };
-        Self::get_rectangles_for_session(session, image, previous_image).await
-    }
-
-    pub async fn get_rectangles_for_session(
-        session: Session,
-        image: WrappedRgbImage,
-        previous_image: Option<WrappedRgbImage>,
-    ) -> GetRectanglesResult {
-        let (results, mosaics) = match session {
-            Session::Eye(eye_session) => match previous_image {
-                Some(previous_image) => (
-                    eye_session.results,
-                    match calculate_eye(&eye_session, image, previous_image).await {
-                        Ok(mosaics) => mosaics,
-                        Err(error) => return GetRectanglesResult::ComputationFailed(error),
-                    },
-                ),
-                None => return GetRectanglesResult::PreviousImageRequiredForEyeSession,
-            },
-            Session::Object(object_session) => (
-                object_session.results,
+        match session {
+            Session::Eye(eye_session) => {
+                let results = eye_session.results;
+                let computation = calculate_eye(&eye_session, image).await;
+                match computation {
+                    Ok((mosaics, new_cache)) => {
+                        if let Some(Session::Eye(eye_session)) = self.sessions.get_mut(&session_id)
+                        {
+                            eye_session.cached_previous_mosaics = Some(new_cache);
+                        }
+                        GetRectanglesResult::Success(
+                            mosaics
+                                .into_iter()
+                                .map(|colored_relative_mosaic| {
+                                    deduce_enriched_mosaic(
+                                        colored_relative_mosaic.mosaic,
+                                        colored_relative_mosaic.color,
+                                        results,
+                                    )
+                                })
+                                .collect(),
+                        )
+                    }
+                    Err(error) => GetRectanglesResult::ComputationFailed(error),
+                }
+            }
+            Session::Object(object_session) => {
                 match calculate_object(&object_session, image).await {
-                    Ok(mosaics) => mosaics,
-                    Err(error) => return GetRectanglesResult::ComputationFailed(error),
-                },
+                    Ok(mosaics) => GetRectanglesResult::Success(
+                        mosaics
+                            .into_iter()
+                            .map(|colored_relative_mosaic| {
+                                deduce_enriched_mosaic(
+                                    colored_relative_mosaic.mosaic,
+                                    colored_relative_mosaic.color,
+                                    object_session.results,
+                                )
+                            })
+                            .collect(),
+                    ),
+                    Err(error) => GetRectanglesResult::ComputationFailed(error),
+                }
+            }
+            Session::Ordinary(ordinary_session) => GetRectanglesResult::Success(
+                calculate_ordinary(&ordinary_session, image)
+                    .into_iter()
+                    .map(|colored_relative_mosaic| {
+                        deduce_enriched_mosaic(
+                            colored_relative_mosaic.mosaic,
+                            colored_relative_mosaic.color,
+                            ordinary_session.results,
+                        )
+                    })
+                    .collect(),
             ),
-            Session::Ordinary(ordinary_session) => (
-                ordinary_session.results,
-                calculate_ordinary(&ordinary_session, image),
-            ),
-        };
-        GetRectanglesResult::Success(
-            mosaics
-                .into_iter()
-                .map(|colored_relative_mosaic| {
-                    deduce_enriched_mosaic(
-                        colored_relative_mosaic.mosaic,
-                        colored_relative_mosaic.color,
-                        results,
-                    )
-                })
-                .collect(),
-        )
+        }
     }
 }
 
@@ -900,8 +920,7 @@ fn calculate_ordinary(
 async fn calculate_eye(
     eye_session: &EyeSession,
     image: WrappedRgbImage,
-    previous_image: WrappedRgbImage,
-) -> Result<Vec<ColoredAnonymizedMosaic>, String> {
+) -> Result<(Vec<ColoredAnonymizedMosaic>, BucketedMosaics), String> {
     let image_width = image.width() as f64;
     let image_height = image.height() as f64;
     let surrounding_rectangle = Rectangle::new(
@@ -910,18 +929,25 @@ async fn calculate_eye(
     );
     let current_mosaics =
         calculate_ordinary_mosaics(eye_session.basic_params.clone(), eye_session.results, image);
-    let previous_mosaics = calculate_ordinary_mosaics(
-        eye_session.basic_params.clone(),
-        eye_session.results,
-        previous_image,
-    );
-    let previous_bucketed_mosaics = deduce_bucketed_mosaics(
-        previous_mosaics.clone(),
+    let current_bucketed_mosaics = deduce_bucketed_mosaics(
+        current_mosaics.clone(),
         surrounding_rectangle.clone(),
         eye_session.eye_params.tile_params.clone(),
         eye_session.eye_params.bucket_delta,
         eye_session.eye_params.trace_params.clone(),
     );
+    let Some(previous_bucketed_mosaics) = eye_session.cached_previous_mosaics.clone() else {
+        return Ok((
+            current_mosaics
+                .into_iter()
+                .map(|mosaic| ColoredAnonymizedMosaic {
+                    color: Color::Blue,
+                    mosaic,
+                })
+                .collect(),
+            current_bucketed_mosaics,
+        ));
+    };
     let rectangles = deduce_rectangles(
         previous_bucketed_mosaics,
         current_mosaics,
@@ -929,13 +955,16 @@ async fn calculate_eye(
         surrounding_rectangle.clone(),
     )
     .await?;
-    Ok(rectangles
-        .into_iter()
-        .map(|colored_rectangle| ColoredAnonymizedMosaic {
-            color: colored_rectangle.get_color(),
-            mosaic: colored_rectangle.get_mosaics()[0].clone(),
-        })
-        .collect())
+    Ok((
+        rectangles
+            .into_iter()
+            .map(|colored_rectangle| ColoredAnonymizedMosaic {
+                color: colored_rectangle.get_color(),
+                mosaic: colored_rectangle.get_mosaics()[0].clone(),
+            })
+            .collect(),
+        current_bucketed_mosaics,
+    ))
 }
 
 async fn calculate_object(
@@ -1471,16 +1500,26 @@ mod tests {
 
         assert!(matches!(
             service
-                .get_rectangles("missing".to_string(), solid_image([255, 255, 255]), None)
+                .get_rectangles("missing".to_string(), solid_image([255, 255, 255]))
                 .await,
             GetRectanglesResult::SessionNotFound
         ));
-        assert!(matches!(
-            service
-                .get_rectangles("eye".to_string(), solid_image([255, 255, 255]), None)
-                .await,
-            GetRectanglesResult::PreviousImageRequiredForEyeSession
-        ));
+        let first_eye_rectangles = match service
+            .get_rectangles("eye".to_string(), larger_solid_image([255, 255, 255]))
+            .await
+        {
+            GetRectanglesResult::Success(mosaics) => mosaics,
+            other => panic!(
+                "expected eye rectangles success, got unexpected result: {:?}",
+                std::mem::discriminant(&other)
+            ),
+        };
+        assert!(!first_eye_rectangles.is_empty());
+        assert!(
+            first_eye_rectangles
+                .iter()
+                .all(|mosaic| mosaic.color == Color::Blue)
+        );
 
         let mosaics = calculate_ordinary_mosaics(
             BasicParams::new(false, 15),
@@ -1503,11 +1542,7 @@ mod tests {
 
         assert!(matches!(
             service
-                .get_rectangles(
-                    "ordinary".to_string(),
-                    larger_solid_image([255, 255, 255]),
-                    None,
-                )
+                .get_rectangles("ordinary".to_string(), larger_solid_image([255, 255, 255]),)
                 .await,
             GetRectanglesResult::Success(_)
         ));

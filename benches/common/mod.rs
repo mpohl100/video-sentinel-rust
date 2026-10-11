@@ -237,12 +237,10 @@ pub fn object_service() -> Service {
 }
 
 fn first_rectangle_from_ordinary(image: &WrappedRgbImage) -> Rectangle {
-    let service = ordinary_service();
-    match benchmark_runtime().block_on(service.get_rectangles(
-        "ordinary".to_string(),
-        image.clone(),
-        None,
-    )) {
+    let mut service = ordinary_service();
+    match benchmark_runtime()
+        .block_on(service.get_rectangles("ordinary".to_string(), image.clone()))
+    {
         GetRectanglesResult::Success(rectangles) => {
             rectangles
                 .into_iter()
