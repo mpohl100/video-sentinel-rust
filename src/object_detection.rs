@@ -8,10 +8,10 @@ use crate::slices::Color;
 use crate::slices::RelativeRectangle;
 use crate::slices::{ColoredRectangle, Rectangle, WrappedRelativeRectangle};
 use crate::traced_mosaics::TracedRelativeMosaic;
-#[cfg(test)]
-use num_traits::ToPrimitive;
 use crate::traces::Trace;
 use crate::traces::TraceParams;
+#[cfg(test)]
+use num_traits::ToPrimitive;
 
 #[derive(Clone)]
 pub struct ReferenceObject {
@@ -77,7 +77,8 @@ impl ReferenceObject {
             "At least 2 mosaics are required to calculate the relative rectangle"
         );
         let smallest_bounding_box = Rectangle::new_from_math_rectangle(
-            self.mosaics
+            &self
+                .mosaics
                 .last()
                 .unwrap()
                 .get_relative_mosaic()
@@ -90,7 +91,7 @@ impl ReferenceObject {
                 .iter()
                 .map(|mosaic| {
                     Rectangle::new_from_math_rectangle(
-                        mosaic
+                        &mosaic
                             .get_relative_mosaic()
                             .get_mosaic()
                             .get_bounding_box()
@@ -113,7 +114,10 @@ pub struct ObjectDetectionParams {
 
 #[cfg(test)]
 fn i32_from_f64(value: f64) -> i32 {
-    value.round().to_i32().expect("fixture coordinate should fit within i32")
+    value
+        .round()
+        .to_i32()
+        .expect("fixture coordinate should fit within i32")
 }
 
 impl ObjectDetectionParams {
@@ -135,7 +139,7 @@ impl ObjectDetectionParams {
 
 #[must_use]
 pub fn detect_objects(
-    reference_object: ReferenceObject,
+    reference_object: &ReferenceObject,
     bucketed_mosaics: &BucketedMosaics,
     object_detection_params: ObjectDetectionParams,
     surrounding_rectangle: Rectangle,
@@ -175,7 +179,7 @@ pub fn detect_objects(
                     .iter()
                     .map(|mosaic| {
                         Rectangle::new_from_math_rectangle(
-                            mosaic
+                            &mosaic
                                 .get_relative_mosaic()
                                 .get_bounding_box()
                                 .to_global_rectangle(),
@@ -183,8 +187,7 @@ pub fn detect_objects(
                     })
                     .collect(),
             );
-            let suspected_region =
-                relative_rectangle.multiply_with_rectangle(absolute_rectangle);
+            let suspected_region = relative_rectangle.multiply_with_rectangle(absolute_rectangle);
             let inverted_suspected_region =
                 inverted_relative_rectangle.multiply_with_rectangle(absolute_rectangle);
             let combined_regions = combine_boxes(vec![
@@ -198,7 +201,7 @@ pub fn detect_objects(
             );
             let next_mosaic_candidates = bucketed_mosaics.get_similar_mosaics_from_rectangle(
                 &traced_current_mosaic.clone(),
-                relative_combined_region,
+                &relative_combined_region,
             );
             let real_candidates: Vec<_> = next_mosaic_candidates
                 .into_iter()
@@ -215,24 +218,28 @@ pub fn detect_objects(
                 candidate_mosaics.push(real_candidate);
                 let current_candidate_reference_object =
                     ReferenceObject::new("dummy_id".to_string(), candidate_mosaics);
+                let current_candidate_mosaics: Vec<_> = current_candidate_reference_object
+                    .get_mosaics(usize::MAX)
+                    .into_iter()
+                    .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
+                    .collect();
                 let current_candidate_reference_object_trace = Trace::new_from_mosaics(
-                    current_candidate_reference_object
-                        .get_mosaics(usize::MAX)
-                        .into_iter()
-                        .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
-                        .collect(),
+                    &current_candidate_mosaics,
                     object_detection_params.trace_params,
                 );
                 if current_candidate_reference_object_trace.compare_with(
                     object_detection_params.target_similarity,
-                    &Trace::new_from_mosaics(
-                        current_reference_object
+                    &{
+                        let current_reference_mosaics: Vec<_> = current_reference_object
                             .get_mosaics(usize::MAX)
                             .into_iter()
                             .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
-                            .collect(),
-                        object_detection_params.trace_params,
-                    ),
+                            .collect();
+                        Trace::new_from_mosaics(
+                            &current_reference_mosaics,
+                            object_detection_params.trace_params,
+                        )
+                    },
                 ) >= object_detection_params.target_similarity
                 {
                     new_candidate_reference_objects.push(current_candidate_reference_object);
@@ -249,7 +256,7 @@ pub fn detect_objects(
                     .get_mosaics(usize::MAX)
                     .iter()
                     .map(|mosaic| {
-                        Rectangle::new_from_math_rectangle(match results {
+                        Rectangle::new_from_math_rectangle(&match results {
                             Results::Absolute => mosaic
                                 .get_relative_mosaic()
                                 .get_mosaic()
@@ -382,10 +389,7 @@ mod tests {
 
     fn fill_circle(image: &WrappedRgbImage, circle: &ColoredTestCircle) {
         image.fill_circle(
-            (
-                i32_from_f64(circle.center.x),
-                i32_from_f64(circle.center.y),
-            ),
+            (i32_from_f64(circle.center.x), i32_from_f64(circle.center.y)),
             i32_from_f64(circle.radius),
             rgb_from_name(circle.color),
         );
@@ -416,21 +420,21 @@ mod tests {
         Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(width, height, 0.0))
     }
 
-    fn deduce_all_mosaics(image: WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
+    fn deduce_all_mosaics(image: &WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
         let trace_params = TraceParams::new(12, 0.2);
-        let rectangle = surrounding_rectangle(&image);
+        let rectangle = surrounding_rectangle(image);
         let math_rectangle =
             MathRectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right());
-        let slices = calculate_slices(image.clone(), rectangle, basic_params());
+        let slices = calculate_slices(image, rectangle, basic_params());
         let connected_slices = find_connected_slices(&mut slices.clone());
-        deduce_mosaics(connected_slices, math_rectangle)
+        deduce_mosaics(connected_slices, &math_rectangle)
             .into_iter()
             .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params))
             .collect()
     }
 
     fn deduce_mosaic_at_position(
-        image: WrappedRgbImage,
+        image: &WrappedRgbImage,
         position: Vec3d,
     ) -> Option<TracedRelativeMosaic> {
         let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
@@ -440,13 +444,13 @@ mod tests {
         ));
         deduce_all_mosaics(image).into_iter().find(|mosaic| {
             mosaic.get_relative_mosaic().get_mosaic().contains_point(
-                crate::math::CoordinatedPoint::new(global_coordinate_system.clone(), position),
+                &crate::math::CoordinatedPoint::new(global_coordinate_system.clone(), position),
             )
         })
     }
 
     fn single_reference_object_from_image(
-        image: WrappedRgbImage,
+        image: &WrappedRgbImage,
         position: Vec3d,
         id: &str,
     ) -> ReferenceObject {
@@ -458,57 +462,48 @@ mod tests {
 
     #[test]
     fn reference_object_new_sorts_by_area_and_get_mosaics_clamps_requested_length() {
-        let large = deduce_mosaic_at_position(
-            create_test_image_with_shapes(
-                &ShapesData {
-                    rectangles: vec![ColoredTestRectangle {
-                        top_left: Vec3d::new(5.0, 5.0, 0.0),
-                        bottom_right: Vec3d::new(25.0, 25.0, 0.0),
-                        color: "white",
-                        rotation_angle_degrees: 0.0,
-                    }],
-                    circles: Vec::new(),
-                },
-                50,
-                50,
-            ),
-            Vec3d::new(15.0, 15.0, 0.0),
-        )
-        .unwrap();
-        let medium = deduce_mosaic_at_position(
-            create_test_image_with_shapes(
-                &ShapesData {
-                    rectangles: vec![ColoredTestRectangle {
-                        top_left: Vec3d::new(5.0, 5.0, 0.0),
-                        bottom_right: Vec3d::new(20.0, 20.0, 0.0),
-                        color: "white",
-                        rotation_angle_degrees: 0.0,
-                    }],
-                    circles: Vec::new(),
-                },
-                40,
-                40,
-            ),
-            Vec3d::new(12.0, 12.0, 0.0),
-        )
-        .unwrap();
-        let small = deduce_mosaic_at_position(
-            create_test_image_with_shapes(
-                &ShapesData {
-                    rectangles: vec![ColoredTestRectangle {
-                        top_left: Vec3d::new(5.0, 5.0, 0.0),
-                        bottom_right: Vec3d::new(15.0, 15.0, 0.0),
-                        color: "white",
-                        rotation_angle_degrees: 0.0,
-                    }],
-                    circles: Vec::new(),
-                },
-                30,
-                30,
-            ),
-            Vec3d::new(10.0, 10.0, 0.0),
-        )
-        .unwrap();
+        let large_image = create_test_image_with_shapes(
+            &ShapesData {
+                rectangles: vec![ColoredTestRectangle {
+                    top_left: Vec3d::new(5.0, 5.0, 0.0),
+                    bottom_right: Vec3d::new(25.0, 25.0, 0.0),
+                    color: "white",
+                    rotation_angle_degrees: 0.0,
+                }],
+                circles: Vec::new(),
+            },
+            50,
+            50,
+        );
+        let large = deduce_mosaic_at_position(&large_image, Vec3d::new(15.0, 15.0, 0.0)).unwrap();
+        let medium_image = create_test_image_with_shapes(
+            &ShapesData {
+                rectangles: vec![ColoredTestRectangle {
+                    top_left: Vec3d::new(5.0, 5.0, 0.0),
+                    bottom_right: Vec3d::new(20.0, 20.0, 0.0),
+                    color: "white",
+                    rotation_angle_degrees: 0.0,
+                }],
+                circles: Vec::new(),
+            },
+            40,
+            40,
+        );
+        let medium = deduce_mosaic_at_position(&medium_image, Vec3d::new(12.0, 12.0, 0.0)).unwrap();
+        let small_image = create_test_image_with_shapes(
+            &ShapesData {
+                rectangles: vec![ColoredTestRectangle {
+                    top_left: Vec3d::new(5.0, 5.0, 0.0),
+                    bottom_right: Vec3d::new(15.0, 15.0, 0.0),
+                    color: "white",
+                    rotation_angle_degrees: 0.0,
+                }],
+                circles: Vec::new(),
+            },
+            30,
+            30,
+        );
+        let small = deduce_mosaic_at_position(&small_image, Vec3d::new(10.0, 10.0, 0.0)).unwrap();
 
         let reference = ReferenceObject::new(
             "ordered".to_string(),
@@ -554,15 +549,15 @@ mod tests {
             60,
             40,
         );
-        let large = deduce_mosaic_at_position(image.clone(), Vec3d::new(15.0, 15.0, 0.0)).unwrap();
-        let small = deduce_mosaic_at_position(image, Vec3d::new(40.0, 15.0, 0.0)).unwrap();
+        let large = deduce_mosaic_at_position(&image, Vec3d::new(15.0, 15.0, 0.0)).unwrap();
+        let small = deduce_mosaic_at_position(&image, Vec3d::new(40.0, 15.0, 0.0)).unwrap();
         let reference = ReferenceObject::new("ref-id".to_string(), vec![small, large.clone()]);
 
         let surrounding = reference.get_surrounding_bounding_box();
         let relative = reference
             .get_relative_rectangle_to_smallest()
             .multiply_with_rectangle(Rectangle::new_from_math_rectangle(
-                large
+                &large
                     .get_relative_mosaic()
                     .get_mosaic()
                     .get_bounding_box()
@@ -582,7 +577,7 @@ mod tests {
     )]
     fn relative_rectangle_to_smallest_panics_with_single_mosaic() {
         let reference = single_reference_object_from_image(
-            create_test_image_with_shapes(
+            &create_test_image_with_shapes(
                 &ShapesData {
                     rectangles: vec![ColoredTestRectangle {
                         top_left: Vec3d::new(5.0, 5.0, 0.0),

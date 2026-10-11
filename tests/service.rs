@@ -2,7 +2,6 @@
 #![allow(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::needless_pass_by_value,
     clippy::too_many_lines,
     clippy::unused_async_trait_impl
 )]
@@ -34,7 +33,9 @@ use video_sentinel::slices::WrappedRgbImage;
 type TestSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
 fn u32_from_usize(value: usize) -> u32 {
-    value.to_u32().expect("frame dimension should fit within u32")
+    value
+        .to_u32()
+        .expect("frame dimension should fit within u32")
 }
 
 const FETCH_SESSION_STATE: &str = r"
@@ -461,7 +462,7 @@ fn load_example_frames() -> Vec<ExampleFrame> {
         .take(3)
         .map(|frame_result| {
             let (_timestamp, frame) = frame_result.expect("example video frame should decode");
-            let image = wrapped_rgb_image_from_frame(frame);
+            let image = wrapped_rgb_image_from_frame(&frame);
             ExampleFrame {
                 width: image.width(),
                 height: image.height(),
@@ -474,7 +475,7 @@ fn load_example_frames() -> Vec<ExampleFrame> {
     frames
 }
 
-fn wrapped_rgb_image_from_frame(frame: Frame) -> WrappedRgbImage {
+fn wrapped_rgb_image_from_frame(frame: &Frame) -> WrappedRgbImage {
     let (height, width, channels) = frame.dim();
     assert_eq!(channels, 3, "example video should decode as RGB");
 

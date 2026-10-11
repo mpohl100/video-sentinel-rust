@@ -2,7 +2,6 @@
 #![allow(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::needless_pass_by_value,
     clippy::too_many_lines,
     clippy::unused_async_trait_impl
 )]
@@ -52,11 +51,15 @@ struct CliArgs {
 }
 
 fn i32_from_u32(value: u32) -> i32 {
-    value.to_i32().expect("image dimension should fit within i32")
+    value
+        .to_i32()
+        .expect("image dimension should fit within i32")
 }
 
 fn u32_from_usize(value: usize) -> u32 {
-    value.to_u32().expect("frame dimension should fit within u32")
+    value
+        .to_u32()
+        .expect("frame dimension should fit within u32")
 }
 
 fn usize_from_u32(value: u32) -> usize {
@@ -153,7 +156,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
         };
 
         println!("processing frame {frame_index} at timestamp {timestamp} ms");
-        let wrapped_rgb_image = frame_to_rgb_image(frame)?;
+        let wrapped_rgb_image = frame_to_rgb_image(&frame)?;
 
         let enriched_mosaics = match service
             .get_rectangles(&args.session_id, wrapped_rgb_image.clone())
@@ -171,7 +174,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
             draw_rectangle(&output_image, &mosaic.bounding_box, &mosaic.color);
         }
 
-        let output_frame = rgb_image_to_frame(output_image)?;
+        let output_frame = rgb_image_to_frame(&output_image)?;
         encoder.encode(&output_frame, timestamp)?;
 
         if args.finish_after_two_frames && frame_index >= 1 {
@@ -212,12 +215,7 @@ fn configure_session(service: &mut Service, args: &CliArgs) -> Result<(), Box<dy
         }
         SessionArgs::Eye(tracking) => {
             let eye_params = to_eye_params_input(tracking);
-            match service.create_eye_session(
-                &args.session_id,
-                basic_params,
-                eye_params,
-                results,
-            ) {
+            match service.create_eye_session(&args.session_id, basic_params, eye_params, results) {
                 CreateEyeSessionResult::Success => Ok(()),
                 CreateEyeSessionResult::SessionAlreadyExists => {
                     Err(format!("session {} already exists", args.session_id).into())
@@ -266,7 +264,7 @@ fn configure_session(service: &mut Service, args: &CliArgs) -> Result<(), Box<dy
                 match service.add_object_to_be_detected_as_image(
                     &args.session_id,
                     &object_id,
-                    wrapped_image,
+                    &wrapped_image,
                     surrounding_rectangle,
                 ) {
                     video_sentinel::service::AddObjectToBeDetectedResult::Success => {}
@@ -369,7 +367,7 @@ fn draw_rectangle(image: &WrappedRgbImage, rectangle: &Rectangle, color: &Color)
     image.draw_rectangle_outline((x1, y1), (x2, y2), pixel);
 }
 
-fn frame_to_rgb_image(frame: video_rs::Frame) -> Result<WrappedRgbImage, Box<dyn Error>> {
+fn frame_to_rgb_image(frame: &video_rs::Frame) -> Result<WrappedRgbImage, Box<dyn Error>> {
     let (height, width, channels) = frame.dim();
     if channels != 3 {
         return Err(format!("expected 3 channels, got {channels}").into());
@@ -381,12 +379,12 @@ fn frame_to_rgb_image(frame: video_rs::Frame) -> Result<WrappedRgbImage, Box<dyn
         frame.iter().copied().collect()
     };
 
-    WrappedRgbImage::from_rgb_data(u32_from_usize(width), u32_from_usize(height), &data).map_err(|error| {
-        format!("failed to create RGB image from decoded frame data: {error}").into()
-    })
+    WrappedRgbImage::from_rgb_data(u32_from_usize(width), u32_from_usize(height), &data).map_err(
+        |error| format!("failed to create RGB image from decoded frame data: {error}").into(),
+    )
 }
 
-fn rgb_image_to_frame(image: WrappedRgbImage) -> Result<Frame, Box<dyn Error>> {
+fn rgb_image_to_frame(image: &WrappedRgbImage) -> Result<Frame, Box<dyn Error>> {
     let width = image.width();
     let height = image.height();
     let data = image

@@ -2,7 +2,6 @@
 #![allow(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::needless_pass_by_value,
     clippy::too_many_lines,
     clippy::unused_async_trait_impl
 )]
@@ -51,7 +50,8 @@ fn get_rectangles_benchmarks(c: &mut criterion::Criterion) {
             ordinary_index.set((index + 1) % frames.len());
             frames[index].image.clone()
         },
-        |image| match benchmark_runtime().block_on(ordinary_service.get_rectangles("ordinary", image))
+        |image| match benchmark_runtime()
+            .block_on(ordinary_service.get_rectangles("ordinary", image))
         {
             GetRectanglesResult::Success(rectangles) => rectangles.len(),
             _ => panic!("ordinary benchmark should succeed"),
@@ -86,8 +86,7 @@ fn get_rectangles_benchmarks(c: &mut criterion::Criterion) {
             object_index.set((index + 1) % frames.len());
             frames[index].image.clone()
         },
-        |image| match benchmark_runtime().block_on(object_service.get_rectangles("object", image))
-        {
+        |image| match benchmark_runtime().block_on(object_service.get_rectangles("object", image)) {
             GetRectanglesResult::Success(rectangles) => rectangles.len(),
             _ => panic!("object benchmark should succeed"),
         },

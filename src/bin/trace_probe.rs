@@ -2,7 +2,6 @@
 #![allow(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
-    clippy::needless_pass_by_value,
     clippy::too_many_lines,
     clippy::unused_async_trait_impl
 )]
@@ -30,7 +29,10 @@ enum ReferenceBuildMode {
 }
 
 fn i32_from_f64(value: f64) -> i32 {
-    value.round().to_i32().expect("fixture coordinate should fit within i32")
+    value
+        .round()
+        .to_i32()
+        .expect("fixture coordinate should fit within i32")
 }
 
 fn usize_from_f64(value: f64) -> usize {
@@ -127,10 +129,7 @@ fn fill_rotated_rectangle(image: &WrappedRgbImage, rectangle: &ColoredTestRectan
 
 fn fill_circle(image: &WrappedRgbImage, circle: &ColoredTestCircle) {
     image.fill_circle(
-        (
-            i32_from_f64(circle.center.x),
-            i32_from_f64(circle.center.y),
-        ),
+        (i32_from_f64(circle.center.x), i32_from_f64(circle.center.y)),
         i32_from_f64(circle.radius),
         rgb_from_name(circle.color),
     );
@@ -304,8 +303,8 @@ fn add_horizontal_slice(
     end_x: f64,
 ) {
     let slice = Slice::new(
-        coordinated_point(start_x, f64_from_usize(line_number)),
-        coordinated_point(end_x, f64_from_usize(line_number)),
+        &coordinated_point(start_x, f64_from_usize(line_number)),
+        &coordinated_point(end_x, f64_from_usize(line_number)),
     );
     slice_matrix.add(SliceLine::new(
         line_number,
@@ -355,24 +354,24 @@ fn surrounding_rectangle(image: &WrappedRgbImage) -> Rectangle {
     Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(width, height, 0.0))
 }
 
-fn deduce_all_mosaics(image: WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
-    let rectangle = surrounding_rectangle(&image);
-    let slices = calculate_slices(image.clone(), rectangle, basic_params());
+fn deduce_all_mosaics(image: &WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
+    let rectangle = surrounding_rectangle(image);
+    let slices = calculate_slices(image, rectangle, basic_params());
     let connected_slices = find_connected_slices(&mut slices.clone());
-    let surrounding_rectangle = surrounding_rectangle(&image);
+    let surrounding_rectangle = surrounding_rectangle(image);
     let math_rectangle = MathRectangle::new(
         surrounding_rectangle.get_top_left(),
         surrounding_rectangle.get_bottom_right(),
     );
     let trace_params = TraceParams::new(36, 0.2);
-    deduce_mosaics(connected_slices, math_rectangle)
+    deduce_mosaics(connected_slices, &math_rectangle)
         .into_iter()
         .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params))
         .collect()
 }
 
 fn deduce_mosaic_at_position(
-    image: WrappedRgbImage,
+    image: &WrappedRgbImage,
     position: Vec3d,
 ) -> Option<TracedRelativeMosaic> {
     deduce_all_mosaics(image)
@@ -381,7 +380,7 @@ fn deduce_mosaic_at_position(
             traced_relative
                 .get_relative_mosaic()
                 .get_mosaic()
-                .contains_point(CoordinatedPoint::new(global_coordinate_system(), position))
+                .contains_point(&CoordinatedPoint::new(global_coordinate_system(), position))
         })
 }
 
@@ -389,7 +388,7 @@ fn reference_object_from_slice_matrices(
     id: &str,
     slice_matrices: Vec<SliceMatrix>,
     trace_params: TraceParams,
-    math_rectangle: MathRectangle,
+    math_rectangle: &MathRectangle,
 ) -> ReferenceObject {
     ReferenceObject::new(
         id.to_string(),
@@ -401,7 +400,7 @@ fn reference_object_from_slice_matrices(
 }
 
 fn single_reference_object_from_image(
-    image: WrappedRgbImage,
+    image: &WrappedRgbImage,
     position: Vec3d,
     id: &str,
 ) -> ReferenceObject {
@@ -429,7 +428,7 @@ fn trace_cpp_square_reference_object(mode: ReferenceBuildMode) -> ReferenceObjec
             );
 
             single_reference_object_from_image(
-                reference_image,
+                &reference_image,
                 Vec3d::new(20.0, 20.0, 0.0),
                 "square",
             )
@@ -443,7 +442,7 @@ fn trace_cpp_square_reference_object(mode: ReferenceBuildMode) -> ReferenceObjec
                 Vec3d::new(35.0, 35.0, 0.0),
             )],
             TraceParams::new(36, 0.2),
-            MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(50.0, 50.0, 0.0)),
+            &MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(50.0, 50.0, 0.0)),
         ),
     }
 }
@@ -465,7 +464,7 @@ fn trace_cpp_circle_reference_object(mode: ReferenceBuildMode) -> ReferenceObjec
             );
 
             single_reference_object_from_image(
-                reference_image,
+                &reference_image,
                 Vec3d::new(25.0, 25.0, 0.0),
                 "circle",
             )
@@ -479,7 +478,7 @@ fn trace_cpp_circle_reference_object(mode: ReferenceBuildMode) -> ReferenceObjec
                 25.0,
             )],
             TraceParams::new(36, 0.2),
-            MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(50.0, 50.0, 0.0)),
+            &MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(50.0, 50.0, 0.0)),
         ),
     }
 }
@@ -502,7 +501,7 @@ fn trace_cpp_rectangle_reference_object(mode: ReferenceBuildMode) -> ReferenceOb
             );
 
             single_reference_object_from_image(
-                reference_image,
+                &reference_image,
                 Vec3d::new(20.0, 20.0, 0.0),
                 "rectangle",
             )
@@ -516,7 +515,7 @@ fn trace_cpp_rectangle_reference_object(mode: ReferenceBuildMode) -> ReferenceOb
                 Vec3d::new(25.0, 35.0, 0.0),
             )],
             TraceParams::new(36, 0.2),
-            MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(50.0, 50.0, 0.0)),
+            &MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(50.0, 50.0, 0.0)),
         ),
     }
 }
@@ -543,8 +542,8 @@ fn reference_object_methods_reference_object() -> ReferenceObject {
         60,
         40,
     );
-    let large = deduce_mosaic_at_position(image.clone(), Vec3d::new(15.0, 15.0, 0.0)).unwrap();
-    let small = deduce_mosaic_at_position(image, Vec3d::new(40.0, 15.0, 0.0)).unwrap();
+    let large = deduce_mosaic_at_position(&image, Vec3d::new(15.0, 15.0, 0.0)).unwrap();
+    let small = deduce_mosaic_at_position(&image, Vec3d::new(40.0, 15.0, 0.0)).unwrap();
     ReferenceObject::new("ref-id".to_string(), vec![small, large])
 }
 
@@ -576,9 +575,9 @@ fn pair_reference_object(mode: ReferenceBuildMode) -> ReferenceObject {
             ReferenceObject::new(
                 "pair".to_string(),
                 vec![
-                    deduce_mosaic_at_position(reference_image.clone(), Vec3d::new(20.0, 20.0, 0.0))
+                    deduce_mosaic_at_position(&reference_image, Vec3d::new(20.0, 20.0, 0.0))
                         .unwrap(),
-                    deduce_mosaic_at_position(reference_image, Vec3d::new(60.0, 20.0, 0.0))
+                    deduce_mosaic_at_position(&reference_image, Vec3d::new(60.0, 20.0, 0.0))
                         .unwrap(),
                 ],
             )
@@ -600,7 +599,7 @@ fn pair_reference_object(mode: ReferenceBuildMode) -> ReferenceObject {
                 ),
             ],
             TraceParams::new(36, 0.2),
-            MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(1000.0, 1000.0, 0.0)),
+            &MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(1000.0, 1000.0, 0.0)),
         ),
     }
 }
@@ -608,7 +607,7 @@ fn pair_reference_object(mode: ReferenceBuildMode) -> ReferenceObject {
 fn print_reference_object_trace(
     name: &str,
     shape_description: &str,
-    reference_object: ReferenceObject,
+    reference_object: &ReferenceObject,
     params: TraceParams,
 ) {
     println!("=== {name} ===");
@@ -640,14 +639,12 @@ fn print_reference_object_trace(
         );
     }
 
-    let trace = Trace::new_from_mosaics(
-        reference_object
-            .get_mosaics(usize::MAX)
-            .into_iter()
-            .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
-            .collect(),
-        params,
-    );
+    let mosaics: Vec<_> = reference_object
+        .get_mosaics(usize::MAX)
+        .into_iter()
+        .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
+        .collect();
+    let trace = Trace::new_from_mosaics(&mosaics, params);
     println!("{}", trace.dump_details());
 }
 
@@ -655,36 +652,41 @@ fn print_reference_object_image_similarities(build_mode: ReferenceBuildMode) {
     let shapes_data = object_detection_scene_shapes();
     let scene_markers = scene_shape_markers(&shapes_data);
     let image = create_test_image_with_shapes(&shapes_data, 1000, 1000);
-    let scene_mosaics = deduce_all_mosaics(image);
+    let scene_mosaics = deduce_all_mosaics(&image);
+    let reference_methods_object = reference_object_methods_reference_object();
+    let square_object = trace_cpp_square_reference_object(build_mode);
+    let circle_object = trace_cpp_circle_reference_object(build_mode);
+    let rectangle_object = trace_cpp_rectangle_reference_object(build_mode);
+    let pair_object = pair_reference_object(build_mode);
     let reference_cases = vec![
         (
             "reference_object_methods_return_id_surrounding_box_and_relative_rectangle",
             "Square(10, 10) with Square(20, 20)",
-            reference_object_methods_reference_object(),
+            &reference_methods_object,
             TraceParams::new(36, 1e-4),
         ),
         (
             "detect_objects_finds_square_results_from_trace_cpp_scene",
             "Square(20, 20)",
-            trace_cpp_square_reference_object(build_mode),
+            &square_object,
             TraceParams::new(36, 1e-4),
         ),
         (
             "detect_objects_finds_circle_results_from_trace_cpp_scene",
             "Circle(radius=25)",
-            trace_cpp_circle_reference_object(build_mode),
+            &circle_object,
             TraceParams::new(36, 1e-4),
         ),
         (
             "detect_objects_finds_rectangle_results_from_trace_cpp_scene",
             "Rectangle(10, 20)",
-            trace_cpp_rectangle_reference_object(build_mode),
+            &rectangle_object,
             TraceParams::new(36, 1e-4),
         ),
         (
             "detect_objects_with_two_reference_mosaics_respects_relative_layout",
             "Square(20, 20) with Square(20, 20)",
-            pair_reference_object(build_mode),
+            &pair_object,
             TraceParams::new(24, 1e-4),
         ),
     ];
@@ -696,14 +698,13 @@ fn print_reference_object_image_similarities(build_mode: ReferenceBuildMode) {
         println!("reference: {reference_name}");
         println!("reference shape: {shape_description}");
 
-        let reference_trace = WrappedTrace::new(Trace::new_from_mosaics(
-            reference_object
-                .get_mosaics(usize::MAX)
-                .into_iter()
-                .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
-                .collect(),
-            params,
-        ));
+        let reference_mosaics: Vec<_> = reference_object
+            .get_mosaics(usize::MAX)
+            .into_iter()
+            .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
+            .collect();
+        let reference_trace =
+            WrappedTrace::new(Trace::new_from_mosaics(&reference_mosaics, params));
 
         for (mosaic_index, mosaic) in scene_mosaics.iter().enumerate() {
             let mosaic_trace = mosaic.get_trace();
@@ -787,26 +788,22 @@ fn print_reference_object_cross_similarities(build_mode: ReferenceBuildMode) {
             "left_reference[{left_index}]: {left_name} shape={left_shape} mosaic_count={}",
             left_reference_object.get_mosaics(usize::MAX).len(),
         );
-        let left_trace = Trace::new_from_mosaics(
-            left_reference_object
-                .get_mosaics(usize::MAX)
-                .into_iter()
-                .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
-                .collect(),
-            comparison_params,
-        );
+        let left_mosaics: Vec<_> = left_reference_object
+            .get_mosaics(usize::MAX)
+            .into_iter()
+            .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
+            .collect();
+        let left_trace = Trace::new_from_mosaics(&left_mosaics, comparison_params);
 
         for (right_index, (right_name, right_shape, right_reference_object, _)) in
             reference_cases.iter().enumerate()
         {
-            let right_trace = Trace::new_from_mosaics(
-                right_reference_object
-                    .get_mosaics(usize::MAX)
-                    .into_iter()
-                    .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
-                    .collect(),
-                comparison_params,
-            );
+            let right_mosaics: Vec<_> = right_reference_object
+                .get_mosaics(usize::MAX)
+                .into_iter()
+                .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
+                .collect();
+            let right_trace = Trace::new_from_mosaics(&right_mosaics, comparison_params);
             println!(
                 "compare reference[{left_index}]={left_name} ({left_shape}) with reference[{right_index}]={right_name} ({right_shape})",
             );
@@ -831,31 +828,31 @@ fn main() {
     print_reference_object_trace(
         "reference_object_methods_return_id_surrounding_box_and_relative_rectangle",
         "Square(10, 10) with Square(20, 20)",
-        reference_object_methods_reference_object(),
+        &reference_object_methods_reference_object(),
         TraceParams::new(36, 1e-4),
     );
     print_reference_object_trace(
         "detect_objects_finds_square_results_from_trace_cpp_scene",
         "Square(20, 20)",
-        trace_cpp_square_reference_object(build_mode),
+        &trace_cpp_square_reference_object(build_mode),
         TraceParams::new(36, 1e-4),
     );
     print_reference_object_trace(
         "detect_objects_finds_circle_results_from_trace_cpp_scene",
         "Circle(radius=25)",
-        trace_cpp_circle_reference_object(build_mode),
+        &trace_cpp_circle_reference_object(build_mode),
         TraceParams::new(36, 1e-4),
     );
     print_reference_object_trace(
         "detect_objects_finds_rectangle_results_from_trace_cpp_scene",
         "Rectangle(10, 20)",
-        trace_cpp_rectangle_reference_object(build_mode),
+        &trace_cpp_rectangle_reference_object(build_mode),
         TraceParams::new(36, 1e-4),
     );
     print_reference_object_trace(
         "detect_objects_with_two_reference_mosaics_respects_relative_layout",
         "Square(20, 20) with Square(20, 20)",
-        pair_reference_object(build_mode),
+        &pair_reference_object(build_mode),
         TraceParams::new(24, 1e-4),
     );
 
