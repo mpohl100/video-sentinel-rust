@@ -1310,7 +1310,7 @@ mod tests {
         assert_float_eq(adjusted_negative.angle_degrees, 90.0);
         assert_float_eq(from_points.angle_degrees, 90.0);
         assert_float_eq(from_lines.angle_degrees, 90.0);
-        assert_float_eq(pi_angle.radians(), 3.141592653589793);
+        assert_float_eq(pi_angle.radians(), std::f64::consts::PI);
         assert_float_eq(pi_angle.get_min_degrees(), -180.0);
         assert_float_eq(pi_angle.get_max_degrees(), 180.0);
         assert_float_eq(sum.angle_degrees, -150.0);
@@ -1741,11 +1741,11 @@ mod tests {
         assert_float_eq(converted_polar.get_angle().get_angle_degrees(), -45.0);
         assert_vec_eq(
             converted_cartesian.get_local_point(),
-            Vec3d::new(1.4142135623730951, -1.414213562373095, 0.0),
+            Vec3d::new(std::f64::consts::SQRT_2, -std::f64::consts::SQRT_2, 0.0),
         );
         assert_global_point_eq(
             converted_cartesian,
-            Vec3d::new(1.414213562373095, 1.4142135623730951, 0.0),
+            Vec3d::new(std::f64::consts::SQRT_2, std::f64::consts::SQRT_2, 0.0),
         );
     }
 }
