@@ -131,10 +131,6 @@ pub fn deduce_rectangles(
             vec![next_mosaic],
         ));
     }
-    println!(
-        "Finished processing all next mosaics. Total results: {}",
-        results.len()
-    );
     results
 }
 

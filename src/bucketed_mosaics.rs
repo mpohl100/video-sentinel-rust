@@ -7,6 +7,7 @@ use crate::slices::RelativeRectangle;
 use crate::slices::{Rectangle, WrappedRelativeRectangle};
 use crate::traced_mosaics::TracedRelativeMosaic;
 use std::collections::HashMap;
+#[derive(Clone)]
 pub struct BucketedMosaicsPerSection {
     region: WrappedRelativeRectangle,
     bucket: BTreeMap<i64, Vec<TracedRelativeMosaic>>,
@@ -65,6 +66,7 @@ impl BucketedMosaicsPerSection {
     }
 }
 
+#[derive(Clone)]
 pub struct BucketedMosaics {
     sections: Vec<BucketedMosaicsPerSection>,
 }
