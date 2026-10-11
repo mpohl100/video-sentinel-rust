@@ -1017,11 +1017,11 @@ async fn calculate_object(
         calculate_ordinary_mosaics(object_session.basic_params, object_session.results, &image);
     let bucketed_mosaics = Arc::new(
         deduce_bucketed_mosaics(
-        current_mosaics.clone(),
-        surrounding_rectangle,
-        object_session.object_detection_params.tile_params,
-        object_session.object_detection_params.bucket_delta,
-        object_session.object_detection_params.trace_params,
+            current_mosaics.clone(),
+            surrounding_rectangle,
+            object_session.object_detection_params.tile_params,
+            object_session.object_detection_params.bucket_delta,
+            object_session.object_detection_params.trace_params,
         )
         .await?,
     );
