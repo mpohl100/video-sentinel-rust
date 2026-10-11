@@ -103,13 +103,15 @@ fn pipeline_benchmarks(c: &mut criterion::Criterion) {
         Duration::from_millis(250),
         || bucket_inputs.clone(),
         |(mosaics, surrounding_rectangle, eye_params)| {
-            deduce_bucketed_mosaics(
-                mosaics,
-                surrounding_rectangle,
-                eye_params.tile_params,
-                eye_params.bucket_delta,
-                eye_params.trace_params,
-            )
+            benchmark_runtime()
+                .block_on(deduce_bucketed_mosaics(
+                    mosaics,
+                    surrounding_rectangle,
+                    eye_params.tile_params,
+                    eye_params.bucket_delta,
+                    eye_params.trace_params,
+                ))
+                .expect("bucketed mosaic benchmark should succeed")
         },
     );
 
@@ -163,13 +165,15 @@ fn pipeline_benchmarks(c: &mut criterion::Criterion) {
         Duration::from_millis(300),
         || object_mosaics_inputs.clone(),
         |(mosaics, rectangle, params)| {
-            deduce_bucketed_mosaics(
-                mosaics,
-                rectangle,
-                params.tile_params,
-                params.bucket_delta,
-                params.trace_params,
-            )
+            benchmark_runtime()
+                .block_on(deduce_bucketed_mosaics(
+                    mosaics,
+                    rectangle,
+                    params.tile_params,
+                    params.bucket_delta,
+                    params.trace_params,
+                ))
+                .expect("object bucket benchmark should succeed")
         },
     );
 

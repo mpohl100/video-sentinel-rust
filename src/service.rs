@@ -970,7 +970,8 @@ async fn calculate_eye(
         eye_session.eye_params.tile_params,
         eye_session.eye_params.bucket_delta,
         eye_session.eye_params.trace_params,
-    );
+    )
+    .await?;
     let Some(previous_bucketed_mosaics) = eye_session.cached_previous_mosaics.clone() else {
         return Ok((
             current_mosaics
@@ -1014,13 +1015,16 @@ async fn calculate_object(
     );
     let current_mosaics =
         calculate_ordinary_mosaics(object_session.basic_params, object_session.results, &image);
-    let bucketed_mosaics = Arc::new(deduce_bucketed_mosaics(
+    let bucketed_mosaics = Arc::new(
+        deduce_bucketed_mosaics(
         current_mosaics.clone(),
         surrounding_rectangle,
         object_session.object_detection_params.tile_params,
         object_session.object_detection_params.bucket_delta,
         object_session.object_detection_params.trace_params,
-    ));
+        )
+        .await?,
+    );
     let object_detection_params = Arc::new(object_session.object_detection_params);
     let reference_objects = object_session.objects_to_be_detected.clone();
     let mut join_set = JoinSet::new();
