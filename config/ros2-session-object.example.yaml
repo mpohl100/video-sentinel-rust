@@ -1,0 +1,44 @@
+# Example object-session ROS 2 node configuration.
+# This demonstrates both supported reference object sources:
+#   1. source: image_path
+#   2. source: ascii_art
+node:
+  name: video_sentinel_ros2_object
+  namespace: /
+  max_message_age_ms: 250
+topics:
+  image: /camera/image/compressed
+session:
+  type: object
+  id: billard-object-session
+  basic_params:
+    do_grayscale: false
+    gradient_threshold: 15
+  results: absolute
+  object_detection_params:
+    tile_params:
+      tile_x: 0.5
+      tile_y: 0.5
+    bucket_delta: 0.25
+    trace_params:
+      num_skeleton: 12
+      close_slice_threshold: 0.2
+    target_similarity: 0.9
+  reference_objects:
+    - source: image_path
+      object_id: reference-from-image
+      image_path: ./reference-object.pgm
+      surrounding_rectangle:
+        top_left: { x: 0.0, y: 0.0 }
+        bottom_right: { x: 8.0, y: 8.0 }
+    - source: ascii_art
+      object_id: reference-from-ascii
+      ascii_art: |
+        ..####..
+        .######.
+        ########
+        ########
+        ########
+        ########
+        .######.
+        ..####..

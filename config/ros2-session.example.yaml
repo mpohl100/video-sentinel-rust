@@ -1,9 +1,10 @@
+# Example ordinary-session ROS 2 node configuration.
 node:
   name: video_sentinel_ros2
   namespace: /
   max_message_age_ms: 250
 topics:
-  image: /camera/image_raw
+  image: /camera/image/compressed
 session:
   type: ordinary
   id: billard-session

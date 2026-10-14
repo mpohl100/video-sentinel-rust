@@ -70,6 +70,12 @@ impl ChildGuard {
         let _ = self.child.wait();
     }
 
+    fn try_wait(&mut self) -> Option<std::process::ExitStatus> {
+        self.child
+            .try_wait()
+            .expect("child process status should be readable")
+    }
+
     fn debug_output(&mut self) -> String {
         let mut output = String::new();
         if let Some(stdout) = self.child.stdout.as_mut() {
@@ -101,21 +107,18 @@ struct TempDirImage {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a ROS 2 environment with /opt/ros/<distro>/setup.bash"]
 async fn ros2_node_publishes_rectangles_for_ordinary_session() {
     let _guard = ros2_test_lock().lock().await;
     run_session_case(RosSessionType::Ordinary, SESSION_ID_ORDINARY).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a ROS 2 environment with /opt/ros/<distro>/setup.bash"]
 async fn ros2_node_publishes_rectangles_for_eye_session() {
     let _guard = ros2_test_lock().lock().await;
     run_session_case(RosSessionType::Eye, SESSION_ID_EYE).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a ROS 2 environment with /opt/ros/<distro>/setup.bash"]
 async fn ros2_node_publishes_rectangles_for_object_session() {
     let _guard = ros2_test_lock().lock().await;
     run_session_case(RosSessionType::Object, SESSION_ID_OBJECT).await;
@@ -165,6 +168,7 @@ async fn run_session_case(session_type: RosSessionType, session_id_prefix: &str)
             config_path.to_string_lossy().into_owned(),
         ],
     );
+    wait_for_background_process(&mut ros2_node, "ROS2 node").await;
 
     let context = Context::new().expect("test ROS2 context should be created");
     let mut subscriber_node = context
@@ -191,10 +195,11 @@ async fn run_session_case(session_type: RosSessionType, session_id_prefix: &str)
             .expect("subscriber spinner should be created")
             .spin(),
     );
-
-    tokio::time::sleep(Duration::from_secs(5)).await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    wait_for_background_process(&mut ros2_node, "ROS2 node").await;
 
     let receive_task = tokio::spawn(collect_detection_message(rectangles_subscriber));
+    tokio::time::sleep(Duration::from_secs(3)).await;
     run_image_publisher(&image_topic, &input_image_path)
         .unwrap_or_else(|error| panic_with_child_output(&error, &mut ros2_node));
 
@@ -209,6 +214,23 @@ async fn run_session_case(session_type: RosSessionType, session_id_prefix: &str)
 
     let actual_signatures = detection_signatures(&message.detections);
     assert_detection_signatures_eq(&expected_signatures, &actual_signatures);
+}
+
+async fn wait_for_background_process(child: &mut ChildGuard, process_name: &str) {
+    for _attempt in 0..50 {
+        if let Some(status) = child.try_wait() {
+            let output = child.debug_output();
+            panic!(
+                "{process_name} exited early with status {status}{}\n",
+                if output.is_empty() {
+                    String::new()
+                } else {
+                    format!("\n\nchild output:\n{output}")
+                }
+            );
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
 }
 
 async fn expected_detection_signatures(
@@ -316,13 +338,13 @@ fn run_image_publisher(image_topic: &str, image_path: &Path) -> Result<(), Strin
             "--image".to_string(),
             image_path.to_string_lossy().into_owned(),
             "--startup-delay-ms".to_string(),
-            "5000".to_string(),
+            "1000".to_string(),
             "--post-publish-delay-ms".to_string(),
             "2500".to_string(),
             "--publish-count".to_string(),
-            "5".to_string(),
+            "8".to_string(),
             "--publish-interval-ms".to_string(),
-            "500".to_string(),
+            "750".to_string(),
         ],
     )?;
 
@@ -384,7 +406,7 @@ fn write_config(
             "session:\n  type: eye\n  id: {session_id}\n  basic_params:\n    do_grayscale: false\n    gradient_threshold: 15\n  eye_params:\n    tile_params:\n      tile_x: 0.5\n      tile_y: 0.5\n    bucket_delta: 0.25\n    trace_params:\n      num_skeleton: 12\n      close_slice_threshold: 0.2\n    target_similarity: 0.9\n"
         ),
         (RosSessionType::Object, Some((reference_image, rectangle))) => format!(
-            "session:\n  type: object\n  id: {session_id}\n  basic_params:\n    do_grayscale: false\n    gradient_threshold: 15\n  object_detection_params:\n    tile_params:\n      tile_x: 0.5\n      tile_y: 0.5\n    bucket_delta: 0.25\n    trace_params:\n      num_skeleton: 12\n      close_slice_threshold: 0.2\n    target_similarity: 0.9\n  reference_objects:\n    - object_id: reference-object\n      image_path: {}\n      surrounding_rectangle:\n        top_left:\n          x: {}\n          y: {}\n        bottom_right:\n          x: {}\n          y: {}\n",
+            "session:\n  type: object\n  id: {session_id}\n  basic_params:\n    do_grayscale: false\n    gradient_threshold: 15\n  object_detection_params:\n    tile_params:\n      tile_x: 0.5\n      tile_y: 0.5\n    bucket_delta: 0.25\n    trace_params:\n      num_skeleton: 12\n      close_slice_threshold: 0.2\n    target_similarity: 0.9\n  reference_objects:\n    - source: image_path\n      object_id: reference-object\n      image_path: {}\n      surrounding_rectangle:\n        top_left:\n          x: {}\n          y: {}\n        bottom_right:\n          x: {}\n          y: {}\n",
             reference_image.path.display(),
             rectangle.get_top_left().x,
             rectangle.get_top_left().y,
