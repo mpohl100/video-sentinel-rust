@@ -1,0 +1,23 @@
+# Example eye-session ROS 2 node configuration.
+node:
+  name: video_sentinel_ros2_eye
+  namespace: /
+  max_message_age_ms: 250
+topics:
+  image: /camera/image/compressed
+session:
+  type: eye
+  id: billard-eye-session
+  basic_params:
+    do_grayscale: false
+    gradient_threshold: 15
+  results: absolute
+  eye_params:
+    tile_params:
+      tile_x: 0.5
+      tile_y: 0.5
+    bucket_delta: 0.25
+    trace_params:
+      num_skeleton: 12
+      close_slice_threshold: 0.2
+    target_similarity: 0.9

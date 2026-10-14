@@ -155,10 +155,17 @@ enum ResultsModeYaml {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-struct ReferenceObjectYaml {
-    object_id: String,
-    image_path: PathBuf,
-    surrounding_rectangle: RectangleYaml,
+#[serde(tag = "source", rename_all = "snake_case")]
+enum ReferenceObjectYaml {
+    ImagePath {
+        object_id: String,
+        image_path: PathBuf,
+        surrounding_rectangle: RectangleYaml,
+    },
+    AsciiArt {
+        object_id: String,
+        ascii_art: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -337,8 +344,10 @@ impl Ros2NodeConfig {
         } = &mut self.session
         {
             for reference_object in reference_objects {
-                if reference_object.image_path.is_relative() {
-                    reference_object.image_path = base_dir.join(&reference_object.image_path);
+                if let ReferenceObjectYaml::ImagePath { image_path, .. } = reference_object
+                    && image_path.is_relative()
+                {
+                    *image_path = base_dir.join(&*image_path);
                 }
             }
         }
@@ -359,12 +368,27 @@ impl Ros2NodeConfig {
                 reference_objects, ..
             } => {
                 for reference_object in reference_objects {
-                    if !reference_object.image_path.exists() {
-                        return Err(format!(
-                            "reference image `{}` does not exist",
-                            reference_object.image_path.display()
-                        )
-                        .into());
+                    match reference_object {
+                        ReferenceObjectYaml::ImagePath { image_path, .. } => {
+                            if !image_path.exists() {
+                                return Err(format!(
+                                    "reference image `{}` does not exist",
+                                    image_path.display()
+                                )
+                                .into());
+                            }
+                        }
+                        ReferenceObjectYaml::AsciiArt {
+                            object_id,
+                            ascii_art,
+                        } => {
+                            if ascii_art.trim().is_empty() {
+                                return Err(format!(
+                                    "ASCII-art reference object `{object_id}` must not be empty"
+                                )
+                                .into());
+                            }
+                        }
                     }
                 }
             }
@@ -673,35 +697,73 @@ fn configure_service(service: &mut Service, config: &Ros2NodeConfig) -> Result<(
             }
 
             for reference_object in reference_objects {
-                let image = WrappedRgbImage::from_file(
-                    reference_object.image_path.to_str().ok_or_else(|| {
-                        format!(
-                            "reference image path is not valid UTF-8: {}",
-                            reference_object.image_path.display()
-                        )
-                    })?,
-                )?;
-                match service.add_object_to_be_detected_as_image(
-                    id,
-                    &reference_object.object_id,
-                    &image,
-                    reference_object.surrounding_rectangle.into_rectangle(),
-                ) {
-                    crate::service::AddObjectToBeDetectedResult::Success => {}
-                    crate::service::AddObjectToBeDetectedResult::SessionNotFound => {
-                        return Err(format!("session {id} not found while loading reference object").into());
+                match reference_object {
+                    ReferenceObjectYaml::ImagePath {
+                        object_id,
+                        image_path,
+                        surrounding_rectangle,
+                    } => {
+                        let image = WrappedRgbImage::from_file(image_path.to_str().ok_or_else(
+                            || {
+                                format!(
+                                    "reference image path is not valid UTF-8: {}",
+                                    image_path.display()
+                                )
+                            },
+                        )?)?;
+                        match service.add_object_to_be_detected_as_image(
+                            id,
+                            object_id,
+                            &image,
+                            surrounding_rectangle.into_rectangle(),
+                        ) {
+                            crate::service::AddObjectToBeDetectedResult::Success => {}
+                            crate::service::AddObjectToBeDetectedResult::SessionNotFound => {
+                                return Err(
+                                    format!(
+                                        "session {id} not found while loading reference object"
+                                    )
+                                    .into(),
+                                );
+                            }
+                            crate::service::AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected => {
+                                return Err(format!("session {id} does not support reference objects").into());
+                            }
+                            crate::service::AddObjectToBeDetectedResult::NoReferenceMosaicsDetected => {
+                                return Err(format!(
+                                    "reference image {} did not produce any reference mosaics inside the configured rectangle",
+                                    image_path.display()
+                                )
+                                .into());
+                            }
+                        }
                     }
-                    crate::service::AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected => {
-                        return Err(format!("session {id} does not support reference objects").into());
+                    ReferenceObjectYaml::AsciiArt {
+                        object_id,
+                        ascii_art,
+                    } => match service.add_object_to_be_detected_as_ascii_art(
+                        id,
+                        object_id,
+                        ascii_art,
+                    ) {
+                        crate::service::AddObjectToBeDetectedResult::Success => {}
+                        crate::service::AddObjectToBeDetectedResult::SessionNotFound => {
+                            return Err(
+                                format!("session {id} not found while loading reference object")
+                                    .into(),
+                            );
+                        }
+                        crate::service::AddObjectToBeDetectedResult::SessionTypeDoesNotSupportAddingObjectToBeDetected => {
+                            return Err(format!("session {id} does not support reference objects").into());
+                        }
+                        crate::service::AddObjectToBeDetectedResult::NoReferenceMosaicsDetected => {
+                            return Err(format!(
+                                "ASCII-art reference object `{object_id}` did not produce any reference mosaics"
+                            )
+                            .into());
+                        }
                     }
-                    crate::service::AddObjectToBeDetectedResult::NoReferenceMosaicsDetected => {
-                        return Err(format!(
-                            "reference image {} did not produce any reference mosaics inside the configured rectangle",
-                            reference_object.image_path.display()
-                        )
-                        .into());
-                    }
-                }
+                };
             }
 
             Ok(())
@@ -927,7 +989,8 @@ session:
   type: object
   id: object-session
   reference_objects:
-    - object_id: ref
+    - source: image_path
+      object_id: ref
       image_path: reference.jpg
       surrounding_rectangle:
         top_left: { x: 0.0, y: 0.0 }
@@ -942,9 +1005,76 @@ session:
                 reference_objects, ..
             } => {
                 assert_eq!(reference_objects.len(), 1);
-                assert_eq!(reference_objects[0].image_path, image_path);
+                match &reference_objects[0] {
+                    ReferenceObjectYaml::ImagePath { image_path: path, .. } => {
+                        assert_eq!(path, &image_path);
+                    }
+                    ReferenceObjectYaml::AsciiArt { .. } => {
+                        panic!("expected image-path reference object");
+                    }
+                }
             }
             _ => panic!("expected object session"),
+        }
+    }
+
+    #[test]
+    fn config_load_supports_ascii_art_reference_objects() {
+        let temp_dir = tempfile::tempdir().expect("tempdir should be created");
+        let config_path = temp_dir.path().join("session.yaml");
+        fs::write(
+            &config_path,
+            r#"
+topics:
+  image: /camera/image
+session:
+  type: object
+  id: object-session
+  reference_objects:
+    - source: ascii_art
+      object_id: ref
+      ascii_art: |
+        .##.
+        ####
+        .##.
+"#,
+        )
+        .expect("config should be written");
+
+        let config = Ros2NodeConfig::load(&config_path).expect("config should load");
+        match config.session {
+            SessionConfig::Object {
+                reference_objects, ..
+            } => {
+                assert_eq!(reference_objects.len(), 1);
+                match &reference_objects[0] {
+                    ReferenceObjectYaml::AsciiArt {
+                        object_id,
+                        ascii_art,
+                    } => {
+                        assert_eq!(object_id, "ref");
+                        assert_eq!(ascii_art, ".##.\n####\n.##.\n");
+                    }
+                    ReferenceObjectYaml::ImagePath { .. } => {
+                        panic!("expected ASCII-art reference object");
+                    }
+                }
+            }
+            _ => panic!("expected object session"),
+        }
+    }
+
+    #[test]
+    fn example_config_files_load() {
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        for config_name in [
+            "config/ros2-session.example.yaml",
+            "config/ros2-session-eye.example.yaml",
+            "config/ros2-session-object.example.yaml",
+        ] {
+            let config_path = manifest_dir.join(config_name);
+            Ros2NodeConfig::load(&config_path)
+                .unwrap_or_else(|error| panic!("failed to load {config_name}: {error}"));
         }
     }
 }
