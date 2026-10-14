@@ -142,6 +142,7 @@ pub struct EnrichedMosaic {
     pub bounding_box: Rectangle,
     pub bounding_circle: Circle,
     pub color: Color,
+    pub label: Option<String>,
     pub area: f64,
     pub center_of_mass: Vec3d,
     pub slice_matrix: Vec<SliceLine>,
@@ -783,6 +784,7 @@ impl Service {
                                     deduce_enriched_mosaic(
                                         &colored_relative_mosaic.mosaic,
                                         colored_relative_mosaic.color,
+                                        colored_relative_mosaic.label.clone(),
                                         results,
                                     )
                                 })
@@ -801,6 +803,7 @@ impl Service {
                                 deduce_enriched_mosaic(
                                     &colored_relative_mosaic.mosaic,
                                     colored_relative_mosaic.color,
+                                    colored_relative_mosaic.label.clone(),
                                     object_session.results,
                                 )
                             })
@@ -816,6 +819,7 @@ impl Service {
                         deduce_enriched_mosaic(
                             &colored_relative_mosaic.mosaic,
                             colored_relative_mosaic.color,
+                            colored_relative_mosaic.label.clone(),
                             ordinary_session.results,
                         )
                     })
@@ -856,12 +860,14 @@ fn calculate_ordinary_mosaics(
 /// Internal pairing of a color and a wrapped relative mosaic before enrichment.
 struct ColoredAnonymizedMosaic {
     color: Color,
+    label: Option<String>,
     mosaic: AnonymizedMosaic,
 }
 
 fn deduce_enriched_mosaic(
     anonymized_mosaic: &AnonymizedMosaic,
     color: Color,
+    label: Option<String>,
     results: Results,
 ) -> EnrichedMosaic {
     let mosaic = anonymized_mosaic.get_mosaic();
@@ -922,6 +928,7 @@ fn deduce_enriched_mosaic(
             radius: bounding_circle.get_radius(),
         },
         color,
+        label,
         area,
         center_of_mass: global_center_of_mass.get_local_point(),
         slice_matrix: slice_matrix_output,
@@ -947,6 +954,7 @@ fn calculate_ordinary(
         .into_iter()
         .map(|mosaic| ColoredAnonymizedMosaic {
             color: Color::Green,
+            label: None,
             mosaic: mosaic.clone(),
         })
         .collect()
@@ -978,6 +986,7 @@ async fn calculate_eye(
                 .into_iter()
                 .map(|mosaic| ColoredAnonymizedMosaic {
                     color: Color::Blue,
+                    label: None,
                     mosaic,
                 })
                 .collect(),
@@ -996,6 +1005,7 @@ async fn calculate_eye(
             .into_iter()
             .map(|colored_rectangle| ColoredAnonymizedMosaic {
                 color: colored_rectangle.get_color(),
+                label: None,
                 mosaic: colored_rectangle.get_mosaics()[0].clone(),
             })
             .collect(),
@@ -1033,9 +1043,11 @@ async fn calculate_object(
         let bucketed_mosaics = Arc::clone(&bucketed_mosaics);
         let object_detection_params = Arc::clone(&object_detection_params);
         let results = object_session.results;
+        let object_id = reference_object.get_id();
         join_set.spawn_blocking(move || {
             (
                 index,
+                object_id,
                 detect_objects(
                     &reference_object,
                     bucketed_mosaics.as_ref(),
@@ -1053,16 +1065,21 @@ async fn calculate_object(
             .map_err(|error| format!("failed to join object detection task: {error}"))?;
         indexed_rectangles.push(indexed_group);
     }
-    indexed_rectangles.sort_by_key(|(index, _)| *index);
+    indexed_rectangles.sort_by_key(|(index, _, _)| *index);
 
     let rectangles: Vec<_> = indexed_rectangles
         .into_iter()
-        .flat_map(|(_, rectangles)| rectangles)
+        .flat_map(|(_, object_id, rectangles)| {
+            rectangles
+                .into_iter()
+                .map(move |colored_rectangle| (object_id.clone(), colored_rectangle))
+        })
         .collect();
     Ok(rectangles
         .into_iter()
-        .map(|colored_rectangle| ColoredAnonymizedMosaic {
+        .map(|(object_id, colored_rectangle)| ColoredAnonymizedMosaic {
             color: colored_rectangle.get_color(),
+            label: Some(object_id),
             mosaic: colored_rectangle.get_mosaics()[0].clone(),
         })
         .collect())
@@ -1500,9 +1517,9 @@ mod tests {
         assert!(!relative_mosaics.is_empty());
 
         let enriched_absolute =
-            deduce_enriched_mosaic(&mosaics[0], Color::Green, Results::Absolute);
+            deduce_enriched_mosaic(&mosaics[0], Color::Green, None, Results::Absolute);
         let enriched_relative =
-            deduce_enriched_mosaic(&relative_mosaics[0], Color::Blue, Results::Relative);
+            deduce_enriched_mosaic(&relative_mosaics[0], Color::Blue, None, Results::Relative);
 
         assert!(matches!(
             service
@@ -1511,7 +1528,9 @@ mod tests {
             GetRectanglesResult::Success(_)
         ));
         assert!(enriched_absolute.color == Color::Green);
+        assert!(enriched_absolute.label.is_none());
         assert!(enriched_relative.color == Color::Blue);
+        assert!(enriched_relative.label.is_none());
         assert!(enriched_absolute.area > 0.0);
         assert!(enriched_relative.area > 0.0);
         assert!(!enriched_absolute.slice_matrix.is_empty());

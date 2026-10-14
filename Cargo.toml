@@ -12,16 +12,22 @@ async-graphql = "7"
 async-graphql-axum = "7"
 axum = "0.8"
 axum-server = { version = "0.7", features = ["tls-rustls"] }
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 rcgen = "0.14"
 smallvec = "1.13"
 num-traits = "0.2"
+futures = "0.3"
+ros2-client = "0.11"
+serde = { version = "1", features = ["derive"] }
+serde-big-array = "0.5"
+serde_yaml = "0.9"
 
 [dev-dependencies]
 graphql_client = "0.14"
 reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls"] }
 serde_json = "1"
 criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+tempfile = "3"
 
 
 [[bin]]
@@ -31,6 +37,10 @@ path = "src/main.rs"
 [[bin]]
 name = "video-sentinel-service"
 path = "src/service_main.rs"
+
+[[bin]]
+name = "image_publisher_app"
+path = "src/bin/image_publisher_app.rs"
 
 [[bench]]
 name = "get_rectangles"
