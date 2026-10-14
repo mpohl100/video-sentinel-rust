@@ -26,7 +26,9 @@ use tokio::sync::Mutex;
 use tokio::time::timeout;
 use video_rs::{Decoder, Frame};
 use video_sentinel::mosaics::Results;
-use video_sentinel::ros2_node::{Detection2D, Detection2DArray, RosSessionType, default_output_topic};
+use video_sentinel::ros2_node::{
+    Detection2D, Detection2DArray, RosSessionType, default_output_topic,
+};
 use video_sentinel::service::{
     AddObjectToBeDetectedResult, BasicParamsInput, CreateEyeSessionResult,
     CreateObjectSessionResult, CreateOrdinarySessionResult, EyeParamsInput, GetRectanglesResult,
@@ -147,9 +149,13 @@ async fn run_session_case(session_type: RosSessionType, session_id_prefix: &str)
         None
     };
 
-    let expected_signatures =
-        expected_detection_signatures(session_type, &session_name, frame, object_reference.as_ref())
-            .await;
+    let expected_signatures = expected_detection_signatures(
+        session_type,
+        &session_name,
+        frame,
+        object_reference.as_ref(),
+    )
+    .await;
 
     let config_path = temp_dir.path().join("session.yaml");
     write_config(
@@ -205,7 +211,9 @@ async fn run_session_case(session_type: RosSessionType, session_id_prefix: &str)
 
     let message = timeout(Duration::from_secs(120), receive_task)
         .await
-        .unwrap_or_else(|_| panic_with_child_output("timed out waiting for detections", &mut ros2_node))
+        .unwrap_or_else(|_| {
+            panic_with_child_output("timed out waiting for detections", &mut ros2_node)
+        })
         .expect("receive task should join")
         .unwrap_or_else(|error| panic_with_child_output(&error, &mut ros2_node));
     subscriber_spinner.abort();
@@ -260,8 +268,8 @@ async fn expected_detection_signatures(
             service.get_rectangles(session_id, image).await
         }
         RosSessionType::Object => {
-            let (reference_image, reference_rectangle) = object_reference
-                .expect("object session test case requires a reference image");
+            let (reference_image, reference_rectangle) =
+                object_reference.expect("object session test case requires a reference image");
             assert!(matches!(
                 service.create_object_session(
                     session_id,
@@ -283,7 +291,7 @@ async fn expected_detection_signatures(
                     session_id,
                     "reference-object",
                     &reference,
-                    reference_rectangle.clone(),
+                    *reference_rectangle,
                 ),
                 AddObjectToBeDetectedResult::Success
             ));
@@ -295,7 +303,9 @@ async fn expected_detection_signatures(
         GetRectanglesResult::Success(rectangles) => {
             let mut signatures: Vec<_> = rectangles
                 .into_iter()
-                .map(|rectangle| signature_from_rectangle(&rectangle.bounding_box, rectangle.label.as_deref()))
+                .map(|rectangle| {
+                    signature_from_rectangle(&rectangle.bounding_box, rectangle.label.as_deref())
+                })
                 .collect();
             signatures.sort_unstable();
             signatures
@@ -371,11 +381,12 @@ async fn reference_bounding_box(frame: &ExampleFrame) -> Rectangle {
     let image = WrappedRgbImage::from_jpeg_bytes(&frame.jpeg)
         .expect("reference JPEG frame should convert to image");
     match service.get_rectangles("reference-session", image).await {
-        GetRectanglesResult::Success(rectangles) => rectangles
-            .first()
-            .expect("reference frame should produce at least one rectangle")
-            .bounding_box
-            .clone(),
+        GetRectanglesResult::Success(rectangles) => {
+            rectangles
+                .first()
+                .expect("reference frame should produce at least one rectangle")
+                .bounding_box
+        }
         GetRectanglesResult::SessionNotFound => panic!("reference session should exist"),
         GetRectanglesResult::ComputationFailed(error) => {
             panic!("reference bounding box computation failed: {error}")
@@ -427,9 +438,7 @@ fn write_config(
 fn panic_with_child_output(message: &str, child: &mut ChildGuard) -> ! {
     child.terminate();
     let output = child.debug_output();
-    if output.is_empty() {
-        panic!("{message}");
-    }
+    assert!(!output.is_empty(), "{message}");
     panic!("{message}\n\nchild output:\n{output}");
 }
 
@@ -564,7 +573,11 @@ fn frame_to_example_frame(frame: &Frame) -> ExampleFrame {
         frame.iter().copied().collect()
     };
     ExampleFrame {
-        jpeg: jpeg_bytes_from_rgb(width as u32, height as u32, &rgb),
+        jpeg: jpeg_bytes_from_rgb(
+            u32::try_from(width).expect("frame width should fit into u32"),
+            u32::try_from(height).expect("frame height should fit into u32"),
+            &rgb,
+        ),
     }
 }
 
@@ -600,7 +613,12 @@ fn ros_shell_command(binary_path: &Path, args: &[String]) -> String {
         .map(|arg| shell_escape(arg))
         .collect::<Vec<_>>()
         .join(" ");
-    format!("source {} && exec {} {}", shell_escape(&setup_script), binary, args)
+    format!(
+        "source {} && exec {} {}",
+        shell_escape(&setup_script),
+        binary,
+        args
+    )
 }
 
 fn ros2_setup_script() -> String {

@@ -330,14 +330,14 @@ impl Ros2NodeConfig {
     pub fn load(path: &Path) -> Result<Self, Box<dyn Error>> {
         let contents = fs::read_to_string(path)?;
         let mut config: Self = serde_yaml::from_str(&contents)?;
-        config.resolve_paths(path)?;
+        config.resolve_paths(path);
         config.validate()?;
         Ok(config)
     }
 
-    fn resolve_paths(&mut self, path: &Path) -> Result<(), Box<dyn Error>> {
+    fn resolve_paths(&mut self, path: &Path) {
         let Some(base_dir) = path.parent() else {
-            return Ok(());
+            return;
         };
         if let SessionConfig::Object {
             reference_objects, ..
@@ -351,7 +351,6 @@ impl Ros2NodeConfig {
                 }
             }
         }
-        Ok(())
     }
 
     fn validate(&self) -> Result<(), Box<dyn Error>> {
@@ -509,6 +508,7 @@ impl RectangleYaml {
 }
 
 impl CompressedSensorImage {
+    #[must_use]
     pub fn new_jpeg(header: Header, data: Vec<u8>) -> Self {
         Self {
             header,
@@ -610,11 +610,9 @@ pub async fn run(config: Ros2NodeConfig) -> Result<(), Box<dyn Error>> {
         let detections = Detection2DArray {
             header: header.clone(),
             detections: rectangles
-                .into_iter()
+                .iter()
                 .enumerate()
-                .map(|(index, rectangle)| {
-                    detection_from_enriched_mosaic(header.clone(), index, rectangle)
-                })
+                .map(|(index, rectangle)| detection_from_enriched_mosaic(&header, index, rectangle))
                 .collect(),
         };
         println!(
@@ -639,9 +637,7 @@ pub async fn run(config: Ros2NodeConfig) -> Result<(), Box<dyn Error>> {
 fn output_header(input: &Header, output_frame_id: Option<&str>) -> Header {
     Header {
         stamp: input.stamp,
-        frame_id: output_frame_id
-            .map(ToOwned::to_owned)
-            .unwrap_or_else(|| input.frame_id.clone()),
+        frame_id: output_frame_id.map_or_else(|| input.frame_id.clone(), ToOwned::to_owned),
     }
 }
 
@@ -762,8 +758,8 @@ fn configure_service(service: &mut Service, config: &Ros2NodeConfig) -> Result<(
                             )
                             .into());
                         }
-                    }
-                };
+                    },
+                }
             }
 
             Ok(())
@@ -786,9 +782,9 @@ fn wrapped_rgb_image_from_sensor_image(
 }
 
 fn detection_from_enriched_mosaic(
-    header: Header,
+    header: &Header,
     index: usize,
-    rectangle: crate::service::EnrichedMosaic,
+    rectangle: &crate::service::EnrichedMosaic,
 ) -> Detection2D {
     Detection2D {
         header: header.clone(),
@@ -886,7 +882,7 @@ fn is_message_stale(stamp: Time, max_message_age_ms: u64) -> bool {
         return false;
     }
 
-    let age_nanos = (now_nanos - stamp_nanos) as u128;
+    let age_nanos = u128::try_from(now_nanos - stamp_nanos).expect("age should be non-negative");
     age_nanos > u128::from(max_message_age_ms) * 1_000_000
 }
 
@@ -982,7 +978,7 @@ mod tests {
         let config_path = temp_dir.path().join("session.yaml");
         fs::write(
             &config_path,
-            r#"
+            r"
 topics:
   image: /camera/image
 session:
@@ -995,7 +991,7 @@ session:
       surrounding_rectangle:
         top_left: { x: 0.0, y: 0.0 }
         bottom_right: { x: 10.0, y: 10.0 }
-"#,
+",
         )
         .expect("config should be written");
 
@@ -1006,7 +1002,9 @@ session:
             } => {
                 assert_eq!(reference_objects.len(), 1);
                 match &reference_objects[0] {
-                    ReferenceObjectYaml::ImagePath { image_path: path, .. } => {
+                    ReferenceObjectYaml::ImagePath {
+                        image_path: path, ..
+                    } => {
                         assert_eq!(path, &image_path);
                     }
                     ReferenceObjectYaml::AsciiArt { .. } => {
@@ -1024,7 +1022,7 @@ session:
         let config_path = temp_dir.path().join("session.yaml");
         fs::write(
             &config_path,
-            r#"
+            r"
 topics:
   image: /camera/image
 session:
@@ -1037,7 +1035,7 @@ session:
         .##.
         ####
         .##.
-"#,
+",
         )
         .expect("config should be written");
 
