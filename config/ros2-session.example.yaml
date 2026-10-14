@@ -1,0 +1,12 @@
+node:
+  name: video_sentinel_ros2
+  namespace: /
+  max_message_age_ms: 250
+topics:
+  image: /camera/image_raw
+session:
+  type: ordinary
+  id: billard-session
+  basic_params:
+    do_grayscale: false
+    gradient_threshold: 15
