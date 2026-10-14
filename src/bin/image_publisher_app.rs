@@ -27,6 +27,10 @@ struct CliArgs {
     startup_delay_ms: u64,
     #[arg(long, default_value_t = 1_000)]
     post_publish_delay_ms: u64,
+    #[arg(long, default_value_t = 5)]
+    publish_count: u32,
+    #[arg(long, default_value_t = 500)]
+    publish_interval_ms: u64,
 }
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
@@ -61,18 +65,23 @@ async fn run_from_cli() -> Result<(), Box<dyn Error>> {
     println!("waiting {} ms before publishing", args.startup_delay_ms);
     sleep(Duration::from_millis(args.startup_delay_ms)).await;
 
-    let message = CompressedSensorImage::new_jpeg(
-        Header {
-            stamp: Time::now(),
-            frame_id: args.frame_id,
-        },
-        image_bytes,
-    );
-    publish_once(&publisher, message).await?;
+    for publish_index in 0..args.publish_count {
+        let message = CompressedSensorImage::new_jpeg(
+            Header {
+                stamp: Time::now(),
+                frame_id: args.frame_id.clone(),
+            },
+            image_bytes.clone(),
+        );
+        publish_once(&publisher, message).await?;
+        if publish_index + 1 < args.publish_count {
+            sleep(Duration::from_millis(args.publish_interval_ms)).await;
+        }
+    }
 
     println!(
-        "published compressed image to {} and waiting {} ms for delivery",
-        args.topic, args.post_publish_delay_ms
+        "published {} compressed image(s) to {} and waiting {} ms for delivery",
+        args.publish_count, args.topic, args.post_publish_delay_ms
     );
     sleep(Duration::from_millis(args.post_publish_delay_ms)).await;
 
