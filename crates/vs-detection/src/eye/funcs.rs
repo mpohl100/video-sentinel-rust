@@ -9,9 +9,9 @@
 use crate::bucketed_mosaics::BucketedMosaics;
 use crate::math::Rectangle as MathRectangle;
 use crate::mosaics::AnonymizedMosaic;
+use crate::mosaics::ColoredRectangle;
 use crate::mosaics::WrappedRelativeMosaic;
 use crate::slices::Color;
-use crate::mosaics::ColoredRectangle;
 use crate::slices::Rectangle;
 use crate::traced_mosaics::TracedRelativeMosaic;
 use crate::traces::TraceParams;

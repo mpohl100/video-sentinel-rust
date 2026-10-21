@@ -8,9 +8,9 @@
 
 use crate::bucketed_mosaics::BucketedMosaics;
 use crate::mosaics::AnonymizedMosaic;
+use crate::mosaics::ColoredRectangle;
 use crate::mosaics::Results;
 use crate::slices::Color;
-use crate::mosaics::ColoredRectangle;
 use crate::slices::{Rectangle, WrappedRelativeRectangle};
 use crate::traces::Trace;
 #[cfg(test)]
