@@ -1,0 +1,17 @@
+[package]
+name = "video-sentinel-service"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+vs-graphql.workspace = true
+async-graphql.workspace = true
+async-graphql-axum.workspace = true
+axum.workspace = true
+axum-server.workspace = true
+clap.workspace = true
+rcgen.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true

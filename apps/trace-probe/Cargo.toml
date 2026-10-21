@@ -1,0 +1,16 @@
+[package]
+name = "trace-probe"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+vs-core.workspace = true
+rs-math3d.workspace = true
+num-traits.workspace = true
+
+[[bin]]
+name = "trace_probe"
+path = "src/main.rs"
+
+[lints]
+workspace = true

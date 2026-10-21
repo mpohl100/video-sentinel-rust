@@ -1,0 +1,10 @@
+[package]
+name = "vs-math"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+rs-math3d.workspace = true
+
+[lints]
+workspace = true

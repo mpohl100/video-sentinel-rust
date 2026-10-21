@@ -1,0 +1,16 @@
+[package]
+name = "video-sentinel-exe"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+vs-core.workspace = true
+vs-service.workspace = true
+rs-math3d.workspace = true
+num-traits.workspace = true
+clap.workspace = true
+tokio.workspace = true
+video-rs.workspace = true
+
+[lints]
+workspace = true

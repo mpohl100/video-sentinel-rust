@@ -1,0 +1,13 @@
+[package]
+name = "vs-imaging"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+vs-math.workspace = true
+rs-math3d.workspace = true
+opencv.workspace = true
+num-traits.workspace = true
+
+[lints]
+workspace = true

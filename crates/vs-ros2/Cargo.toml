@@ -1,0 +1,23 @@
+[package]
+name = "vs-ros2"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+vs-core.workspace = true
+vs-service.workspace = true
+rs-math3d.workspace = true
+opencv.workspace = true
+clap.workspace = true
+futures.workspace = true
+ros2-client.workspace = true
+serde.workspace = true
+serde-big-array.workspace = true
+serde_yaml.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

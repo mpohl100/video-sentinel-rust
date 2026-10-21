@@ -1,0 +1,26 @@
+[package]
+name = "vs-service"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+vs-core.workspace = true
+rs-math3d.workspace = true
+num-traits.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+opencv.workspace = true
+video-rs.workspace = true
+criterion.workspace = true
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "get_rectangles"
+harness = false
+
+[[bench]]
+name = "pipeline"
+harness = false
