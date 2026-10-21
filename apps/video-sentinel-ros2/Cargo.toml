@@ -1,0 +1,21 @@
+[package]
+name = "video-sentinel-ros2"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+vs-ros2.workspace = true
+clap.workspace = true
+ros2-client.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+vs-core.workspace = true
+vs-service.workspace = true
+futures.workspace = true
+opencv.workspace = true
+tempfile.workspace = true
+video-rs.workspace = true
+
+[lints]
+workspace = true

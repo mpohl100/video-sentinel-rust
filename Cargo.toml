@@ -1,9 +1,34 @@
-[package]
-name = "video-sentinel"
+[workspace]
+resolver = "3"
+members = [
+    "crates/vs-math",
+    "crates/vs-imaging",
+    "crates/vs-tracing",
+    "crates/vs-detection",
+    "crates/vs-core",
+    "crates/vs-service",
+    "crates/vs-graphql",
+    "crates/vs-ros2",
+    "apps/video-sentinel-exe",
+    "apps/video-sentinel-service",
+    "apps/video-sentinel-ros2",
+    "apps/trace-probe",
+]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
+[workspace.dependencies]
+vs-math = { path = "crates/vs-math" }
+vs-imaging = { path = "crates/vs-imaging" }
+vs-tracing = { path = "crates/vs-tracing" }
+vs-detection = { path = "crates/vs-detection" }
+vs-core = { path = "crates/vs-core" }
+vs-service = { path = "crates/vs-service" }
+vs-graphql = { path = "crates/vs-graphql" }
+vs-ros2 = { path = "crates/vs-ros2" }
+
 rs-math3d = "0.9.24"
 opencv = { version = "0.101.0", default-features = false, features = ["clang-runtime", "imgcodecs", "imgproc"] }
 video-rs = { version = "0.11", features = ["ndarray"] }
@@ -21,34 +46,18 @@ ros2-client = "0.11"
 serde = { version = "1", features = ["derive"] }
 serde-big-array = "0.5"
 serde_yaml = "0.9"
-
-[dev-dependencies]
 graphql_client = "0.14"
 reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls"] }
 serde_json = "1"
 criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
 tempfile = "3"
 
-
-[[bin]]
-name = "video-sentinel-exe"
-path = "src/main.rs"
-
-[[bin]]
-name = "video-sentinel-service"
-path = "src/service_main.rs"
-
-[[bin]]
-name = "image_publisher_app"
-path = "src/bin/image_publisher_app.rs"
-
-[[bench]]
-name = "get_rectangles"
-harness = false
-
-[[bench]]
-name = "pipeline"
-harness = false
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+too_many_lines = "allow"
+unused_async_trait_impl = "allow"
 
 [profile.release]
 debug = 2

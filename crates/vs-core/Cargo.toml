@@ -1,0 +1,19 @@
+[package]
+name = "vs-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+vs-math.workspace = true
+vs-imaging.workspace = true
+vs-tracing.workspace = true
+vs-detection.workspace = true
+
+[dev-dependencies]
+rs-math3d.workspace = true
+num-traits.workspace = true
+video-rs.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true
