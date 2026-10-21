@@ -1,0 +1,70 @@
+#![allow(clippy::module_inception)]
+
+mod add_object_to_be_detected_result;
+mod basic_params_input;
+mod bucket_delta_update_result;
+mod circle;
+mod colored_anonymized_mosaic;
+mod create_eye_session_result;
+mod create_object_session_result;
+mod create_ordinary_session_result;
+mod delete_reference_object_result;
+mod delete_session_result;
+mod enriched_mosaic;
+mod eye_params_input;
+mod eye_params_update_result;
+mod eye_session;
+mod funcs;
+mod get_rectangles_result;
+mod object_detection_params_input;
+mod object_detection_params_update_result;
+mod object_session;
+mod ordinary_session;
+mod point;
+mod rgb_color;
+mod service;
+mod session;
+mod slice;
+mod slice_line;
+mod target_similarity_update_result;
+mod tile_params_input;
+mod tile_params_update_result;
+mod trace_params_input;
+mod trace_params_update_result;
+mod update_basic_params_result;
+
+pub use add_object_to_be_detected_result::AddObjectToBeDetectedResult;
+pub use basic_params_input::BasicParamsInput;
+pub use bucket_delta_update_result::BucketDeltaUpdateResult;
+pub use circle::Circle;
+use colored_anonymized_mosaic::ColoredAnonymizedMosaic;
+pub use create_eye_session_result::CreateEyeSessionResult;
+pub use create_object_session_result::CreateObjectSessionResult;
+pub use create_ordinary_session_result::CreateOrdinarySessionResult;
+pub use delete_reference_object_result::DeleteReferenceObjectResult;
+pub use delete_session_result::DeleteSessionResult;
+pub use enriched_mosaic::EnrichedMosaic;
+pub use eye_params_input::EyeParamsInput;
+pub use eye_params_update_result::EyeParamsUpdateResult;
+pub use eye_session::EyeSession;
+use funcs::{
+    calculate_eye, calculate_object, calculate_ordinary, calculate_ordinary_mosaics,
+    deduce_enriched_mosaic,
+};
+pub use get_rectangles_result::GetRectanglesResult;
+pub use object_detection_params_input::ObjectDetectionParamsInput;
+pub use object_detection_params_update_result::ObjectDetectionParamsUpdateResult;
+pub use object_session::ObjectSession;
+pub use ordinary_session::OrdinarySession;
+pub use point::Point;
+pub use rgb_color::RgbColor;
+pub use service::Service;
+pub use session::Session;
+pub use slice::Slice;
+pub use slice_line::SliceLine;
+pub use target_similarity_update_result::TargetSimilarityUpdateResult;
+pub use tile_params_input::TileParamsInput;
+pub use tile_params_update_result::TileParamsUpdateResult;
+pub use trace_params_input::TraceParamsInput;
+pub use trace_params_update_result::TraceParamsUpdateResult;
+pub use update_basic_params_result::UpdateBasicParamsResult;
