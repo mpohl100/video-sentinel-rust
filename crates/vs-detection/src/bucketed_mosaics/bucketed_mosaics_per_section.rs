@@ -82,8 +82,8 @@ impl BucketedMosaicsPerSection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bucketed_mosaics::*;
     use crate::bucketed_mosaics::TileParams;
+    use crate::bucketed_mosaics::*;
     use crate::math::AnonymizedCoordinateSystem;
     use crate::math::CoordinateSystem;
     use crate::math::Rectangle as MathRectangle;

@@ -667,10 +667,7 @@ fn deduce_mosaic_at_position(
     ));
     deduce_all_mosaics(image).into_iter().find(|mosaic| {
         mosaic.get_relative_mosaic().get_mosaic().contains_point(
-            &vs_core::math::CoordinatedPoint::new(
-                global_coordinate_system.clone(),
-                position,
-            ),
+            &vs_core::math::CoordinatedPoint::new(global_coordinate_system.clone(), position),
         )
     })
 }
