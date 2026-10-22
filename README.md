@@ -59,10 +59,10 @@ mutation {
     sessionId: "eye-1"
     basicParams: { doGrayscale: true, gradientThreshold: 15 }
     eyeParams: {
-      tileParams: { tileX: 0.5, tileY: 0.5 }
-      bucketDelta: 0.25
-      traceParams: { numSkeleton: 12 }
-      targetSimilarity: 0.9
+      tileParams: { tileX: 0.1, tileY: 0.1 }
+      bucketDelta: 0.1
+      traceParams: { numSkeleton: 18 }
+      targetSimilarity: 0.7
     }
     results: ABSOLUTE
   )
@@ -78,10 +78,10 @@ mutation {
     sessionId: "object-1"
     basicParams: { doGrayscale: true, gradientThreshold: 15 }
     objectDetectionParams: {
-      tileParams: { tileX: 0.5, tileY: 0.5 }
-      bucketDelta: 0.25
-      traceParams: { numSkeleton: 12 }
-      targetSimilarity: 0.9
+      tileParams: { tileX: 0.1, tileY: 0.1 }
+      bucketDelta: 0.1
+      traceParams: { numSkeleton: 18 }
+      targetSimilarity: 0.7
     }
     results: ABSOLUTE
   )
@@ -173,7 +173,7 @@ session:
   type: ordinary
   id: ordinary-camera
   basic_params:
-    do_grayscale: false
+    do_grayscale: true
     gradient_threshold: 15
 ```
 
@@ -184,13 +184,13 @@ session:
   id: eye-camera
   results: absolute
   basic_params:
-    do_grayscale: false
+    do_grayscale: true
     gradient_threshold: 15
   eye_params:
-    tile_params: { tile_x: 0.5, tile_y: 0.5 }
-    bucket_delta: 0.25
-    trace_params: { num_skeleton: 12 }
-    target_similarity: 0.9
+    tile_params: { tile_x: 0.1, tile_y: 0.1 }
+    bucket_delta: 0.1
+    trace_params: { num_skeleton: 18 }
+    target_similarity: 0.7
 ```
 
 ```yaml
@@ -200,13 +200,13 @@ session:
   id: object-camera
   results: absolute
   basic_params:
-    do_grayscale: false
+    do_grayscale: true
     gradient_threshold: 15
   object_detection_params:
-    tile_params: { tile_x: 0.5, tile_y: 0.5 }
-    bucket_delta: 0.25
-    trace_params: { num_skeleton: 12 }
-    target_similarity: 0.9
+    tile_params: { tile_x: 0.1, tile_y: 0.1 }
+    bucket_delta: 0.1
+    trace_params: { num_skeleton: 18 }
+    target_similarity: 0.7
   reference_objects:
     - source: ascii_art
       object_id: target
@@ -244,25 +244,25 @@ The pipeline processes each frame in stages:
 
 ## Session parameters
 
-Defaults below describe the ROS 2 YAML configuration when a field is omitted.
-The GraphQL create-session mutations require their parameter inputs explicitly;
-they do not apply these defaults. The video-file CLI has its own defaults, shown
-where they differ.
+The values below are the generic session defaults, matching the video-file
+command-line program. GraphQL create-session mutations require parameter
+inputs explicitly, so supply these values when you want the defaults there.
+ROS 2 YAML applies these defaults when fields are omitted.
 
-| Parameter | ROS 2 default | Video CLI default | Applies to | What it configures |
-| --- | --- | --- | --- | --- |
-| `do_grayscale` | `false` | `true` | All sessions | Converts the input to grayscale before slice detection. |
-| `gradient_threshold` | `15` | `15` | All sessions | Gradient cutoff used to identify image slices. |
-| `results` | `absolute` | `absolute` | All sessions | Whether returned mosaic geometry uses image coordinates (`absolute`) or coordinates relative to the image (`relative`). ROS 2 publishing supports only `absolute`. |
-| `tile_x` | `0.1` | `0.1` | Eye and object | Width of each spatial bucketing region as a fraction of the image width; valid values are greater than `0` and at most `1`. |
-| `tile_y` | `0.1` | `0.1` | Eye and object | Height of each spatial bucketing region as a fraction of the image height; valid values are greater than `0` and at most `1`. |
-| `bucket_delta` | `0.1` | `0.1` | Eye and object | Granularity for grouping mosaics by their area-to-bounding-circle-area ratio. |
-| `num_skeleton` | `18` | `18` | Eye and object | Number of radial directions sampled to form a shape trace for matching. |
-| `target_similarity` | `0.7` | `0.7` | Eye and object | Minimum trace similarity required to consider two regions a match. |
-| `reference_objects` | `[]` | Required for object sessions | Object | Reference shapes used for detection. Provide one or more image-path or ASCII-art references; an empty list gives the session no configured targets. |
+| Parameter | Default | Applies to | What it configures |
+| --- | --- | --- | --- |
+| `do_grayscale` | `true` | All sessions | Converts the input to grayscale before slice detection. |
+| `gradient_threshold` | `15` | All sessions | Gradient cutoff used to identify image slices. |
+| `results` | `absolute` | All sessions | Whether returned mosaic geometry uses image coordinates (`absolute`) or coordinates relative to the image (`relative`). ROS 2 publishing supports only `absolute`. |
+| `tile_x` | `0.1` | Eye and object | Width of each spatial bucketing region as a fraction of the image width; valid values are greater than `0` and at most `1`. |
+| `tile_y` | `0.1` | Eye and object | Height of each spatial bucketing region as a fraction of the image height; valid values are greater than `0` and at most `1`. |
+| `bucket_delta` | `0.1` | Eye and object | Granularity for grouping mosaics by their area-to-bounding-circle-area ratio. |
+| `num_skeleton` | `18` | Eye and object | Number of radial directions sampled to form a shape trace for matching. |
+| `target_similarity` | `0.7` | Eye and object | Minimum trace similarity required to consider two regions a match. |
+| `reference_objects` | None | Object | Reference shapes used for detection. Provide one or more image-path or ASCII-art references. The video CLI requires at least one object reference. |
 
 Ordinary sessions use only the common image and result parameters; eye sessions
 use the tracking parameters to compare regions in consecutive frames, and
 object sessions use those same tracking parameters to compare frame regions
-with reference objects. The CLI values above apply to
-`video-sentinel-exe`; its `--session-id` defaults to `video-session`.
+with reference objects. The video CLI's `--session-id` defaults to
+`video-session`.

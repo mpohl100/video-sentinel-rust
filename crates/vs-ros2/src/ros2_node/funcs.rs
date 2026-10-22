@@ -378,6 +378,10 @@ pub(super) fn default_gradient_threshold() -> u8 {
     15
 }
 
+pub(super) fn default_do_grayscale() -> bool {
+    true
+}
+
 pub(super) fn default_tile_fraction() -> f64 {
     0.1
 }

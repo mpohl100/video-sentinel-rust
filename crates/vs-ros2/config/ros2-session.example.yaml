@@ -9,5 +9,5 @@ session:
   type: ordinary
   id: billard-session
   basic_params:
-    do_grayscale: false
+    do_grayscale: true
     gradient_threshold: 15
