@@ -77,14 +77,13 @@ mod tests {
     #[test]
     fn tile_params_and_eye_params_store_constructor_values() {
         let tile_params = TileParams::new(0.25, 0.5);
-        let eye_params = EyeParams::new(tile_params, 0.2, TraceParams::new(18, 0.3), 0.85);
+        let eye_params = EyeParams::new(tile_params, 0.2, TraceParams::new(18), 0.85);
 
         assert_float_eq(tile_params.relative_tile_x(), 0.25);
         assert_float_eq(tile_params.relative_tile_y(), 0.5);
         assert!(eye_params.tile_params == tile_params);
         assert_float_eq(eye_params.bucket_delta, 0.2);
         assert_eq!(eye_params.trace_params.num_skeleton(), 18);
-        assert_float_eq(eye_params.trace_params.close_slice_threshold(), 0.3);
         assert_float_eq(eye_params.target_similarity, 0.85);
     }
 
@@ -105,7 +104,7 @@ mod tests {
         let surrounding_rectangle = sample_surrounding_rectangle();
         let mosaic =
             mosaic_from_ranges(&[(3, 3.0, 5.0), (4, 3.0, 5.0), (5, 3.0, 5.0)], [40, 50, 60]);
-        let traced_params = TraceParams::new(12, 0.2);
+        let traced_params = TraceParams::new(12);
         let bucketed = deduce_bucketed_mosaics(
             vec![mosaic.clone()],
             surrounding_rectangle,
@@ -158,7 +157,7 @@ mod tests {
             surrounding_rectangle,
             TileParams::new(0.5, 0.5),
             0.25,
-            TraceParams::new(12, 0.2),
+            TraceParams::new(12),
         )
         .await
         .expect("deduce_bucketed_mosaics should succeed");
@@ -166,12 +165,7 @@ mod tests {
         let rectangles = deduce_rectangles(
             bucketed,
             vec![next.clone()],
-            EyeParams::new(
-                TileParams::new(0.5, 0.5),
-                0.25,
-                TraceParams::new(12, 0.2),
-                0.9,
-            ),
+            EyeParams::new(TileParams::new(0.5, 0.5), 0.25, TraceParams::new(12), 0.9),
             surrounding_rectangle,
         )
         .await
@@ -202,7 +196,7 @@ mod tests {
             surrounding_rectangle,
             TileParams::new(0.5, 0.5),
             0.25,
-            TraceParams::new(12, 0.2),
+            TraceParams::new(12),
         )
         .await
         .expect("deduce_bucketed_mosaics should succeed");
@@ -210,12 +204,7 @@ mod tests {
         let rectangles = deduce_rectangles(
             bucketed,
             vec![next],
-            EyeParams::new(
-                TileParams::new(0.5, 0.5),
-                0.25,
-                TraceParams::new(12, 0.2),
-                1.1,
-            ),
+            EyeParams::new(TileParams::new(0.5, 0.5), 0.25, TraceParams::new(12), 1.1),
             surrounding_rectangle,
         )
         .await
@@ -245,7 +234,7 @@ mod tests {
         let mosaic =
             mosaic_from_ranges(&[(2, 2.0, 4.0), (3, 2.0, 4.0), (4, 2.0, 4.0)], [30, 30, 30]);
 
-        let trace_params = TraceParams::new(16, 0.2);
+        let trace_params = TraceParams::new(16);
         let traced_relative_mosaic = TracedRelativeMosaic::new(
             WrappedRelativeMosaic::new(
                 mosaic.get_mosaic(),

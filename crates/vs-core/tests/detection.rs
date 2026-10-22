@@ -203,7 +203,7 @@ fn surrounding_rectangle(image: &WrappedRgbImage) -> Rectangle {
 }
 
 fn deduce_all_mosaics(image: &WrappedRgbImage, do_grayscale: bool) -> Vec<TracedRelativeMosaic> {
-    let trace_params = TraceParams::new(12, 0.2);
+    let trace_params = TraceParams::new(12);
     let rectangle = surrounding_rectangle(image);
     let math_rectangle = MathRectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right());
     let slices = calculate_slices(image, rectangle, basic_params(do_grayscale));
@@ -267,7 +267,7 @@ fn standard_detection_params(target_similarity: f64) -> ObjectDetectionParams {
     ObjectDetectionParams::new(
         TileParams::new(0.2, 0.2),
         0.1,
-        TraceParams::new(36, 0.2),
+        TraceParams::new(36),
         target_similarity,
     )
 }
@@ -486,12 +486,7 @@ fn assert_detect_objects_with_two_reference_mosaics_respects_relative_layout(do_
     let results = detect_objects(
         &reference,
         &bucketed,
-        ObjectDetectionParams::new(
-            TileParams::new(0.25, 0.25),
-            0.5,
-            TraceParams::new(24, 0.2),
-            0.8,
-        ),
+        ObjectDetectionParams::new(TileParams::new(0.25, 0.25), 0.5, TraceParams::new(24), 0.8),
         surrounding_rectangle(&scene),
         Results::Absolute,
     );

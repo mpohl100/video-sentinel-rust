@@ -12,14 +12,12 @@ use async_graphql::InputObject;
 #[derive(InputObject, Clone)]
 pub struct TraceParamsInputGql {
     num_skeleton: usize,
-    close_slice_threshold: f64,
 }
 
 impl From<TraceParamsInputGql> for TraceParamsInput {
     fn from(value: TraceParamsInputGql) -> Self {
         Self {
             num_skeleton: value.num_skeleton,
-            close_slice_threshold: value.close_slice_threshold,
         }
     }
 }

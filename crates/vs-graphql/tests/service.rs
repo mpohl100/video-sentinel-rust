@@ -60,7 +60,6 @@ query FetchSessionState($sessionId: String!) {
       bucketDelta
       traceParams {
         numSkeleton
-        closeSliceThreshold
       }
       targetSimilarity
     }
@@ -79,7 +78,6 @@ query FetchSessionState($sessionId: String!) {
       bucketDelta
       traceParams {
         numSkeleton
-        closeSliceThreshold
       }
       targetSimilarity
     }
@@ -110,7 +108,6 @@ query FetchSessionState($sessionId: String!) {
   }
   getTraceParams(sessionId: $sessionId) {
     numSkeleton
-    closeSliceThreshold
   }
   getBucketDelta(sessionId: $sessionId)
   getTargetSimilarity(sessionId: $sessionId)
@@ -531,10 +528,9 @@ fn tile_params_json(tile_x: f64, tile_y: f64) -> Value {
     })
 }
 
-fn trace_params_json(num_skeleton: usize, close_slice_threshold: f64) -> Value {
+fn trace_params_json(num_skeleton: usize) -> Value {
     json!({
         "numSkeleton": num_skeleton,
-        "closeSliceThreshold": close_slice_threshold,
     })
 }
 
@@ -543,13 +539,12 @@ fn eye_params_json(
     tile_y: f64,
     bucket_delta: f64,
     num_skeleton: usize,
-    close_slice_threshold: f64,
     target_similarity: f64,
 ) -> Value {
     json!({
         "tileParams": tile_params_json(tile_x, tile_y),
         "bucketDelta": bucket_delta,
-        "traceParams": trace_params_json(num_skeleton, close_slice_threshold),
+        "traceParams": trace_params_json(num_skeleton),
         "targetSimilarity": target_similarity,
     })
 }
@@ -559,13 +554,12 @@ fn object_detection_params_json(
     tile_y: f64,
     bucket_delta: f64,
     num_skeleton: usize,
-    close_slice_threshold: f64,
     target_similarity: f64,
 ) -> Value {
     json!({
         "tileParams": tile_params_json(tile_x, tile_y),
         "bucketDelta": bucket_delta,
-        "traceParams": trace_params_json(num_skeleton, close_slice_threshold),
+        "traceParams": trace_params_json(num_skeleton),
         "targetSimilarity": target_similarity,
     })
 }
@@ -806,7 +800,7 @@ async fn ordinary_session_graphql_roundtrip_covers_success_and_unsupported_opera
                 "UpdateTraceParams",
                 json!({
                     "sessionId": session_id,
-                    "traceParams": trace_params_json(18, 0.25),
+                    "traceParams": trace_params_json(18),
                 }),
             )
             .await,
@@ -845,7 +839,7 @@ async fn ordinary_session_graphql_roundtrip_covers_success_and_unsupported_opera
                 "UpdateEyeParams",
                 json!({
                     "sessionId": session_id,
-                    "eyeParams": eye_params_json(0.2, 0.3, 0.4, 18, 0.15, 0.8),
+                    "eyeParams": eye_params_json(0.2, 0.3, 0.4, 18, 0.8),
                 }),
             )
             .await,
@@ -858,7 +852,7 @@ async fn ordinary_session_graphql_roundtrip_covers_success_and_unsupported_opera
                 "UpdateObjectDetectionParams",
                 json!({
                     "sessionId": session_id,
-                    "objectDetectionParams": object_detection_params_json(0.2, 0.3, 0.4, 18, 0.15, 0.8),
+                    "objectDetectionParams": object_detection_params_json(0.2, 0.3, 0.4, 18, 0.8),
                 }),
             )
             .await,
@@ -971,7 +965,7 @@ async fn eye_session_graphql_roundtrip_requires_previous_frame_and_exposes_eye_q
                 json!({
                     "sessionId": session_id,
                     "basicParams": basic_params_json(false, 15),
-                    "eyeParams": eye_params_json(0.5, 0.5, 0.25, 12, 0.2, 0.9),
+                    "eyeParams": eye_params_json(0.5, 0.5, 0.25, 12, 0.9),
                     "results": "RELATIVE",
                 }),
             )
@@ -986,7 +980,7 @@ async fn eye_session_graphql_roundtrip_requires_previous_frame_and_exposes_eye_q
                 json!({
                     "sessionId": session_id,
                     "basicParams": basic_params_json(false, 15),
-                    "eyeParams": eye_params_json(0.5, 0.5, 0.25, 12, 0.2, 0.9),
+                    "eyeParams": eye_params_json(0.5, 0.5, 0.25, 12, 0.9),
                     "results": "RELATIVE",
                 }),
             )
@@ -1027,7 +1021,7 @@ async fn eye_session_graphql_roundtrip_requires_previous_frame_and_exposes_eye_q
                 "UpdateTraceParams",
                 json!({
                     "sessionId": session_id,
-                    "traceParams": trace_params_json(24, 0.3),
+                    "traceParams": trace_params_json(24),
                 }),
             )
             .await,
@@ -1066,7 +1060,7 @@ async fn eye_session_graphql_roundtrip_requires_previous_frame_and_exposes_eye_q
                 "UpdateEyeParams",
                 json!({
                     "sessionId": session_id,
-                    "eyeParams": eye_params_json(0.15, 0.35, 0.45, 18, 0.25, 0.92),
+                    "eyeParams": eye_params_json(0.15, 0.35, 0.45, 18, 0.92),
                 }),
             )
             .await,
@@ -1123,10 +1117,6 @@ async fn eye_session_graphql_roundtrip_requires_previous_frame_and_exposes_eye_q
         Value::from(18)
     );
     assert_eq!(
-        data(&session_state, "getEyeSession")["eyeParams"]["traceParams"]["closeSliceThreshold"],
-        Value::from(0.25)
-    );
-    assert_eq!(
         data(&session_state, "getEyeSession")["eyeParams"]["targetSimilarity"],
         Value::from(0.92)
     );
@@ -1146,10 +1136,6 @@ async fn eye_session_graphql_roundtrip_requires_previous_frame_and_exposes_eye_q
     assert_eq!(
         data(&session_state, "getTraceParams")["numSkeleton"],
         Value::from(18)
-    );
-    assert_eq!(
-        data(&session_state, "getTraceParams")["closeSliceThreshold"],
-        Value::from(0.25)
     );
     assert_eq!(data(&session_state, "getBucketDelta"), &Value::from(0.45));
     assert_eq!(
@@ -1175,7 +1161,7 @@ async fn object_session_graphql_roundtrip_covers_reference_objects_and_detection
                 json!({
                     "sessionId": session_id,
                     "basicParams": basic_params_json(false, 15),
-                    "objectDetectionParams": object_detection_params_json(0.5, 0.5, 0.25, 12, 0.2, 0.9),
+                    "objectDetectionParams": object_detection_params_json(0.5, 0.5, 0.25, 12, 0.9),
                     "results": "ABSOLUTE",
                 }),
             )
@@ -1190,7 +1176,7 @@ async fn object_session_graphql_roundtrip_covers_reference_objects_and_detection
                 json!({
                     "sessionId": session_id,
                     "basicParams": basic_params_json(false, 15),
-                    "objectDetectionParams": object_detection_params_json(0.5, 0.5, 0.25, 12, 0.2, 0.9),
+                    "objectDetectionParams": object_detection_params_json(0.5, 0.5, 0.25, 12, 0.9),
                     "results": "ABSOLUTE",
                 }),
             )
@@ -1231,7 +1217,7 @@ async fn object_session_graphql_roundtrip_covers_reference_objects_and_detection
                 "UpdateTraceParams",
                 json!({
                     "sessionId": session_id,
-                    "traceParams": trace_params_json(28, 0.35),
+                    "traceParams": trace_params_json(28),
                 }),
             )
             .await,
@@ -1270,7 +1256,7 @@ async fn object_session_graphql_roundtrip_covers_reference_objects_and_detection
                 "UpdateObjectDetectionParams",
                 json!({
                     "sessionId": session_id,
-                    "objectDetectionParams": object_detection_params_json(0.18, 0.28, 0.42, 16, 0.22, 0.88),
+                    "objectDetectionParams": object_detection_params_json(0.18, 0.28, 0.42, 16, 0.88),
                 }),
             )
             .await,
@@ -1359,10 +1345,6 @@ async fn object_session_graphql_roundtrip_covers_reference_objects_and_detection
         Value::from(16)
     );
     assert_eq!(
-        data(&session_state, "getObjectSession")["objectDetectionParams"]["traceParams"]["closeSliceThreshold"],
-        Value::from(0.22)
-    );
-    assert_eq!(
         data(&session_state, "getObjectSession")["objectDetectionParams"]["targetSimilarity"],
         Value::from(0.88)
     );
@@ -1388,10 +1370,6 @@ async fn object_session_graphql_roundtrip_covers_reference_objects_and_detection
     assert_eq!(
         data(&session_state, "getTraceParams")["numSkeleton"],
         Value::from(16)
-    );
-    assert_eq!(
-        data(&session_state, "getTraceParams")["closeSliceThreshold"],
-        Value::from(0.22)
     );
     assert_eq!(data(&session_state, "getBucketDelta"), &Value::from(0.42));
     assert_eq!(
@@ -1559,7 +1537,7 @@ async fn missing_session_graphql_operations_return_not_found_after_real_frame_pr
                 "UpdateTraceParams",
                 json!({
                     "sessionId": missing_session_id,
-                    "traceParams": trace_params_json(21, 0.18),
+                    "traceParams": trace_params_json(21),
                 }),
             )
             .await,
@@ -1598,7 +1576,7 @@ async fn missing_session_graphql_operations_return_not_found_after_real_frame_pr
                 "UpdateEyeParams",
                 json!({
                     "sessionId": missing_session_id,
-                    "eyeParams": eye_params_json(0.3, 0.4, 0.5, 8, 0.1, 0.8),
+                    "eyeParams": eye_params_json(0.3, 0.4, 0.5, 8, 0.8),
                 }),
             )
             .await,
@@ -1611,7 +1589,7 @@ async fn missing_session_graphql_operations_return_not_found_after_real_frame_pr
                 "UpdateObjectDetectionParams",
                 json!({
                     "sessionId": missing_session_id,
-                    "objectDetectionParams": object_detection_params_json(0.3, 0.4, 0.5, 8, 0.1, 0.8),
+                    "objectDetectionParams": object_detection_params_json(0.3, 0.4, 0.5, 8, 0.8),
                 }),
             )
             .await,

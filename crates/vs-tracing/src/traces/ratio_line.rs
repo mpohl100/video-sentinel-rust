@@ -254,10 +254,9 @@ mod tests {
 
     #[test]
     fn trace_params_methods_return_constructor_values() {
-        let params = TraceParams::new(36, 0.2);
+        let params = TraceParams::new(36);
 
         assert_eq!(params.num_skeleton(), 36);
-        assert_float_eq(params.close_slice_threshold(), 0.2);
     }
 
     #[test]
@@ -448,7 +447,7 @@ mod tests {
                 Vec3d::new(15.0, 15.0, 0.0),
                 Vec3d::new(35.0, 35.0, 0.0),
             )],
-            TraceParams::new(36, 1e-4),
+            TraceParams::new(36),
         );
 
         let expected = [
@@ -502,7 +501,7 @@ mod tests {
                 Vec3d::new(25.0, 25.0, 0.0),
                 25.0,
             )],
-            TraceParams::new(36, 1e-4),
+            TraceParams::new(36),
         );
 
         let expected = [
@@ -556,7 +555,7 @@ mod tests {
                 Vec3d::new(15.0, 15.0, 0.0),
                 Vec3d::new(25.0, 35.0, 0.0),
             )],
-            TraceParams::new(36, 1e-4),
+            TraceParams::new(36),
         );
 
         let expected = [
@@ -618,7 +617,7 @@ mod tests {
                     Vec3d::new(70.0, 30.0, 0.0),
                 ),
             ],
-            TraceParams::new(24, 1e-4),
+            TraceParams::new(24),
         );
 
         let expected = [
@@ -653,7 +652,7 @@ mod tests {
 
     #[test]
     fn trace_new_from_mosaic_builds_requested_number_of_ratio_lines() {
-        let trace = Trace::new_from_mosaic(&square_mosaic(), TraceParams::new(18, 0.2));
+        let trace = Trace::new_from_mosaic(&square_mosaic(), TraceParams::new(18));
         let self_similarity = trace.compare_with(0.0, &trace.clone());
 
         assert_eq!(trace.ratio_lines().len(), 18);
@@ -668,7 +667,7 @@ mod tests {
 
     #[test]
     fn trace_compare_with_returns_zero_when_target_similarity_is_unreachable() {
-        let trace = Trace::new_from_mosaic(&square_mosaic(), TraceParams::new(18, 0.2));
+        let trace = Trace::new_from_mosaic(&square_mosaic(), TraceParams::new(18));
         let self_similarity = trace.compare_with(0.0, &trace.clone());
         let unreachable_similarity = trace.compare_with(self_similarity + EPSILON, &trace.clone());
 
@@ -678,9 +677,9 @@ mod tests {
     #[test]
     fn trace_new_from_mosaics_combines_multiple_mosaics_and_self_matches() {
         let combined_mosaics = vec![square_mosaic(), translated_square_mosaic()];
-        let combined = Trace::new_from_mosaics(&combined_mosaics, TraceParams::new(18, 0.2));
+        let combined = Trace::new_from_mosaics(&combined_mosaics, TraceParams::new(18));
         let same_family_mosaics = vec![translated_square_mosaic(), square_mosaic()];
-        let same_family = Trace::new_from_mosaics(&same_family_mosaics, TraceParams::new(18, 0.2));
+        let same_family = Trace::new_from_mosaics(&same_family_mosaics, TraceParams::new(18));
         let similarity = combined.compare_with(0.0, &same_family);
         let unreachable_similarity = combined.compare_with(similarity + EPSILON, &same_family);
 

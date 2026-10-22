@@ -231,7 +231,7 @@ mod tests {
     }
 
     fn deduce_all_mosaics(image: &WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
-        let trace_params = TraceParams::new(12, 0.2);
+        let trace_params = TraceParams::new(12);
         let rectangle = surrounding_rectangle(image);
         let math_rectangle =
             MathRectangle::new(rectangle.get_top_left(), rectangle.get_bottom_right());
@@ -412,7 +412,7 @@ mod tests {
         let params = ObjectDetectionParams::new(
             TileParams::new(0.25, 0.5),
             0.125,
-            TraceParams::new(24, 0.2),
+            TraceParams::new(24),
             0.85,
         );
 
@@ -420,7 +420,6 @@ mod tests {
         assert_float_eq(params.tile_params.relative_tile_y(), 0.5);
         assert_float_eq(params.bucket_delta, 0.125);
         assert_eq!(params.trace_params.num_skeleton(), 24);
-        assert_float_eq(params.trace_params.close_slice_threshold(), 0.2);
         assert_float_eq(params.target_similarity, 0.85);
     }
 

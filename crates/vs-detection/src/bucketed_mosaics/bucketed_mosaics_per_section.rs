@@ -165,7 +165,7 @@ mod tests {
             mosaic_from_lines(lines),
             MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(10.0, 10.0, 0.0)),
         );
-        TracedRelativeMosaic::new(relative_mosaic, TraceParams::new(12, 0.2))
+        TracedRelativeMosaic::new(relative_mosaic, TraceParams::new(12))
     }
 
     fn bounding_box_signature(mosaic: &WrappedRelativeMosaic) -> (Vec3d, Vec3d) {
@@ -218,7 +218,7 @@ mod tests {
             mosaic_from_lines(&[(9, &[(9.0, 9.0)]), (10, &[(9.0, 9.0)])]),
             MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(10.0, 10.0, 0.0)),
         );
-        let traced_outside = TracedRelativeMosaic::new(outside, TraceParams::new(12, 0.2));
+        let traced_outside = TracedRelativeMosaic::new(outside, TraceParams::new(12));
 
         section.add_mosaic(inside.clone());
         section.add_mosaic(traced_outside);
