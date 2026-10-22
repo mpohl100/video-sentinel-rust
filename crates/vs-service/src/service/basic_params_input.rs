@@ -51,10 +51,7 @@ mod tests {
     }
 
     fn trace_params_input() -> TraceParamsInput {
-        TraceParamsInput {
-            num_skeleton: 12,
-            close_slice_threshold: 0.2,
-        }
+        TraceParamsInput { num_skeleton: 12 }
     }
 
     fn eye_params_input() -> EyeParamsInput {
@@ -216,25 +213,12 @@ mod tests {
         ));
 
         assert!(matches!(
-            service.update_trace_params(
-                "object",
-                TraceParamsInput {
-                    num_skeleton: 24,
-                    close_slice_threshold: 0.4,
-                },
-            ),
+            service.update_trace_params("object", TraceParamsInput { num_skeleton: 24 },),
             TraceParamsUpdateResult::Success
         ));
         assert_eq!(
             service.get_trace_params("object").unwrap().num_skeleton(),
             24
-        );
-        assert_float_eq(
-            service
-                .get_trace_params("object")
-                .unwrap()
-                .close_slice_threshold(),
-            0.4,
         );
         assert!(matches!(
             service.update_trace_params("ordinary", trace_params_input()),
@@ -270,10 +254,7 @@ mod tests {
                         tile_y: 0.4,
                     },
                     bucket_delta: 0.3,
-                    trace_params: TraceParamsInput {
-                        num_skeleton: 30,
-                        close_slice_threshold: 0.1,
-                    },
+                    trace_params: TraceParamsInput { num_skeleton: 30 },
                     target_similarity: 0.88,
                 },
             ),
@@ -296,10 +277,7 @@ mod tests {
                         tile_y: 0.4,
                     },
                     bucket_delta: 0.5,
-                    trace_params: TraceParamsInput {
-                        num_skeleton: 20,
-                        close_slice_threshold: 0.25,
-                    },
+                    trace_params: TraceParamsInput { num_skeleton: 20 },
                     target_similarity: 0.91,
                 },
             ),

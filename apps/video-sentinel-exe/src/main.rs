@@ -101,9 +101,6 @@ struct TrackingParamsArgs {
     #[arg(long, default_value_t = 18)]
     num_skeleton: usize,
 
-    #[arg(long, default_value_t = 1e-4)]
-    close_slice_threshold: f64,
-
     #[arg(long, default_value_t = 0.7)]
     target_similarity: f64,
 }
@@ -294,7 +291,6 @@ fn to_eye_params_input(args: &TrackingParamsArgs) -> EyeParamsInput {
         bucket_delta: args.bucket_delta,
         trace_params: TraceParamsInput {
             num_skeleton: args.num_skeleton,
-            close_slice_threshold: args.close_slice_threshold,
         },
         target_similarity: args.target_similarity,
     }
@@ -309,7 +305,6 @@ fn to_object_params_input(args: &TrackingParamsArgs) -> ObjectDetectionParamsInp
         bucket_delta: args.bucket_delta,
         trace_params: TraceParamsInput {
             num_skeleton: args.num_skeleton,
-            close_slice_threshold: args.close_slice_threshold,
         },
         target_similarity: args.target_similarity,
     }

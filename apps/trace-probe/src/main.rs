@@ -363,7 +363,7 @@ fn deduce_all_mosaics(image: &WrappedRgbImage) -> Vec<TracedRelativeMosaic> {
         surrounding_rectangle.get_top_left(),
         surrounding_rectangle.get_bottom_right(),
     );
-    let trace_params = TraceParams::new(36, 0.2);
+    let trace_params = TraceParams::new(36);
     deduce_mosaics(connected_slices, &math_rectangle)
         .into_iter()
         .map(|mosaic| TracedRelativeMosaic::new(mosaic, trace_params))
@@ -441,7 +441,7 @@ fn trace_cpp_square_reference_object(mode: ReferenceBuildMode) -> ReferenceObjec
                 Vec3d::new(15.0, 15.0, 0.0),
                 Vec3d::new(35.0, 35.0, 0.0),
             )],
-            TraceParams::new(36, 0.2),
+            TraceParams::new(36),
             &MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(50.0, 50.0, 0.0)),
         ),
     }
@@ -477,7 +477,7 @@ fn trace_cpp_circle_reference_object(mode: ReferenceBuildMode) -> ReferenceObjec
                 Vec3d::new(25.0, 25.0, 0.0),
                 25.0,
             )],
-            TraceParams::new(36, 0.2),
+            TraceParams::new(36),
             &MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(50.0, 50.0, 0.0)),
         ),
     }
@@ -514,7 +514,7 @@ fn trace_cpp_rectangle_reference_object(mode: ReferenceBuildMode) -> ReferenceOb
                 Vec3d::new(15.0, 15.0, 0.0),
                 Vec3d::new(25.0, 35.0, 0.0),
             )],
-            TraceParams::new(36, 0.2),
+            TraceParams::new(36),
             &MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(50.0, 50.0, 0.0)),
         ),
     }
@@ -598,7 +598,7 @@ fn pair_reference_object(mode: ReferenceBuildMode) -> ReferenceObject {
                     Vec3d::new(70.0, 30.0, 0.0),
                 ),
             ],
-            TraceParams::new(36, 0.2),
+            TraceParams::new(36),
             &MathRectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(1000.0, 1000.0, 0.0)),
         ),
     }
@@ -663,31 +663,31 @@ fn print_reference_object_image_similarities(build_mode: ReferenceBuildMode) {
             "reference_object_methods_return_id_surrounding_box_and_relative_rectangle",
             "Square(10, 10) with Square(20, 20)",
             &reference_methods_object,
-            TraceParams::new(36, 1e-4),
+            TraceParams::new(36),
         ),
         (
             "detect_objects_finds_square_results_from_trace_cpp_scene",
             "Square(20, 20)",
             &square_object,
-            TraceParams::new(36, 1e-4),
+            TraceParams::new(36),
         ),
         (
             "detect_objects_finds_circle_results_from_trace_cpp_scene",
             "Circle(radius=25)",
             &circle_object,
-            TraceParams::new(36, 1e-4),
+            TraceParams::new(36),
         ),
         (
             "detect_objects_finds_rectangle_results_from_trace_cpp_scene",
             "Rectangle(10, 20)",
             &rectangle_object,
-            TraceParams::new(36, 1e-4),
+            TraceParams::new(36),
         ),
         (
             "detect_objects_with_two_reference_mosaics_respects_relative_layout",
             "Square(20, 20) with Square(20, 20)",
             &pair_object,
-            TraceParams::new(24, 1e-4),
+            TraceParams::new(24),
         ),
     ];
 
@@ -745,38 +745,38 @@ fn reference_cases(
             "reference_object_methods_return_id_surrounding_box_and_relative_rectangle",
             "Square(10, 10) with Square(20, 20)",
             reference_object_methods_reference_object(),
-            TraceParams::new(36, 1e-4),
+            TraceParams::new(36),
         ),
         (
             "detect_objects_finds_square_results_from_trace_cpp_scene",
             "Square(20, 20)",
             trace_cpp_square_reference_object(build_mode),
-            TraceParams::new(36, 1e-4),
+            TraceParams::new(36),
         ),
         (
             "detect_objects_finds_circle_results_from_trace_cpp_scene",
             "Circle(radius=25)",
             trace_cpp_circle_reference_object(build_mode),
-            TraceParams::new(36, 1e-4),
+            TraceParams::new(36),
         ),
         (
             "detect_objects_finds_rectangle_results_from_trace_cpp_scene",
             "Rectangle(10, 20)",
             trace_cpp_rectangle_reference_object(build_mode),
-            TraceParams::new(36, 1e-4),
+            TraceParams::new(36),
         ),
         (
             "detect_objects_with_two_reference_mosaics_respects_relative_layout",
             "Square(20, 20) with Square(20, 20)",
             pair_reference_object(build_mode),
-            TraceParams::new(24, 1e-4),
+            TraceParams::new(24),
         ),
     ]
 }
 
 fn print_reference_object_cross_similarities(build_mode: ReferenceBuildMode) {
     let reference_cases = reference_cases(build_mode);
-    let comparison_params = TraceParams::new(36, 1e-4);
+    let comparison_params = TraceParams::new(36);
 
     println!("=== compare-reference-objects ===");
     println!("reference count: {}", reference_cases.len());
@@ -829,31 +829,31 @@ fn main() {
         "reference_object_methods_return_id_surrounding_box_and_relative_rectangle",
         "Square(10, 10) with Square(20, 20)",
         &reference_object_methods_reference_object(),
-        TraceParams::new(36, 1e-4),
+        TraceParams::new(36),
     );
     print_reference_object_trace(
         "detect_objects_finds_square_results_from_trace_cpp_scene",
         "Square(20, 20)",
         &trace_cpp_square_reference_object(build_mode),
-        TraceParams::new(36, 1e-4),
+        TraceParams::new(36),
     );
     print_reference_object_trace(
         "detect_objects_finds_circle_results_from_trace_cpp_scene",
         "Circle(radius=25)",
         &trace_cpp_circle_reference_object(build_mode),
-        TraceParams::new(36, 1e-4),
+        TraceParams::new(36),
     );
     print_reference_object_trace(
         "detect_objects_finds_rectangle_results_from_trace_cpp_scene",
         "Rectangle(10, 20)",
         &trace_cpp_rectangle_reference_object(build_mode),
-        TraceParams::new(36, 1e-4),
+        TraceParams::new(36),
     );
     print_reference_object_trace(
         "detect_objects_with_two_reference_mosaics_respects_relative_layout",
         "Square(20, 20) with Square(20, 20)",
         &pair_reference_object(build_mode),
-        TraceParams::new(24, 1e-4),
+        TraceParams::new(24),
     );
 
     if compare_to_image {

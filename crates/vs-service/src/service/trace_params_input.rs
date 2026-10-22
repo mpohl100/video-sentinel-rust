@@ -9,5 +9,4 @@
 #[derive(Clone, Copy)]
 pub struct TraceParamsInput {
     pub num_skeleton: usize,
-    pub close_slice_threshold: f64,
 }

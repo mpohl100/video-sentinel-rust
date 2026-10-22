@@ -36,9 +36,9 @@ pub use detection2d::Detection2D;
 pub use detection2d_array::Detection2DArray;
 use eye_params_yaml::EyeParamsYaml;
 use funcs::{
-    default_bucket_delta, default_close_slice_threshold, default_gradient_threshold,
-    default_max_message_age_ms, default_node_name, default_node_namespace, default_num_skeleton,
-    default_target_similarity, default_tile_fraction,
+    default_bucket_delta, default_gradient_threshold, default_max_message_age_ms,
+    default_node_name, default_node_namespace, default_num_skeleton, default_target_similarity,
+    default_tile_fraction,
 };
 pub use funcs::{default_output_topic, run, run_from_cli, run_from_config_path};
 pub use header::Header;

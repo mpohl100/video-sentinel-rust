@@ -386,10 +386,6 @@ pub(super) fn default_num_skeleton() -> usize {
     18
 }
 
-pub(super) fn default_close_slice_threshold() -> f64 {
-    1e-4
-}
-
 pub(super) fn default_bucket_delta() -> f64 {
     0.1
 }

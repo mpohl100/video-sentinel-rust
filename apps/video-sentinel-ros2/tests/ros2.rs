@@ -412,10 +412,10 @@ fn write_config(
             "session:\n  type: ordinary\n  id: {session_id}\n  basic_params:\n    do_grayscale: false\n    gradient_threshold: 15\n"
         ),
         (RosSessionType::Eye, _) => format!(
-            "session:\n  type: eye\n  id: {session_id}\n  basic_params:\n    do_grayscale: false\n    gradient_threshold: 15\n  eye_params:\n    tile_params:\n      tile_x: 0.5\n      tile_y: 0.5\n    bucket_delta: 0.25\n    trace_params:\n      num_skeleton: 12\n      close_slice_threshold: 0.2\n    target_similarity: 0.9\n"
+            "session:\n  type: eye\n  id: {session_id}\n  basic_params:\n    do_grayscale: false\n    gradient_threshold: 15\n  eye_params:\n    tile_params:\n      tile_x: 0.5\n      tile_y: 0.5\n    bucket_delta: 0.25\n    trace_params:\n      num_skeleton: 12\n    target_similarity: 0.9\n"
         ),
         (RosSessionType::Object, Some((reference_image, rectangle))) => format!(
-            "session:\n  type: object\n  id: {session_id}\n  basic_params:\n    do_grayscale: false\n    gradient_threshold: 15\n  object_detection_params:\n    tile_params:\n      tile_x: 0.5\n      tile_y: 0.5\n    bucket_delta: 0.25\n    trace_params:\n      num_skeleton: 12\n      close_slice_threshold: 0.2\n    target_similarity: 0.9\n  reference_objects:\n    - source: image_path\n      object_id: reference-object\n      image_path: {}\n      surrounding_rectangle:\n        top_left:\n          x: {}\n          y: {}\n        bottom_right:\n          x: {}\n          y: {}\n",
+            "session:\n  type: object\n  id: {session_id}\n  basic_params:\n    do_grayscale: false\n    gradient_threshold: 15\n  object_detection_params:\n    tile_params:\n      tile_x: 0.5\n      tile_y: 0.5\n    bucket_delta: 0.25\n    trace_params:\n      num_skeleton: 12\n    target_similarity: 0.9\n  reference_objects:\n    - source: image_path\n      object_id: reference-object\n      image_path: {}\n      surrounding_rectangle:\n        top_left:\n          x: {}\n          y: {}\n        bottom_right:\n          x: {}\n          y: {}\n",
             reference_image.path.display(),
             rectangle.get_top_left().x,
             rectangle.get_top_left().y,
@@ -513,10 +513,7 @@ fn eye_params() -> EyeParamsInput {
             tile_y: 0.5,
         },
         bucket_delta: 0.25,
-        trace_params: TraceParamsInput {
-            num_skeleton: 12,
-            close_slice_threshold: 0.2,
-        },
+        trace_params: TraceParamsInput { num_skeleton: 12 },
         target_similarity: 0.9,
     }
 }
@@ -528,10 +525,7 @@ fn object_detection_params() -> ObjectDetectionParamsInput {
             tile_y: 0.5,
         },
         bucket_delta: 0.25,
-        trace_params: TraceParamsInput {
-            num_skeleton: 12,
-            close_slice_threshold: 0.2,
-        },
+        trace_params: TraceParamsInput { num_skeleton: 12 },
         target_similarity: 0.9,
     }
 }

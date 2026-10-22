@@ -274,7 +274,7 @@ pub fn basic_params() -> BasicParams {
 
 #[must_use]
 pub fn trace_params() -> TraceParams {
-    TraceParams::new(12, 0.2)
+    TraceParams::new(12)
 }
 
 #[must_use]
@@ -303,10 +303,7 @@ pub fn eye_params_input() -> EyeParamsInput {
             tile_y: 0.5,
         },
         bucket_delta: 0.25,
-        trace_params: TraceParamsInput {
-            num_skeleton: 12,
-            close_slice_threshold: 0.2,
-        },
+        trace_params: TraceParamsInput { num_skeleton: 12 },
         target_similarity: 0.9,
     }
 }
@@ -319,10 +316,7 @@ pub fn object_detection_params_input() -> ObjectDetectionParamsInput {
             tile_y: 0.5,
         },
         bucket_delta: 0.25,
-        trace_params: TraceParamsInput {
-            num_skeleton: 12,
-            close_slice_threshold: 0.2,
-        },
+        trace_params: TraceParamsInput { num_skeleton: 12 },
         target_similarity: 0.9,
     }
 }
@@ -498,12 +492,8 @@ pub fn detection_fixture() -> &'static DetectionFixture {
         );
         let scene_mosaics = deduce_all_mosaics(&scene_image);
         let surrounding_rectangle = surrounding_rectangle(&scene_image);
-        let object_detection_params = ObjectDetectionParams::new(
-            TileParams::new(0.25, 0.5),
-            0.2,
-            TraceParams::new(12, 0.2),
-            0.8,
-        );
+        let object_detection_params =
+            ObjectDetectionParams::new(TileParams::new(0.25, 0.5), 0.2, TraceParams::new(12), 0.8);
         let bucketed_mosaics = benchmark_runtime()
             .block_on(deduce_bucketed_mosaics(
                 scene_mosaics

@@ -19,5 +19,4 @@ session:
     bucket_delta: 0.25
     trace_params:
       num_skeleton: 12
-      close_slice_threshold: 0.2
     target_similarity: 0.9

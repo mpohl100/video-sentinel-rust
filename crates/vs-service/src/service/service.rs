@@ -88,10 +88,7 @@ impl Service {
             eye_params_input.tile_params.tile_x,
             eye_params_input.tile_params.tile_y,
         );
-        let trace_params = TraceParams::new(
-            eye_params_input.trace_params.num_skeleton,
-            eye_params_input.trace_params.close_slice_threshold,
-        );
+        let trace_params = TraceParams::new(eye_params_input.trace_params.num_skeleton);
         let eye_params = EyeParams::new(
             tile_params,
             eye_params_input.bucket_delta,
@@ -131,12 +128,8 @@ impl Service {
             object_detection_params_input.tile_params.tile_x,
             object_detection_params_input.tile_params.tile_y,
         );
-        let trace_params = TraceParams::new(
-            object_detection_params_input.trace_params.num_skeleton,
-            object_detection_params_input
-                .trace_params
-                .close_slice_threshold,
-        );
+        let trace_params =
+            TraceParams::new(object_detection_params_input.trace_params.num_skeleton);
         let object_detection_params = ObjectDetectionParams::new(
             tile_params,
             object_detection_params_input.bucket_delta,
@@ -222,17 +215,13 @@ impl Service {
         if let Some(session) = self.sessions.get_mut(session_id) {
             match session {
                 Session::Eye(eye_session) => {
-                    eye_session.eye_params.trace_params = TraceParams::new(
-                        trace_params_input.num_skeleton,
-                        trace_params_input.close_slice_threshold,
-                    );
+                    eye_session.eye_params.trace_params =
+                        TraceParams::new(trace_params_input.num_skeleton);
                     eye_session.cached_previous_mosaics = None;
                 }
                 Session::Object(object_session) => {
-                    object_session.object_detection_params.trace_params = TraceParams::new(
-                        trace_params_input.num_skeleton,
-                        trace_params_input.close_slice_threshold,
-                    );
+                    object_session.object_detection_params.trace_params =
+                        TraceParams::new(trace_params_input.num_skeleton);
                 }
                 Session::Ordinary(_) => {
                     return TraceParamsUpdateResult::SessionTypeDoesNotSupportTraceParams;
@@ -304,10 +293,7 @@ impl Service {
                         eye_params_input.tile_params.tile_x,
                         eye_params_input.tile_params.tile_y,
                     );
-                    let trace_params = TraceParams::new(
-                        eye_params_input.trace_params.num_skeleton,
-                        eye_params_input.trace_params.close_slice_threshold,
-                    );
+                    let trace_params = TraceParams::new(eye_params_input.trace_params.num_skeleton);
                     eye_session.eye_params = EyeParams::new(
                         tile_params,
                         eye_params_input.bucket_delta,
@@ -336,12 +322,8 @@ impl Service {
                         object_detection_params_input.tile_params.tile_x,
                         object_detection_params_input.tile_params.tile_y,
                     );
-                    let trace_params = TraceParams::new(
-                        object_detection_params_input.trace_params.num_skeleton,
-                        object_detection_params_input
-                            .trace_params
-                            .close_slice_threshold,
-                    );
+                    let trace_params =
+                        TraceParams::new(object_detection_params_input.trace_params.num_skeleton);
                     object_session.object_detection_params = ObjectDetectionParams::new(
                         tile_params,
                         object_detection_params_input.bucket_delta,
