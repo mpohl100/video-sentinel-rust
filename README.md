@@ -60,7 +60,7 @@ mutation {
     basicParams: { doGrayscale: true, gradientThreshold: 15 }
     eyeParams: {
       tileParams: { tileX: 0.1, tileY: 0.1 }
-      bucketDelta: 0.1
+      bucketDelta: 0.05
       traceParams: { numSkeleton: 18 }
       targetSimilarity: 0.7
     }
@@ -79,7 +79,7 @@ mutation {
     basicParams: { doGrayscale: true, gradientThreshold: 15 }
     objectDetectionParams: {
       tileParams: { tileX: 0.1, tileY: 0.1 }
-      bucketDelta: 0.1
+      bucketDelta: 0.05
       traceParams: { numSkeleton: 18 }
       targetSimilarity: 0.7
     }
@@ -188,7 +188,7 @@ session:
     gradient_threshold: 15
   eye_params:
     tile_params: { tile_x: 0.1, tile_y: 0.1 }
-    bucket_delta: 0.1
+    bucket_delta: 0.05
     trace_params: { num_skeleton: 18 }
     target_similarity: 0.7
 ```
@@ -204,7 +204,7 @@ session:
     gradient_threshold: 15
   object_detection_params:
     tile_params: { tile_x: 0.1, tile_y: 0.1 }
-    bucket_delta: 0.1
+    bucket_delta: 0.05
     trace_params: { num_skeleton: 18 }
     target_similarity: 0.7
   reference_objects:
@@ -256,7 +256,7 @@ ROS 2 YAML applies these defaults when fields are omitted.
 | `results` | `absolute` | All sessions | Whether returned mosaic geometry uses image coordinates (`absolute`) or coordinates relative to the image (`relative`). ROS 2 publishing supports only `absolute`. |
 | `tile_x` | `0.1` | Eye and object | Width of each spatial bucketing region as a fraction of the image width; valid values are greater than `0` and at most `1`. |
 | `tile_y` | `0.1` | Eye and object | Height of each spatial bucketing region as a fraction of the image height; valid values are greater than `0` and at most `1`. |
-| `bucket_delta` | `0.1` | Eye and object | Granularity for grouping mosaics by their area-to-bounding-circle-area ratio. |
+| `bucket_delta` | `0.05` | Eye and object | Granularity for grouping mosaics by their area-to-bounding-circle-area ratio. |
 | `num_skeleton` | `18` | Eye and object | Number of radial directions sampled to form a shape trace for matching. |
 | `target_similarity` | `0.7` | Eye and object | Minimum trace similarity required to consider two regions a match. |
 | `reference_objects` | None | Object | Reference shapes used for detection. Provide one or more image-path or ASCII-art references. The video CLI requires at least one object reference. |

@@ -44,3 +44,16 @@ impl EyeParamsYaml {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::EyeParamsYaml;
+
+    #[test]
+    fn omitted_bucket_delta_uses_video_cli_default() {
+        let params = serde_yaml::from_str::<EyeParamsYaml>("{}")
+            .expect("default eye params should deserialize");
+
+        assert!((params.bucket_delta - 0.05).abs() < f64::EPSILON);
+    }
+}

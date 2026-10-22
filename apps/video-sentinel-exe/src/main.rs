@@ -95,7 +95,7 @@ struct TrackingParamsArgs {
     #[arg(long, default_value_t = 0.1)]
     tile_y: f64,
 
-    #[arg(long, default_value_t = 0.1)]
+    #[arg(long, default_value_t = 0.05)]
     bucket_delta: f64,
 
     #[arg(long, default_value_t = 18)]
@@ -387,4 +387,28 @@ fn rgb_image_to_frame(image: &WrappedRgbImage) -> Result<Frame, Box<dyn Error>> 
         .map_err(|error| format!("failed to extract RGB bytes from image: {error}"))?;
     Frame::from_shape_vec((usize_from_u32(height), usize_from_u32(width), 3), data)
         .map_err(|error| format!("failed to create output frame: {error}").into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CliArgs, SessionArgs};
+    use clap::Parser;
+
+    #[test]
+    fn eye_session_bucket_delta_defaults_to_point_zero_five() {
+        let args = CliArgs::try_parse_from([
+            "video-sentinel-exe",
+            "--input-video",
+            "input.mp4",
+            "--output-video",
+            "output.mp4",
+            "eye",
+        ])
+        .expect("default eye CLI args should parse");
+
+        let SessionArgs::Eye(params) = args.session else {
+            panic!("expected eye session");
+        };
+        assert!((params.bucket_delta - 0.05).abs() < f64::EPSILON);
+    }
 }

@@ -391,7 +391,7 @@ pub(super) fn default_num_skeleton() -> usize {
 }
 
 pub(super) fn default_bucket_delta() -> f64 {
-    0.1
+    0.05
 }
 
 pub(super) fn default_target_similarity() -> f64 {
