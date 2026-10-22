@@ -241,3 +241,28 @@ The pipeline processes each frame in stages:
    statistics in absolute image coordinates or relative coordinates, according
    to the session's `results` mode. The GraphQL API returns these values
    directly, while the ROS 2 adapter publishes detection arrays.
+
+## Session parameters
+
+Defaults below describe the ROS 2 YAML configuration when a field is omitted.
+The GraphQL create-session mutations require their parameter inputs explicitly;
+they do not apply these defaults. The video-file CLI has its own defaults, shown
+where they differ.
+
+| Parameter | ROS 2 default | Video CLI default | Applies to | What it configures |
+| --- | --- | --- | --- | --- |
+| `do_grayscale` | `false` | `true` | All sessions | Converts the input to grayscale before slice detection. |
+| `gradient_threshold` | `15` | `15` | All sessions | Gradient cutoff used to identify image slices. |
+| `results` | `absolute` | `absolute` | All sessions | Whether returned mosaic geometry uses image coordinates (`absolute`) or coordinates relative to the image (`relative`). ROS 2 publishing supports only `absolute`. |
+| `tile_x` | `0.1` | `0.1` | Eye and object | Width of each spatial bucketing region as a fraction of the image width; valid values are greater than `0` and at most `1`. |
+| `tile_y` | `0.1` | `0.1` | Eye and object | Height of each spatial bucketing region as a fraction of the image height; valid values are greater than `0` and at most `1`. |
+| `bucket_delta` | `0.1` | `0.1` | Eye and object | Granularity for grouping mosaics by their area-to-bounding-circle-area ratio. |
+| `num_skeleton` | `18` | `18` | Eye and object | Number of radial directions sampled to form a shape trace for matching. |
+| `target_similarity` | `0.7` | `0.7` | Eye and object | Minimum trace similarity required to consider two regions a match. |
+| `reference_objects` | `[]` | Required for object sessions | Object | Reference shapes used for detection. Provide one or more image-path or ASCII-art references; an empty list gives the session no configured targets. |
+
+Ordinary sessions use only the common image and result parameters; eye sessions
+use the tracking parameters to compare regions in consecutive frames, and
+object sessions use those same tracking parameters to compare frame regions
+with reference objects. The CLI values above apply to
+`video-sentinel-exe`; its `--session-id` defaults to `video-session`.
