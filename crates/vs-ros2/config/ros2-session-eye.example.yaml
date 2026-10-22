@@ -9,14 +9,14 @@ session:
   type: eye
   id: billard-eye-session
   basic_params:
-    do_grayscale: false
+    do_grayscale: true
     gradient_threshold: 15
   results: absolute
   eye_params:
     tile_params:
-      tile_x: 0.5
-      tile_y: 0.5
-    bucket_delta: 0.25
+      tile_x: 0.1
+      tile_y: 0.1
+    bucket_delta: 0.1
     trace_params:
-      num_skeleton: 12
-    target_similarity: 0.9
+      num_skeleton: 18
+    target_similarity: 0.7

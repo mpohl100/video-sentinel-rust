@@ -12,17 +12,17 @@ session:
   type: object
   id: billard-object-session
   basic_params:
-    do_grayscale: false
+    do_grayscale: true
     gradient_threshold: 15
   results: absolute
   object_detection_params:
     tile_params:
-      tile_x: 0.5
-      tile_y: 0.5
-    bucket_delta: 0.25
+      tile_x: 0.1
+      tile_y: 0.1
+    bucket_delta: 0.1
     trace_params:
-      num_skeleton: 12
-    target_similarity: 0.9
+      num_skeleton: 18
+    target_similarity: 0.7
   reference_objects:
     - source: image_path
       object_id: reference-from-image
