@@ -19,7 +19,7 @@ session:
     tile_params:
       tile_x: 0.1
       tile_y: 0.1
-    bucket_delta: 0.1
+    bucket_delta: 0.05
     trace_params:
       num_skeleton: 18
     target_similarity: 0.7
