@@ -8,7 +8,7 @@ use ros2_client::{
     Context, DEFAULT_PUBLISHER_QOS, MessageTypeName, Name, NodeName, NodeOptions, Publisher,
     builtin_interfaces::Time,
 };
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 use vs_ros2::ros2_node::{CompressedSensorImage, Header};
 
 const IMAGE_TYPE_PACKAGE: &str = "sensor_msgs";
@@ -31,6 +31,8 @@ struct CliArgs {
     publish_count: u32,
     #[arg(long, default_value_t = 500)]
     publish_interval_ms: u64,
+    #[arg(long, default_value_t = 1)]
+    wait_for_subscribers: usize,
 }
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
@@ -61,8 +63,15 @@ async fn run_from_cli() -> Result<(), Box<dyn Error>> {
     let publisher: Publisher<CompressedSensorImage> = node.create_publisher(&topic, None)?;
 
     tokio::spawn(node.spinner()?.spin());
+    timeout(Duration::from_secs(10), async {
+        while publisher.get_subscription_count(&node) < args.wait_for_subscribers {
+            sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .map_err(|_| "timed out waiting for subscribers")?;
 
-    println!("waiting {} ms before publishing", args.startup_delay_ms);
+    eprintln!("waiting {} ms before publishing", args.startup_delay_ms);
     sleep(Duration::from_millis(args.startup_delay_ms)).await;
 
     for publish_index in 0..args.publish_count {
@@ -79,7 +88,7 @@ async fn run_from_cli() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    println!(
+    eprintln!(
         "published {} compressed image(s) to {} and waiting {} ms for delivery",
         args.publish_count, args.topic, args.post_publish_delay_ms
     );

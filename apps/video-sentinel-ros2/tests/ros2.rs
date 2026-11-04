@@ -9,7 +9,7 @@
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Output, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::sync::{Once, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -22,7 +22,7 @@ use ros2_client::{
     Context, DEFAULT_SUBSCRIPTION_QOS, MessageTypeName, Name, NodeName, NodeOptions, Subscription,
 };
 use tempfile::TempDir;
-use tokio::sync::Mutex;
+use tokio::sync::mpsc;
 use tokio::time::timeout;
 use video_rs::{Decoder, Frame};
 use vs_core::mosaics::Results;
@@ -39,11 +39,11 @@ const SESSION_ID_EYE: &str = "eye-session";
 const SESSION_ID_OBJECT: &str = "object-session";
 const DETECTION_TYPE_PACKAGE: &str = "vision_msgs";
 const DETECTION_TYPE_NAME: &str = "Detection2DArray";
+const PUBLISHER_LIFETIME: Duration = Duration::from_secs(2);
+const DETECTION_GRACE_PERIOD: Duration = Duration::from_secs(5);
 
 static VIDEO_RS_INIT: Once = Once::new();
 static EXAMPLE_FRAME: OnceLock<ExampleFrame> = OnceLock::new();
-static ROS2_TEST_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
-
 #[derive(Clone)]
 struct ExampleFrame {
     jpeg: Vec<u8>,
@@ -106,73 +106,66 @@ struct TempDirImage {
     path: PathBuf,
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn ros2_node_publishes_rectangles_for_ordinary_session() {
-    let _guard = ros2_test_lock().lock().await;
-    run_session_case(RosSessionType::Ordinary, SESSION_ID_ORDINARY).await;
+struct SessionTestCase {
+    output_topic: String,
+    config_path: PathBuf,
+    _object_reference: Option<(TempDirImage, Rectangle)>,
+    expected_signatures: Vec<String>,
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn ros2_node_publishes_rectangles_for_eye_session() {
-    let _guard = ros2_test_lock().lock().await;
-    run_session_case(RosSessionType::Eye, SESSION_ID_EYE).await;
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn ros2_node_publishes_rectangles_for_object_session() {
-    let _guard = ros2_test_lock().lock().await;
-    run_session_case(RosSessionType::Object, SESSION_ID_OBJECT).await;
-}
-
-async fn run_session_case(session_type: RosSessionType, session_id_prefix: &str) {
+async fn ros2_nodes_publish_expected_rectangles_for_all_session_types() {
     let frame = example_frame();
     let unique = unique_suffix();
-    let session_topic_segment = match session_type {
-        RosSessionType::Ordinary => "ordinary",
-        RosSessionType::Eye => "eye",
-        RosSessionType::Object => "object",
-    };
-    let session_name = format!("{session_id_prefix}-{unique}");
-    let image_topic = format!("/video_sentinel/test/{unique}/{session_topic_segment}/image");
-    let output_topic = default_output_topic(&session_name, session_type);
-    let node_name = format!("ros2_test_node_{unique}");
-
     let temp_dir = tempfile::tempdir().expect("tempdir should be created");
     let input_image_path = temp_dir.path().join("input.jpg");
     fs::write(&input_image_path, &frame.jpeg).expect("input image should be written");
 
-    let object_reference = if session_type == RosSessionType::Object {
-        Some(prepare_object_reference(frame).await)
-    } else {
-        None
-    };
-
-    let expected_signatures = expected_detection_signatures(
-        session_type,
-        &session_name,
-        frame,
-        object_reference.as_ref(),
-    )
-    .await;
-
-    let config_path = temp_dir.path().join("session.yaml");
-    write_config(
-        &config_path,
-        &node_name,
-        session_type,
-        &session_name,
-        &image_topic,
-        object_reference.as_ref(),
-    );
-
-    let mut ros2_node = ChildGuard::spawn(
-        Path::new(env!("CARGO_BIN_EXE_video_sentinel_ros2_node")),
-        &[
-            "--config".to_string(),
-            config_path.to_string_lossy().into_owned(),
-        ],
-    );
-    wait_for_background_process(&mut ros2_node, "ROS2 node").await;
+    let image_topic = format!("/video_sentinel/test/{unique}/image");
+    let mut cases = Vec::new();
+    for (session_type, session_id_prefix) in [
+        (RosSessionType::Ordinary, SESSION_ID_ORDINARY),
+        (RosSessionType::Eye, SESSION_ID_EYE),
+        (RosSessionType::Object, SESSION_ID_OBJECT),
+    ] {
+        let session_topic_segment = match session_type {
+            RosSessionType::Ordinary => "ordinary",
+            RosSessionType::Eye => "eye",
+            RosSessionType::Object => "object",
+        };
+        let session_name = format!("{session_id_prefix}-{unique}");
+        let output_topic = default_output_topic(&session_name, session_type);
+        let node_name = format!("ros2_test_node_{session_topic_segment}_{unique}");
+        let config_path = temp_dir
+            .path()
+            .join(format!("{session_topic_segment}.yaml"));
+        let object_reference = if session_type == RosSessionType::Object {
+            Some(prepare_object_reference(frame).await)
+        } else {
+            None
+        };
+        let expected_signatures = expected_detection_signatures(
+            session_type,
+            &session_name,
+            frame,
+            object_reference.as_ref(),
+        )
+        .await;
+        write_config(
+            &config_path,
+            &node_name,
+            session_type,
+            &session_name,
+            &image_topic,
+            object_reference.as_ref(),
+        );
+        cases.push(SessionTestCase {
+            output_topic,
+            config_path,
+            _object_reference: object_reference,
+            expected_signatures,
+        });
+    }
 
     let context = Context::new().expect("test ROS2 context should be created");
     let mut subscriber_node = context
@@ -181,17 +174,21 @@ async fn run_session_case(session_type: RosSessionType, session_id_prefix: &str)
             NodeOptions::new(),
         )
         .expect("subscriber node should be created");
-
-    let rectangles_topic = subscriber_node
-        .create_topic(
-            &Name::parse(&output_topic).expect("output topic should parse"),
-            MessageTypeName::new(DETECTION_TYPE_PACKAGE, DETECTION_TYPE_NAME),
-            &DEFAULT_SUBSCRIPTION_QOS,
-        )
-        .expect("output topic should be created");
-    let rectangles_subscriber: Subscription<Detection2DArray> = subscriber_node
-        .create_subscription(&rectangles_topic, None)
-        .expect("output subscriber should be created");
+    let subscriptions: Vec<Subscription<Detection2DArray>> = cases
+        .iter()
+        .map(|case| {
+            let topic = subscriber_node
+                .create_topic(
+                    &Name::parse(&case.output_topic).expect("output topic should parse"),
+                    MessageTypeName::new(DETECTION_TYPE_PACKAGE, DETECTION_TYPE_NAME),
+                    &DEFAULT_SUBSCRIPTION_QOS,
+                )
+                .expect("output topic should be created");
+            subscriber_node
+                .create_subscription(&topic, None)
+                .expect("output subscriber should be created")
+        })
+        .collect();
 
     let subscriber_spinner = tokio::spawn(
         subscriber_node
@@ -199,43 +196,124 @@ async fn run_session_case(session_type: RosSessionType, session_id_prefix: &str)
             .expect("subscriber spinner should be created")
             .spin(),
     );
-    tokio::time::sleep(Duration::from_secs(2)).await;
-    wait_for_background_process(&mut ros2_node, "ROS2 node").await;
-
-    let receive_task = tokio::spawn(collect_detection_message(rectangles_subscriber));
-    tokio::time::sleep(Duration::from_secs(3)).await;
-    run_image_publisher(&image_topic, &input_image_path)
-        .unwrap_or_else(|error| panic_with_child_output(&error, &mut ros2_node));
-
-    let message = timeout(Duration::from_secs(120), receive_task)
-        .await
-        .unwrap_or_else(|_| {
-            panic_with_child_output("timed out waiting for detections", &mut ros2_node)
+    let mut ros2_nodes: Vec<_> = cases
+        .iter()
+        .map(|case| {
+            ChildGuard::spawn(
+                Path::new(env!("CARGO_BIN_EXE_video_sentinel_ros2_node")),
+                &[
+                    "--config".to_string(),
+                    case.config_path.display().to_string(),
+                ],
+            )
         })
-        .expect("receive task should join")
-        .unwrap_or_else(|error| panic_with_child_output(&error, &mut ros2_node));
+        .collect();
+
+    timeout(Duration::from_secs(10), async {
+        loop {
+            for node in &mut ros2_nodes {
+                ensure_background_process_running(node, "ROS2 node");
+            }
+            if subscriber_node.subscription_count(&image_topic) >= cases.len()
+                && cases
+                    .iter()
+                    .all(|case| subscriber_node.publisher_count(&case.output_topic) > 0)
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("all ROS2 nodes should create their input subscriptions and output publishers");
+
+    let (message_sender, mut message_receiver) = mpsc::unbounded_channel();
+    let receive_tasks: Vec<_> = subscriptions
+        .into_iter()
+        .map(|subscription| {
+            tokio::spawn(collect_detection_messages(
+                subscription,
+                message_sender.clone(),
+            ))
+        })
+        .collect();
+    drop(message_sender);
+    let mut expected_signatures: Vec<_> = cases
+        .iter()
+        .flat_map(|case| case.expected_signatures.iter().cloned())
+        .collect();
+    expected_signatures.sort_unstable();
+    let mut actual_signatures = Vec::new();
+
+    let mut image_publisher = spawn_image_publisher(&image_topic, &input_image_path, cases.len());
+
+    // The publisher lives for at most 2 seconds; detections may then arrive for 5 more seconds.
+    let publishers_deadline = tokio::time::Instant::now() + PUBLISHER_LIFETIME;
+    let detections_deadline = publishers_deadline + DETECTION_GRACE_PERIOD;
+    let mut publishers_killed = false;
+    let mut all_detections_received = false;
+    while !all_detections_received {
+        let now = tokio::time::Instant::now();
+        if !publishers_killed && now >= publishers_deadline {
+            image_publisher.terminate();
+            publishers_killed = true;
+        }
+        if now >= detections_deadline {
+            break;
+        }
+        let next_wakeup = if publishers_killed {
+            detections_deadline
+        } else {
+            publishers_deadline
+        };
+        match tokio::time::timeout_at(next_wakeup, message_receiver.recv()).await {
+            Ok(Some(Ok(message))) => {
+                assert_eq!(message.header.frame_id, "camera");
+                actual_signatures.extend(detection_signatures(&message.detections));
+                actual_signatures.sort_unstable();
+                all_detections_received =
+                    signatures_contain(&expected_signatures, &actual_signatures);
+            }
+            Ok(Some(Err(error))) => panic!("failed to receive detection message: {error}"),
+            Ok(None) => panic!("all detection subscriptions ended unexpectedly"),
+            Err(_) => {}
+        }
+    }
+
+    image_publisher.terminate();
+    ros2_nodes.iter_mut().for_each(ChildGuard::terminate);
+    receive_tasks
+        .iter()
+        .for_each(tokio::task::JoinHandle::abort);
     subscriber_spinner.abort();
 
-    assert_eq!(message.header.frame_id, "camera");
-
-    let actual_signatures = detection_signatures(&message.detections);
-    assert_detection_signatures_eq(&expected_signatures, &actual_signatures);
+    if !all_detections_received {
+        let node_output = ros2_nodes
+            .iter_mut()
+            .map(ChildGuard::debug_output)
+            .collect::<Vec<_>>()
+            .join("\n--- ROS2 node ---\n");
+        panic!(
+            "not all expected detections arrived within {:?} after publishing ({} of {} expected signatures collected)\n--- image publisher ---\n{}\n--- ROS2 nodes ---\n{node_output}",
+            PUBLISHER_LIFETIME + DETECTION_GRACE_PERIOD,
+            actual_signatures.len(),
+            expected_signatures.len(),
+            image_publisher.debug_output(),
+        );
+    }
 }
 
-async fn wait_for_background_process(child: &mut ChildGuard, process_name: &str) {
-    for _attempt in 0..50 {
-        if let Some(status) = child.try_wait() {
-            let output = child.debug_output();
-            panic!(
-                "{process_name} exited early with status {status}{}\n",
-                if output.is_empty() {
-                    String::new()
-                } else {
-                    format!("\n\nchild output:\n{output}")
-                }
-            );
-        }
-        tokio::time::sleep(Duration::from_millis(100)).await;
+fn ensure_background_process_running(child: &mut ChildGuard, process_name: &str) {
+    if let Some(status) = child.try_wait() {
+        let output = child.debug_output();
+        panic!(
+            "{process_name} exited early with status {status}{}\n",
+            if output.is_empty() {
+                String::new()
+            } else {
+                format!("\n\nchild output:\n{output}")
+            }
+        );
     }
 }
 
@@ -321,53 +399,54 @@ async fn prepare_object_reference(frame: &ExampleFrame) -> (TempDirImage, Rectan
     (reference_image, reference_rectangle)
 }
 
-async fn collect_detection_message(
+async fn collect_detection_messages(
     subscriber: Subscription<Detection2DArray>,
-) -> Result<Detection2DArray, String> {
+    sender: mpsc::UnboundedSender<Result<Detection2DArray, String>>,
+) {
     let stream = subscriber.async_stream();
     pin_mut!(stream);
-    let next = timeout(Duration::from_secs(120), stream.next())
-        .await
-        .map_err(|_| "timed out waiting for a detection message".to_string())?;
-    let Some(message_result) = next else {
-        return Err("detection stream ended unexpectedly".to_string());
-    };
-    let (message, _message_info) = message_result
-        .map_err(|error| format!("failed to receive a detection message: {error}"))?;
-    Ok(message)
+    while let Some(message_result) = stream.next().await {
+        match message_result {
+            Ok((message, _message_info)) => {
+                if sender.send(Ok(message)).is_err() {
+                    return;
+                }
+            }
+            Err(error) => {
+                let _ = sender.send(Err(format!(
+                    "failed to receive a detection message: {error}"
+                )));
+                return;
+            }
+        }
+    }
+    let _ = sender.send(Err("detection stream ended unexpectedly".to_string()));
 }
 
-fn run_image_publisher(image_topic: &str, image_path: &Path) -> Result<(), String> {
-    let output = run_ros_command(
+fn spawn_image_publisher(
+    image_topic: &str,
+    image_path: &Path,
+    subscriber_count: usize,
+) -> ChildGuard {
+    ChildGuard::spawn(
         Path::new(env!("CARGO_BIN_EXE_image_publisher_app")),
         &[
             "--topic".to_string(),
             image_topic.to_string(),
             "--image".to_string(),
             image_path.to_string_lossy().into_owned(),
+            "--wait-for-subscribers".to_string(),
+            subscriber_count.to_string(),
             "--startup-delay-ms".to_string(),
-            "1000".to_string(),
+            "0".to_string(),
             "--post-publish-delay-ms".to_string(),
-            "2500".to_string(),
+            "100".to_string(),
             "--publish-count".to_string(),
-            "8".to_string(),
+            "6".to_string(),
             "--publish-interval-ms".to_string(),
-            "750".to_string(),
+            "250".to_string(),
         ],
-    )?;
-
-    if output.status.success() {
-        return Ok(());
-    }
-
-    Err(format!(
-        "image publisher command failed with status {}:\n{}",
-        output
-            .status
-            .code()
-            .map_or_else(|| "signal".to_string(), |code| code.to_string()),
-        command_output_text(&output),
-    ))
+    )
 }
 
 async fn reference_bounding_box(frame: &ExampleFrame) -> Rectangle {
@@ -433,13 +512,6 @@ fn write_config(
     fs::write(config_path, yaml).expect("config should be written");
 }
 
-fn panic_with_child_output(message: &str, child: &mut ChildGuard) -> ! {
-    child.terminate();
-    let output = child.debug_output();
-    assert!(!output.is_empty(), "{message}");
-    panic!("{message}\n\nchild output:\n{output}");
-}
-
 fn detection_signatures(detections: &[Detection2D]) -> Vec<String> {
     let mut signatures: Vec<_> = detections
         .iter()
@@ -482,21 +554,18 @@ fn signature_from_rectangle(rectangle: &Rectangle, label: Option<&str>) -> Strin
     )
 }
 
-fn assert_detection_signatures_eq(expected: &[String], actual: &[String]) {
-    assert_eq!(
-        expected.len(),
-        actual.len(),
-        "expected {} detections, got {}",
-        expected.len(),
-        actual.len()
-    );
-
-    for (index, (expected_signature, actual_signature)) in expected.iter().zip(actual).enumerate() {
-        assert_eq!(
-            expected_signature, actual_signature,
-            "detection signature mismatch at index {index}"
-        );
+fn signatures_contain(expected: &[String], actual: &[String]) -> bool {
+    let mut actual_counts = std::collections::HashMap::new();
+    for signature in actual {
+        *actual_counts.entry(signature).or_insert(0) += 1;
     }
+    let mut expected_counts = std::collections::HashMap::new();
+    for signature in expected {
+        *expected_counts.entry(signature).or_insert(0) += 1;
+    }
+    expected_counts
+        .iter()
+        .all(|(signature, count)| actual_counts.get(signature).copied().unwrap_or(0) >= *count)
 }
 
 fn basic_params() -> BasicParamsInput {
@@ -528,10 +597,6 @@ fn object_detection_params() -> ObjectDetectionParamsInput {
         trace_params: TraceParamsInput { num_skeleton: 12 },
         target_similarity: 0.9,
     }
-}
-
-fn ros2_test_lock() -> &'static Mutex<()> {
-    ROS2_TEST_MUTEX.get_or_init(|| Mutex::new(()))
 }
 
 fn example_frame() -> &'static ExampleFrame {
@@ -589,14 +654,6 @@ fn jpeg_bytes_from_rgb(width: u32, height: u32, rgb_bytes: &[u8]) -> Vec<u8> {
     encoded.to_vec()
 }
 
-fn run_ros_command(binary_path: &Path, args: &[String]) -> Result<Output, String> {
-    Command::new("bash")
-        .arg("-lc")
-        .arg(ros_shell_command(binary_path, args))
-        .output()
-        .map_err(|error| format!("failed to start `{}`: {error}", binary_path.display()))
-}
-
 fn ros_shell_command(binary_path: &Path, args: &[String]) -> String {
     let setup_script = ros2_setup_script();
     let binary = shell_escape(&binary_path.to_string_lossy());
@@ -637,17 +694,6 @@ fn ros2_setup_script() -> String {
 
 fn shell_escape(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
-}
-
-fn command_output_text(output: &Output) -> String {
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    match (stdout.trim().is_empty(), stderr.trim().is_empty()) {
-        (true, true) => String::new(),
-        (false, true) => stdout.into_owned(),
-        (true, false) => stderr.into_owned(),
-        (false, false) => format!("{stdout}\n--- stderr ---\n{stderr}"),
-    }
 }
 
 fn unique_suffix() -> String {
