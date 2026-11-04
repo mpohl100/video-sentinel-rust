@@ -23,14 +23,21 @@ impl WrappedTrace {
         }
     }
 
+    /// Computes and caches the ratio lines of the wrapped trace if not done yet.
+    pub fn populate_ratio_lines(&self) {
+        self.trace.lock().unwrap().populate_ratio_lines();
+    }
+
     #[must_use]
     pub fn compare_with(&self, target_similarity: f64, other: &WrappedTrace) -> f64 {
         // If both point to the same return 1.0
         if Arc::ptr_eq(&self.trace, &other.trace) {
             return 1.0;
         }
-        let self_trace = self.trace.lock().unwrap();
-        let other_trace = other.trace.lock().unwrap();
+        let mut self_trace = self.trace.lock().unwrap();
+        let mut other_trace = other.trace.lock().unwrap();
+        self_trace.populate_ratio_lines();
+        other_trace.populate_ratio_lines();
         self_trace.compare_with(target_similarity, &other_trace)
     }
 }
