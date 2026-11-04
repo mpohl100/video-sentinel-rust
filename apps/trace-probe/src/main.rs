@@ -645,7 +645,6 @@ fn print_reference_object_trace(
         .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
         .collect();
     let mut trace = Trace::new_from_mosaics(&mosaics, params);
-    trace.populate_ratio_lines();
     println!("{}", trace.dump_details());
 }
 
@@ -795,7 +794,6 @@ fn print_reference_object_cross_similarities(build_mode: ReferenceBuildMode) {
             .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
             .collect();
         let mut left_trace = Trace::new_from_mosaics(&left_mosaics, comparison_params);
-        left_trace.populate_ratio_lines();
 
         for (right_index, (right_name, right_shape, right_reference_object, _)) in
             reference_cases.iter().enumerate()
@@ -806,11 +804,10 @@ fn print_reference_object_cross_similarities(build_mode: ReferenceBuildMode) {
                 .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
                 .collect();
             let mut right_trace = Trace::new_from_mosaics(&right_mosaics, comparison_params);
-            right_trace.populate_ratio_lines();
             println!(
                 "compare reference[{left_index}]={left_name} ({left_shape}) with reference[{right_index}]={right_name} ({right_shape})",
             );
-            let similarity = left_trace.compare_with(0.85, &right_trace);
+            let similarity = left_trace.compare_with(0.85, &mut right_trace);
             println!("  similarity={similarity:.8}");
         }
     }

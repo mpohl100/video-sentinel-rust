@@ -54,14 +54,14 @@ impl Trace {
     }
 
     #[cfg(test)]
-    pub(super) fn ratio_lines(&self) -> &Vec<RatioLine> {
+    pub(super) fn ratio_lines(&mut self) -> &Vec<RatioLine> {
+        self.populate_ratio_lines();
         &self.ratio_lines
     }
 }
 
 impl Trace {
     /// Creates a trace whose ratio lines are not computed yet; call
-    /// [`Trace::populate_ratio_lines`] before comparing.
     #[must_use]
     pub fn new_from_mosaic(mosaic: &WrappedMosaic, params: TraceParams) -> Self {
         Trace {
@@ -77,7 +77,6 @@ impl Trace {
     }
 
     /// Creates a trace whose ratio lines are not computed yet; call
-    /// [`Trace::populate_ratio_lines`] before comparing.
     #[must_use]
     pub fn new_from_mosaics(mosaics: &[WrappedMosaic], params: TraceParams) -> Self {
         Trace {
@@ -90,13 +89,13 @@ impl Trace {
         }
     }
 
-    #[must_use]
-    pub fn ratio_lines_populated(&self) -> bool {
+    #[cfg(test)]
+    pub(super) fn ratio_lines_populated(&self) -> bool {
         self.ratio_lines_populated
     }
 
     /// Computes and caches the ratio lines. Does nothing if already populated.
-    pub fn populate_ratio_lines(&mut self) {
+    fn populate_ratio_lines(&mut self) {
         if self.ratio_lines_populated {
             return;
         }
@@ -176,11 +175,9 @@ impl Trace {
     }
 
     #[must_use]
-    pub fn compare_with(&self, target_similarity: f64, other: &Trace) -> f64 {
-        assert!(
-            self.ratio_lines_populated && other.ratio_lines_populated,
-            "populate_ratio_lines must be called on both traces before compare_with"
-        );
+    pub fn compare_with(&mut self, target_similarity: f64, other: &mut Trace) -> f64 {
+        self.populate_ratio_lines();
+        other.populate_ratio_lines();
         let mut highest_similarity = 0.0;
         let first_factor = self.total_mass / self.total_surrounding_circle_area;
         let second_factor = other.total_mass / other.total_surrounding_circle_area;
@@ -209,7 +206,8 @@ impl Trace {
     }
 
     #[must_use]
-    pub fn dump_details(&self) -> String {
+    pub fn dump_details(&mut self) -> String {
+        self.populate_ratio_lines();
         let mut output = String::new();
         let _ = writeln!(
             output,

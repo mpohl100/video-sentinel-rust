@@ -177,12 +177,10 @@ mod tests {
 
     fn trace_from_slice_matrices(slice_matrices: Vec<SliceMatrix>, params: TraceParams) -> Trace {
         let mosaics: Vec<_> = slice_matrices.into_iter().map(WrappedMosaic::new).collect();
-        let mut trace = Trace::new_from_mosaics(&mosaics, params);
-        trace.populate_ratio_lines();
-        trace
+        Trace::new_from_mosaics(&mosaics, params)
     }
 
-    fn assert_trace_matches_expected_lines(trace: &Trace, expected: &[Option<(f64, f64)>]) {
+    fn assert_trace_matches_expected_lines(trace: &mut Trace, expected: &[Option<(f64, f64)>]) {
         assert_eq!(trace.ratio_lines().len(), expected.len());
 
         for (index, expected_slice) in expected.iter().enumerate() {
@@ -263,7 +261,7 @@ mod tests {
 
     #[test]
     fn dump_details_includes_ratio_line_and_slice_information() {
-        let trace = Trace::new(
+        let mut trace = Trace::new(
             vec![ratio_line(&[(0.1, 0.4)]), ratio_line(&[(0.6, 0.8)])],
             0.0,
             0.0,
@@ -345,7 +343,7 @@ mod tests {
 
     #[test]
     fn trace_compare_with_rotates_ratio_lines_to_find_best_alignment() {
-        let trace1 = Trace::new(
+        let mut trace1 = Trace::new(
             vec![
                 ratio_line(&[(0.1, 0.2)]),
                 ratio_line(&[(0.3, 0.4)]),
@@ -354,7 +352,7 @@ mod tests {
             0.0,
             0.0,
         );
-        let trace2 = Trace::new(
+        let mut trace2 = Trace::new(
             vec![
                 ratio_line(&[(0.3, 0.4)]),
                 ratio_line(&[(0.5, 0.6)]),
@@ -364,7 +362,7 @@ mod tests {
             0.0,
         );
 
-        assert_float_eq(trace1.compare_with(0.99, &trace2), 0.0);
+        assert_float_eq(trace1.compare_with(0.99, &mut trace2), 0.0);
     }
 
     #[test]
@@ -442,7 +440,7 @@ mod tests {
 
     #[test]
     fn trace_from_slice_matrix_square_matches_probe_slice_counts_and_radii() {
-        let trace = trace_from_slice_matrices(
+        let mut trace = trace_from_slice_matrices(
             vec![rectangle_slice_matrix(
                 50,
                 50,
@@ -491,12 +489,12 @@ mod tests {
             Some((0.0, 0.752_975_16)),
         ];
 
-        assert_trace_matches_expected_lines(&trace, &expected);
+        assert_trace_matches_expected_lines(&mut trace, &expected);
     }
 
     #[test]
     fn trace_from_slice_matrix_circle_matches_probe_slice_counts_and_radii() {
-        let trace = trace_from_slice_matrices(
+        let mut trace = trace_from_slice_matrices(
             vec![circle_slice_matrix(
                 50,
                 50,
@@ -545,12 +543,12 @@ mod tests {
             Some((0.000_498_84, 0.977_725_98)),
         ];
 
-        assert_trace_matches_expected_lines(&trace, &expected);
+        assert_trace_matches_expected_lines(&mut trace, &expected);
     }
 
     #[test]
     fn trace_from_slice_matrix_rectangle_matches_probe_slice_counts_and_radii() {
-        let trace = trace_from_slice_matrices(
+        let mut trace = trace_from_slice_matrices(
             vec![rectangle_slice_matrix(
                 50,
                 50,
@@ -599,12 +597,12 @@ mod tests {
             Some((0.0, 0.488_884_17)),
         ];
 
-        assert_trace_matches_expected_lines(&trace, &expected);
+        assert_trace_matches_expected_lines(&mut trace, &expected);
     }
 
     #[test]
     fn trace_from_slice_matrix_pair_matches_probe_slice_counts_and_radii() {
-        let trace = trace_from_slice_matrices(
+        let mut trace = trace_from_slice_matrices(
             vec![
                 rectangle_slice_matrix(
                     80,
@@ -649,15 +647,15 @@ mod tests {
             Some((0.314_091_39, 1.008_398_67)),
         ];
 
-        assert_trace_matches_expected_lines(&trace, &expected);
+        assert_trace_matches_expected_lines(&mut trace, &expected);
     }
 
     #[test]
     fn trace_new_from_mosaic_builds_requested_number_of_ratio_lines() {
         let mut trace = Trace::new_from_mosaic(&square_mosaic(), TraceParams::new(18));
         assert!(!trace.ratio_lines_populated());
-        trace.populate_ratio_lines();
-        let self_similarity = trace.compare_with(0.0, &trace.clone());
+        let self_similarity = trace.compare_with(0.0, &mut trace.clone());
+        assert!(trace.ratio_lines_populated());
 
         assert_eq!(trace.ratio_lines().len(), 18);
         assert!(
@@ -672,10 +670,9 @@ mod tests {
     #[test]
     fn trace_compare_with_returns_zero_when_target_similarity_is_unreachable() {
         let mut trace = Trace::new_from_mosaic(&square_mosaic(), TraceParams::new(18));
-        assert!(!trace.ratio_lines_populated());
-        trace.populate_ratio_lines();
-        let self_similarity = trace.compare_with(0.0, &trace.clone());
-        let unreachable_similarity = trace.compare_with(self_similarity + EPSILON, &trace.clone());
+        let self_similarity = trace.compare_with(0.0, &mut trace.clone());
+        let unreachable_similarity =
+            trace.compare_with(self_similarity + EPSILON, &mut trace.clone());
 
         assert_float_eq(unreachable_similarity, 1.0);
     }
@@ -684,22 +681,13 @@ mod tests {
     fn trace_new_from_mosaics_combines_multiple_mosaics_and_self_matches() {
         let combined_mosaics = vec![square_mosaic(), translated_square_mosaic()];
         let mut combined = Trace::new_from_mosaics(&combined_mosaics, TraceParams::new(18));
-        combined.populate_ratio_lines();
         let same_family_mosaics = vec![translated_square_mosaic(), square_mosaic()];
         let mut same_family = Trace::new_from_mosaics(&same_family_mosaics, TraceParams::new(18));
-        same_family.populate_ratio_lines();
-        let similarity = combined.compare_with(0.0, &same_family);
-        let unreachable_similarity = combined.compare_with(similarity + EPSILON, &same_family);
+        let similarity = combined.compare_with(0.0, &mut same_family);
+        let unreachable_similarity = combined.compare_with(similarity + EPSILON, &mut same_family);
 
         assert_eq!(combined.ratio_lines().len(), 18);
         assert!(similarity >= 1.0);
         assert_float_eq(unreachable_similarity, 1.0);
-    }
-
-    #[test]
-    #[should_panic(expected = "populate_ratio_lines must be called")]
-    fn trace_compare_with_requires_populated_ratio_lines() {
-        let trace = Trace::new_from_mosaic(&square_mosaic(), TraceParams::new(18));
-        let _ = trace.compare_with(0.0, &trace.clone());
     }
 }

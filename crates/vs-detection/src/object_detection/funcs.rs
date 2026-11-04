@@ -62,18 +62,16 @@ pub fn detect_objects(
         let mut new_candidate_reference_objects = Vec::new();
         let traced_current_mosaic = current_reference_object.get_mosaics(i + 1)[i].clone();
         let current_trace = traced_current_mosaic.get_trace();
-        let current_reference_object_trace = {
+        let mut current_reference_object_trace = {
             let current_reference_mosaics: Vec<_> = current_reference_object
                 .get_mosaics(usize::MAX)
                 .into_iter()
                 .map(|mosaic| mosaic.get_relative_mosaic().get_mosaic())
                 .collect();
-            let mut trace = Trace::new_from_mosaics(
+            Trace::new_from_mosaics(
                 &current_reference_mosaics,
                 object_detection_params.trace_params,
-            );
-            trace.populate_ratio_lines();
-            trace
+            )
         };
         for candidate in candidates {
             let absolute_rectangle = combine_boxes(
@@ -130,10 +128,9 @@ pub fn detect_objects(
                     &current_candidate_mosaics,
                     object_detection_params.trace_params,
                 );
-                current_candidate_reference_object_trace.populate_ratio_lines();
                 if current_candidate_reference_object_trace.compare_with(
                     object_detection_params.target_similarity,
-                    &current_reference_object_trace,
+                    &mut current_reference_object_trace,
                 ) >= object_detection_params.target_similarity
                 {
                     new_candidate_reference_objects.push(current_candidate_reference_object);
