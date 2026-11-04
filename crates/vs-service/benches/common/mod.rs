@@ -423,9 +423,9 @@ pub fn trace_fixture() -> &'static TraceFixture {
                 .get_mosaic();
         let params = trace_params();
         let mut primary_trace = Trace::new_from_mosaic(&primary_mosaic, params);
-        primary_trace.populate_ratio_lines();
         let mut secondary_trace = Trace::new_from_mosaic(&secondary_mosaic, params);
-        secondary_trace.populate_ratio_lines();
+        // Comparing once populates the ratio lines so benches measure only the comparison.
+        let _ = primary_trace.compare_with(0.0, &mut secondary_trace);
         TraceFixture {
             primary_mosaic,
             secondary_mosaic,

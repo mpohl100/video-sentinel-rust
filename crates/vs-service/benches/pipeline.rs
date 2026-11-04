@@ -75,11 +75,7 @@ fn pipeline_benchmarks(c: &mut criterion::Criterion) {
         "traces_new_from_mosaic",
         Duration::from_millis(2),
         || trace_fixture.primary_mosaic.clone(),
-        |mosaic| {
-            let mut trace = Trace::new_from_mosaic(&mosaic, common::trace_params());
-            trace.populate_ratio_lines();
-            trace
-        },
+        |mosaic| Trace::new_from_mosaic(&mosaic, common::trace_params()),
     );
 
     bench_with_setup(
@@ -92,7 +88,7 @@ fn pipeline_benchmarks(c: &mut criterion::Criterion) {
                 trace_fixture.secondary_trace.clone(),
             )
         },
-        |(left, right)| left.compare_with(0.8, &right),
+        |(mut left, mut right)| left.compare_with(0.8, &mut right),
     );
 
     let eye_fixture = eye_pipeline_fixture();
