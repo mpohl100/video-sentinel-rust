@@ -21,8 +21,17 @@ use super::{
 };
 
 #[derive(Clone)]
+enum TraceSource {
+    Single(WrappedMosaic),
+    Multiple(Vec<WrappedMosaic>),
+}
+
+#[derive(Clone)]
 pub struct Trace {
+    source: Option<TraceSource>,
+    params: TraceParams,
     ratio_lines: Vec<RatioLine>,
+    ratio_lines_populated: bool,
     total_mass: f64,
     total_surrounding_circle_area: f64,
 }
@@ -35,7 +44,10 @@ impl Trace {
         total_surrounding_circle_area: f64,
     ) -> Self {
         Self {
+            source: None,
+            params: TraceParams::new(ratio_lines.len()),
             ratio_lines,
+            ratio_lines_populated: true,
             total_mass,
             total_surrounding_circle_area,
         }
@@ -48,14 +60,63 @@ impl Trace {
 }
 
 impl Trace {
+    /// Creates a trace whose ratio lines are not computed yet; call
+    /// [`Trace::populate_ratio_lines`] before comparing.
     #[must_use]
     pub fn new_from_mosaic(mosaic: &WrappedMosaic, params: TraceParams) -> Self {
+        Trace {
+            source: Some(TraceSource::Single(mosaic.clone())),
+            params,
+            ratio_lines: Vec::new(),
+            ratio_lines_populated: false,
+            total_mass: calculate_total_mass(std::slice::from_ref(mosaic)),
+            total_surrounding_circle_area: calculate_total_surrounding_circle_area(
+                std::slice::from_ref(mosaic),
+            ),
+        }
+    }
+
+    /// Creates a trace whose ratio lines are not computed yet; call
+    /// [`Trace::populate_ratio_lines`] before comparing.
+    #[must_use]
+    pub fn new_from_mosaics(mosaics: &[WrappedMosaic], params: TraceParams) -> Self {
+        Trace {
+            source: Some(TraceSource::Multiple(mosaics.to_vec())),
+            params,
+            ratio_lines: Vec::new(),
+            ratio_lines_populated: false,
+            total_mass: calculate_total_mass(mosaics),
+            total_surrounding_circle_area: calculate_total_surrounding_circle_area(mosaics),
+        }
+    }
+
+    #[must_use]
+    pub fn ratio_lines_populated(&self) -> bool {
+        self.ratio_lines_populated
+    }
+
+    /// Computes and caches the ratio lines. Does nothing if already populated.
+    pub fn populate_ratio_lines(&mut self) {
+        if self.ratio_lines_populated {
+            return;
+        }
+        self.ratio_lines = match &self.source {
+            Some(TraceSource::Single(mosaic)) => Self::ratio_lines_from_mosaic(mosaic, self.params),
+            Some(TraceSource::Multiple(mosaics)) => {
+                Self::ratio_lines_from_mosaics(mosaics, self.params)
+            }
+            None => Vec::new(),
+        };
+        self.ratio_lines_populated = true;
+    }
+
+    fn ratio_lines_from_mosaic(mosaic: &WrappedMosaic, params: TraceParams) -> Vec<RatioLine> {
         let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
             Vec3d::new(0.0, 1.0, 0.0),
         ));
-        let ratio_lines = (0..params.num_skeleton())
+        (0..params.num_skeleton())
             .map(|i| {
                 let coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
                     mosaic
@@ -79,18 +140,10 @@ impl Trace {
                     mosaic.get_bounding_circle().get_radius(),
                 ))
             })
-            .collect();
-        Trace {
-            ratio_lines,
-            total_mass: calculate_total_mass(std::slice::from_ref(mosaic)),
-            total_surrounding_circle_area: calculate_total_surrounding_circle_area(
-                std::slice::from_ref(mosaic),
-            ),
-        }
+            .collect()
     }
 
-    #[must_use]
-    pub fn new_from_mosaics(mosaics: &[WrappedMosaic], params: TraceParams) -> Self {
+    fn ratio_lines_from_mosaics(mosaics: &[WrappedMosaic], params: TraceParams) -> Vec<RatioLine> {
         let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
@@ -98,7 +151,7 @@ impl Trace {
         ));
         let center_of_mass =
             calculate_center_of_mass(mosaics).convert_to(global_coordinate_system.clone());
-        let ratio_lines = (0..params.num_skeleton())
+        (0..params.num_skeleton())
             .map(|i| {
                 let coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
                     center_of_mass.clone().get_local_point(),
@@ -119,16 +172,15 @@ impl Trace {
                     deduce_longest_radius(mosaics, &center_of_mass),
                 ))
             })
-            .collect();
-        Trace {
-            ratio_lines,
-            total_mass: calculate_total_mass(mosaics),
-            total_surrounding_circle_area: calculate_total_surrounding_circle_area(mosaics),
-        }
+            .collect()
     }
 
     #[must_use]
     pub fn compare_with(&self, target_similarity: f64, other: &Trace) -> f64 {
+        assert!(
+            self.ratio_lines_populated && other.ratio_lines_populated,
+            "populate_ratio_lines must be called on both traces before compare_with"
+        );
         let mut highest_similarity = 0.0;
         let first_factor = self.total_mass / self.total_surrounding_circle_area;
         let second_factor = other.total_mass / other.total_surrounding_circle_area;

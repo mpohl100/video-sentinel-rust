@@ -422,11 +422,15 @@ pub fn trace_fixture() -> &'static TraceFixture {
                 .get_relative_mosaic()
                 .get_mosaic();
         let params = trace_params();
+        let mut primary_trace = Trace::new_from_mosaic(&primary_mosaic, params);
+        primary_trace.populate_ratio_lines();
+        let mut secondary_trace = Trace::new_from_mosaic(&secondary_mosaic, params);
+        secondary_trace.populate_ratio_lines();
         TraceFixture {
-            primary_trace: Trace::new_from_mosaic(&primary_mosaic, params),
-            secondary_trace: Trace::new_from_mosaic(&secondary_mosaic, params),
             primary_mosaic,
             secondary_mosaic,
+            primary_trace,
+            secondary_trace,
         }
     })
 }

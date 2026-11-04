@@ -75,7 +75,11 @@ fn pipeline_benchmarks(c: &mut criterion::Criterion) {
         "traces_new_from_mosaic",
         Duration::from_millis(2),
         || trace_fixture.primary_mosaic.clone(),
-        |mosaic| Trace::new_from_mosaic(&mosaic, common::trace_params()),
+        |mosaic| {
+            let mut trace = Trace::new_from_mosaic(&mosaic, common::trace_params());
+            trace.populate_ratio_lines();
+            trace
+        },
     );
 
     bench_with_setup(

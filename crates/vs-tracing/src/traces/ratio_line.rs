@@ -177,7 +177,9 @@ mod tests {
 
     fn trace_from_slice_matrices(slice_matrices: Vec<SliceMatrix>, params: TraceParams) -> Trace {
         let mosaics: Vec<_> = slice_matrices.into_iter().map(WrappedMosaic::new).collect();
-        Trace::new_from_mosaics(&mosaics, params)
+        let mut trace = Trace::new_from_mosaics(&mosaics, params);
+        trace.populate_ratio_lines();
+        trace
     }
 
     fn assert_trace_matches_expected_lines(trace: &Trace, expected: &[Option<(f64, f64)>]) {
@@ -652,7 +654,9 @@ mod tests {
 
     #[test]
     fn trace_new_from_mosaic_builds_requested_number_of_ratio_lines() {
-        let trace = Trace::new_from_mosaic(&square_mosaic(), TraceParams::new(18));
+        let mut trace = Trace::new_from_mosaic(&square_mosaic(), TraceParams::new(18));
+        assert!(!trace.ratio_lines_populated());
+        trace.populate_ratio_lines();
         let self_similarity = trace.compare_with(0.0, &trace.clone());
 
         assert_eq!(trace.ratio_lines().len(), 18);
@@ -667,7 +671,9 @@ mod tests {
 
     #[test]
     fn trace_compare_with_returns_zero_when_target_similarity_is_unreachable() {
-        let trace = Trace::new_from_mosaic(&square_mosaic(), TraceParams::new(18));
+        let mut trace = Trace::new_from_mosaic(&square_mosaic(), TraceParams::new(18));
+        assert!(!trace.ratio_lines_populated());
+        trace.populate_ratio_lines();
         let self_similarity = trace.compare_with(0.0, &trace.clone());
         let unreachable_similarity = trace.compare_with(self_similarity + EPSILON, &trace.clone());
 
@@ -677,14 +683,23 @@ mod tests {
     #[test]
     fn trace_new_from_mosaics_combines_multiple_mosaics_and_self_matches() {
         let combined_mosaics = vec![square_mosaic(), translated_square_mosaic()];
-        let combined = Trace::new_from_mosaics(&combined_mosaics, TraceParams::new(18));
+        let mut combined = Trace::new_from_mosaics(&combined_mosaics, TraceParams::new(18));
+        combined.populate_ratio_lines();
         let same_family_mosaics = vec![translated_square_mosaic(), square_mosaic()];
-        let same_family = Trace::new_from_mosaics(&same_family_mosaics, TraceParams::new(18));
+        let mut same_family = Trace::new_from_mosaics(&same_family_mosaics, TraceParams::new(18));
+        same_family.populate_ratio_lines();
         let similarity = combined.compare_with(0.0, &same_family);
         let unreachable_similarity = combined.compare_with(similarity + EPSILON, &same_family);
 
         assert_eq!(combined.ratio_lines().len(), 18);
         assert!(similarity >= 1.0);
         assert_float_eq(unreachable_similarity, 1.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "populate_ratio_lines must be called")]
+    fn trace_compare_with_requires_populated_ratio_lines() {
+        let trace = Trace::new_from_mosaic(&square_mosaic(), TraceParams::new(18));
+        let _ = trace.compare_with(0.0, &trace.clone());
     }
 }
