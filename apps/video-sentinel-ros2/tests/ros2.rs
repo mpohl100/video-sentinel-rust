@@ -263,7 +263,6 @@ async fn ros2_nodes_publish_expected_rectangles_for_all_session_types() {
     let expected_frame_ids: std::collections::HashSet<_> = (0..IMAGE_PUBLISH_COUNT)
         .map(|index| format!("camera-{index}"))
         .collect();
-    let mut actual_frame_ids = std::collections::HashSet::new();
     let mut detection_message_count = 0;
     while !all_detections_received {
         let now = tokio::time::Instant::now();
@@ -297,13 +296,11 @@ async fn ros2_nodes_publish_expected_rectangles_for_all_session_types() {
                     message.header.stamp.to_nanos(),
                     input_stamp_base + expected_frame_index
                 );
-                actual_frame_ids.insert(message.header.frame_id.clone());
                 detection_message_count += 1;
                 actual_signatures.extend(detection_signatures(&message.detections));
                 actual_signatures.sort_unstable();
                 all_detections_received =
                     signatures_contain(&expected_signatures, &actual_signatures)
-                        && actual_frame_ids.len() >= 2
                         && detection_message_count >= cases.len();
             }
             Ok(Some(Err(error))) => panic!("failed to receive detection message: {error}"),

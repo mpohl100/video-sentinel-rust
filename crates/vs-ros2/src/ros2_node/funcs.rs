@@ -8,7 +8,7 @@
 
 use crate::service::{
     CreateEyeSessionResult, CreateObjectSessionResult, CreateOrdinarySessionResult,
-    GetRectanglesResult, Service,
+    GetRectanglesCalculation, GetRectanglesRequest, GetRectanglesResult, Service,
 };
 use crate::slices::{Rectangle, WrappedRgbImage};
 use clap::Parser;
@@ -119,10 +119,6 @@ pub async fn run(config: Ros2NodeConfig) -> Result<(), Box<dyn Error>> {
                     );
                     continue;
                 }
-                let header = output_header(
-                    &image.header,
-                    config.node().output_frame_id().map(String::as_str),
-                );
                 println!(
                     "received ROS2 compressed image ({} bytes, frame {}) on {}",
                     image.data.len(),
@@ -132,16 +128,18 @@ pub async fn run(config: Ros2NodeConfig) -> Result<(), Box<dyn Error>> {
                 let Some(request) = service.get_rectangles_request(config.session().id()) else {
                     return Err(format!("session {} not found", config.session().id()).into());
                 };
+                let Some((header, calculation)) = try_start_frame(
+                    request,
+                    image,
+                    config.node().output_frame_id().map(String::as_str),
+                ).await
+                else {
+                    continue;
+                };
                 let publisher = std::sync::Arc::clone(&output_publisher);
                 let output_topic = config.output_topic();
                 pending.push(async move {
-                    let rectangles = match request
-                        .get_rectangles_with(move || {
-                            wrapped_rgb_image_from_sensor_image(&image)
-                                .map_err(|error| error.to_string())
-                        })
-                        .await
-                    {
+                    let rectangles = match calculation.result().await {
                         GetRectanglesResult::Success(rectangles) => rectangles,
                         GetRectanglesResult::SessionNotFound => {
                             return Err("session not found".to_owned());
@@ -192,6 +190,20 @@ pub async fn run(config: Ros2NodeConfig) -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+async fn try_start_frame(
+    request: GetRectanglesRequest,
+    image: CompressedSensorImage,
+    output_frame_id: Option<&str>,
+) -> Option<(Header, GetRectanglesCalculation)> {
+    let header = output_header(&image.header, output_frame_id);
+    let calculation = request
+        .try_start_with(move || {
+            wrapped_rgb_image_from_sensor_image(&image).map_err(|error| error.to_string())
+        })
+        .await?;
+    Some((header, calculation))
 }
 
 pub(super) fn output_header(input: &Header, output_frame_id: Option<&str>) -> Header {
@@ -466,5 +478,84 @@ pub(super) fn sanitize_topic_segment(segment: &str) -> String {
         "session".to_string()
     } else {
         sanitized
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mosaics::Results;
+    use crate::service::BasicParamsInput;
+    use std::sync::{Arc, Condvar, Mutex};
+
+    fn image(frame_id: &str) -> CompressedSensorImage {
+        CompressedSensorImage::new_jpeg(
+            Header {
+                stamp: Time::now(),
+                frame_id: frame_id.to_owned(),
+            },
+            vec![0],
+        )
+    }
+
+    #[tokio::test]
+    async fn busy_frames_are_discarded_and_later_frame_is_admitted() {
+        let mut service = Service::new();
+        service.create_ordinary_session(
+            "ordinary",
+            BasicParamsInput {
+                do_grayscale: false,
+                gradient_threshold: 15,
+            },
+            Results::Absolute,
+        );
+        let (started_sender, started_receiver) = tokio::sync::oneshot::channel();
+        let release = Arc::new((Mutex::new(false), Condvar::new()));
+        let worker_release = Arc::clone(&release);
+        let first = service
+            .get_rectangles_request("ordinary")
+            .unwrap()
+            .try_start_with(move || {
+                let _ = started_sender.send(());
+                let (lock, condvar) = &*worker_release;
+                let mut released = lock.lock().unwrap();
+                while !*released {
+                    released = condvar.wait(released).unwrap();
+                }
+                Ok(WrappedRgbImage::new_with_color(64, 64, [255, 255, 255]))
+            })
+            .await
+            .unwrap();
+        started_receiver.await.unwrap();
+
+        let dropped = try_start_frame(
+            service.get_rectangles_request("ordinary").unwrap(),
+            image("dropped"),
+            None,
+        )
+        .await;
+        {
+            let (lock, condvar) = &*release;
+            *lock.lock().unwrap() = true;
+            condvar.notify_all();
+        }
+        assert!(dropped.is_none(), "busy frames must not be published");
+        assert!(matches!(
+            first.result().await,
+            GetRectanglesResult::Success(_)
+        ));
+
+        let (header, next) = try_start_frame(
+            service.get_rectangles_request("ordinary").unwrap(),
+            image("next"),
+            None,
+        )
+        .await
+        .expect("frame after completion should be admitted");
+        assert_eq!(header.frame_id, "next");
+        assert!(matches!(
+            next.result().await,
+            GetRectanglesResult::ComputationFailed(_)
+        ));
     }
 }
