@@ -8,6 +8,7 @@
 
 use super::EnrichedMosaic;
 
+#[derive(Clone)]
 pub enum GetRectanglesResult {
     Success(Vec<EnrichedMosaic>),
     SessionNotFound,

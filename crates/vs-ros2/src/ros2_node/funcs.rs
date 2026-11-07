@@ -12,7 +12,7 @@ use crate::service::{
 };
 use crate::slices::{Rectangle, WrappedRgbImage};
 use clap::Parser;
-use futures::{StreamExt, pin_mut};
+use futures::{StreamExt, pin_mut, stream::FuturesUnordered};
 use ros2_client::{
     Context, DEFAULT_PUBLISHER_QOS, DEFAULT_SUBSCRIPTION_QOS, MessageTypeName, Name, NodeName,
     NodeOptions, builtin_interfaces::Time,
@@ -83,7 +83,9 @@ pub async fn run(config: Ros2NodeConfig) -> Result<(), Box<dyn Error>> {
         MessageTypeName::new(DETECTION_TYPE_PACKAGE, DETECTION_TYPE_NAME),
         &DEFAULT_PUBLISHER_QOS,
     )?;
-    let output_publisher = node.create_publisher::<Detection2DArray>(&output_topic, None)?;
+    let output_publisher = std::sync::Arc::new(tokio::sync::Mutex::new(
+        node.create_publisher::<Detection2DArray>(&output_topic, None)?,
+    ));
 
     println!(
         "video-sentinel ROS2 node listening on {} and publishing detections to {}",
@@ -96,60 +98,97 @@ pub async fn run(config: Ros2NodeConfig) -> Result<(), Box<dyn Error>> {
     let stream = image_subscription.async_stream();
     pin_mut!(stream);
 
-    while let Some(message_result) = stream.next().await {
-        let (image, _message_info) = message_result?;
-        if is_message_stale(image.header.stamp, config.node().max_message_age_ms()) {
-            println!(
-                "dropping stale ROS2 image older than {} ms on {}",
-                config.node().max_message_age_ms(),
-                config.topics().image()
-            );
-            continue;
+    let mut pending = FuturesUnordered::new();
+    let mut stream_ended = false;
+    loop {
+        if stream_ended && pending.is_empty() {
+            break;
         }
-        let header = output_header(
-            &image.header,
-            config.node().output_frame_id().map(String::as_str),
-        );
-        println!(
-            "received ROS2 compressed image ({} bytes) on {}",
-            image.data.len(),
-            config.topics().image()
-        );
-        let wrapped_image = wrapped_rgb_image_from_sensor_image(&image)?;
+        tokio::select! {
+            message_result = stream.next(), if !stream_ended => {
+                let Some(message_result) = message_result else {
+                    stream_ended = true;
+                    continue;
+                };
+                let (image, _message_info) = message_result?;
+                if is_message_stale(image.header.stamp, config.node().max_message_age_ms()) {
+                    println!(
+                        "dropping stale ROS2 image older than {} ms on {}",
+                        config.node().max_message_age_ms(),
+                        config.topics().image()
+                    );
+                    continue;
+                }
+                let header = output_header(
+                    &image.header,
+                    config.node().output_frame_id().map(String::as_str),
+                );
+                println!(
+                    "received ROS2 compressed image ({} bytes, frame {}) on {}",
+                    image.data.len(),
+                    image.header.frame_id,
+                    config.topics().image()
+                );
+                let Some(request) = service.get_rectangles_request(config.session().id()) else {
+                    return Err(format!("session {} not found", config.session().id()).into());
+                };
+                let publisher = std::sync::Arc::clone(&output_publisher);
+                let output_topic = config.output_topic();
+                pending.push(async move {
+                    let rectangles = match request
+                        .get_rectangles_with(move || {
+                            wrapped_rgb_image_from_sensor_image(&image)
+                                .map_err(|error| error.to_string())
+                        })
+                        .await
+                    {
+                        GetRectanglesResult::Success(rectangles) => rectangles,
+                        GetRectanglesResult::SessionNotFound => {
+                            return Err("session not found".to_owned());
+                        }
+                        GetRectanglesResult::ComputationFailed(error) => return Err(error),
+                    };
 
-        let rectangles = match service
-            .get_rectangles(config.session().id(), wrapped_image)
-            .await
-        {
-            GetRectanglesResult::Success(rectangles) => rectangles,
-            GetRectanglesResult::SessionNotFound => {
-                return Err(format!("session {} not found", config.session().id()).into());
+                    let detections_header = header.clone();
+                    let detections = tokio::task::spawn_blocking(move || Detection2DArray {
+                        header: detections_header.clone(),
+                        detections: rectangles
+                            .iter()
+                            .enumerate()
+                            .map(|(index, rectangle)| {
+                                detection_from_enriched_mosaic(
+                                    &detections_header,
+                                    index,
+                                    rectangle,
+                                )
+                            })
+                            .collect(),
+                    })
+                    .await
+                    .map_err(|error| {
+                        format!("failed to construct detections for {output_topic}: {error}")
+                    })?;
+                    println!(
+                        "publishing {} detections to {}",
+                        detections.detections.len(),
+                        output_topic
+                    );
+                    publisher
+                        .lock()
+                        .await
+                        .async_publish(detections)
+                        .await
+                        .map_err(|error| {
+                            format!(
+                                "failed to publish detections to {output_topic}: {error}"
+                            )
+                        })
+                });
             }
-            GetRectanglesResult::ComputationFailed(error) => return Err(error.into()),
-        };
-
-        let detections = Detection2DArray {
-            header: header.clone(),
-            detections: rectangles
-                .iter()
-                .enumerate()
-                .map(|(index, rectangle)| detection_from_enriched_mosaic(&header, index, rectangle))
-                .collect(),
-        };
-        println!(
-            "publishing {} detections to {}",
-            detections.detections.len(),
-            config.output_topic()
-        );
-        output_publisher
-            .async_publish(detections)
-            .await
-            .map_err(|error| {
-                format!(
-                    "failed to publish detections to {}: {error}",
-                    config.output_topic()
-                )
-            })?;
+            Some(result) = pending.next(), if !pending.is_empty() => {
+                result.map_err(|error| -> Box<dyn Error> { error.into() })?;
+            }
+        }
     }
 
     Ok(())

@@ -23,6 +23,10 @@ struct CliArgs {
     image: PathBuf,
     #[arg(long, default_value = "camera")]
     frame_id: String,
+    #[arg(long, default_value_t = false)]
+    vary_frame_id: bool,
+    #[arg(long)]
+    base_stamp_nanos: Option<i64>,
     #[arg(long, default_value_t = 2_000)]
     startup_delay_ms: u64,
     #[arg(long, default_value_t = 1_000)]
@@ -74,14 +78,22 @@ async fn run_from_cli() -> Result<(), Box<dyn Error>> {
     eprintln!("waiting {} ms before publishing", args.startup_delay_ms);
     sleep(Duration::from_millis(args.startup_delay_ms)).await;
 
+    let base_stamp = args
+        .base_stamp_nanos
+        .unwrap_or_else(|| Time::now().to_nanos());
     for publish_index in 0..args.publish_count {
-        let message = CompressedSensorImage::new_jpeg(
-            Header {
-                stamp: Time::now(),
-                frame_id: args.frame_id.clone(),
-            },
-            image_bytes.clone(),
-        );
+        let frame_id = if args.vary_frame_id {
+            format!("{}-{publish_index}", args.frame_id)
+        } else {
+            args.frame_id.clone()
+        };
+        let stamp = if args.vary_frame_id {
+            Time::from_nanos(base_stamp + i64::from(publish_index))
+        } else {
+            Time::now()
+        };
+        let message =
+            CompressedSensorImage::new_jpeg(Header { stamp, frame_id }, image_bytes.clone());
         publish_once(&publisher, message).await?;
         if publish_index + 1 < args.publish_count {
             sleep(Duration::from_millis(args.publish_interval_ms)).await;

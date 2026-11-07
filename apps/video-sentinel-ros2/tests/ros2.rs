@@ -20,6 +20,7 @@ use opencv::imgproc;
 use opencv::prelude::*;
 use ros2_client::{
     Context, DEFAULT_SUBSCRIPTION_QOS, MessageTypeName, Name, NodeName, NodeOptions, Subscription,
+    builtin_interfaces::Time,
 };
 use tempfile::TempDir;
 use tokio::sync::mpsc;
@@ -39,8 +40,9 @@ const SESSION_ID_EYE: &str = "eye-session";
 const SESSION_ID_OBJECT: &str = "object-session";
 const DETECTION_TYPE_PACKAGE: &str = "vision_msgs";
 const DETECTION_TYPE_NAME: &str = "Detection2DArray";
-const PUBLISHER_LIFETIME: Duration = Duration::from_secs(2);
-const DETECTION_GRACE_PERIOD: Duration = Duration::from_secs(5);
+const PUBLISHER_LIFETIME: Duration = Duration::from_secs(6);
+const DETECTION_GRACE_PERIOD: Duration = Duration::from_secs(20);
+const IMAGE_PUBLISH_COUNT: usize = 6;
 
 static VIDEO_RS_INIT: Once = Once::new();
 static EXAMPLE_FRAME: OnceLock<ExampleFrame> = OnceLock::new();
@@ -245,13 +247,24 @@ async fn ros2_nodes_publish_expected_rectangles_for_all_session_types() {
     expected_signatures.sort_unstable();
     let mut actual_signatures = Vec::new();
 
-    let mut image_publisher = spawn_image_publisher(&image_topic, &input_image_path, cases.len());
+    let input_stamp_base = Time::now().to_nanos();
+    let mut image_publisher = spawn_image_publisher(
+        &image_topic,
+        &input_image_path,
+        cases.len(),
+        input_stamp_base,
+    );
 
-    // The publisher lives for at most 2 seconds; detections may then arrive for 5 more seconds.
+    // The publisher lives for at most 6 seconds; detections may then arrive for 20 more seconds.
     let publishers_deadline = tokio::time::Instant::now() + PUBLISHER_LIFETIME;
     let detections_deadline = publishers_deadline + DETECTION_GRACE_PERIOD;
     let mut publishers_killed = false;
     let mut all_detections_received = false;
+    let expected_frame_ids: std::collections::HashSet<_> = (0..IMAGE_PUBLISH_COUNT)
+        .map(|index| format!("camera-{index}"))
+        .collect();
+    let mut actual_frame_ids = std::collections::HashSet::new();
+    let mut detection_message_count = 0;
     while !all_detections_received {
         let now = tokio::time::Instant::now();
         if !publishers_killed && now >= publishers_deadline {
@@ -268,11 +281,30 @@ async fn ros2_nodes_publish_expected_rectangles_for_all_session_types() {
         };
         match tokio::time::timeout_at(next_wakeup, message_receiver.recv()).await {
             Ok(Some(Ok(message))) => {
-                assert_eq!(message.header.frame_id, "camera");
+                assert!(
+                    expected_frame_ids.contains(&message.header.frame_id),
+                    "unexpected output frame ID: {}",
+                    message.header.frame_id
+                );
+                let expected_frame_index = message
+                    .header
+                    .frame_id
+                    .strip_prefix("camera-")
+                    .expect("output should retain its input frame ID")
+                    .parse::<i64>()
+                    .expect("frame ID should contain its input sequence number");
+                assert_eq!(
+                    message.header.stamp.to_nanos(),
+                    input_stamp_base + expected_frame_index
+                );
+                actual_frame_ids.insert(message.header.frame_id.clone());
+                detection_message_count += 1;
                 actual_signatures.extend(detection_signatures(&message.detections));
                 actual_signatures.sort_unstable();
                 all_detections_received =
-                    signatures_contain(&expected_signatures, &actual_signatures);
+                    signatures_contain(&expected_signatures, &actual_signatures)
+                        && actual_frame_ids.len() >= 2
+                        && detection_message_count >= cases.len();
             }
             Ok(Some(Err(error))) => panic!("failed to receive detection message: {error}"),
             Ok(None) => panic!("all detection subscriptions ended unexpectedly"),
@@ -427,6 +459,7 @@ fn spawn_image_publisher(
     image_topic: &str,
     image_path: &Path,
     subscriber_count: usize,
+    base_stamp_nanos: i64,
 ) -> ChildGuard {
     ChildGuard::spawn(
         Path::new(env!("CARGO_BIN_EXE_image_publisher_app")),
@@ -442,9 +475,12 @@ fn spawn_image_publisher(
             "--post-publish-delay-ms".to_string(),
             "100".to_string(),
             "--publish-count".to_string(),
-            "6".to_string(),
+            IMAGE_PUBLISH_COUNT.to_string(),
             "--publish-interval-ms".to_string(),
             "250".to_string(),
+            "--vary-frame-id".to_string(),
+            "--base-stamp-nanos".to_string(),
+            base_stamp_nanos.to_string(),
         ],
     )
 }

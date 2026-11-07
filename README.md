@@ -119,6 +119,13 @@ geometry and image statistics. Use `getOrdinarySession`, `getEyeSession`, or
 `getObjectSession` to retrieve session state; the corresponding query takes a
 `sessionId`. For example:
 
+Calculations are serialized per session through a bounded image-job channel.
+Concurrent `getRectangles` calls join the calculation already in progress, and
+their uploaded JPEGs are discarded without decoding. The ROS 2 node keeps
+receiving images while calculations run; joined results are published with
+each input image's header. The video-file processor awaits each frame's result
+before advancing, so every frame is processed in order.
+
 ```graphql
 query {
   getEyeSession(sessionId: "eye-1") {

@@ -39,7 +39,7 @@ fn get_rectangles_benchmarks(c: &mut criterion::Criterion) {
         },
     );
 
-    let mut ordinary_service = ordinary_service();
+    let ordinary_service = ordinary_service();
     let ordinary_index = Cell::new(0usize);
     bench_with_setup(
         &mut group,
@@ -58,7 +58,7 @@ fn get_rectangles_benchmarks(c: &mut criterion::Criterion) {
         },
     );
 
-    let mut eye_service = eye_service();
+    let eye_service = eye_service();
     let eye_index = Cell::new(0usize);
     bench_with_setup(
         &mut group,
@@ -75,7 +75,7 @@ fn get_rectangles_benchmarks(c: &mut criterion::Criterion) {
         },
     );
 
-    let mut object_service = object_service();
+    let object_service = object_service();
     let object_index = Cell::new(0usize);
     bench_with_setup(
         &mut group,

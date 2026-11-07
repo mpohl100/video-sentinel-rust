@@ -6,10 +6,12 @@
     clippy::unused_async_trait_impl
 )]
 
+use super::get_rectangles_request::SessionCalculation;
 use crate::mosaics::Results;
 use crate::object_detection::ObjectDetectionParams;
 use crate::object_detection::ReferenceObject;
 use crate::slices::BasicParams;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct ObjectSession {
@@ -17,4 +19,5 @@ pub struct ObjectSession {
     pub object_detection_params: ObjectDetectionParams,
     pub objects_to_be_detected: Vec<ReferenceObject>,
     pub results: Results,
+    pub(super) calculation: Arc<SessionCalculation>,
 }
