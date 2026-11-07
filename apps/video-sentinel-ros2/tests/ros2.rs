@@ -28,7 +28,10 @@ use tokio::time::timeout;
 use video_rs::{Decoder, Frame};
 use vs_core::mosaics::Results;
 use vs_core::slices::{Rectangle, WrappedRgbImage};
-use vs_ros2::ros2_node::{Detection2D, Detection2DArray, RosSessionType, default_output_topic};
+use vs_ros2::ros2_node::{
+    DIAGNOSTICS_TOPIC, Detection2D, Detection2DArray, DiagnosticArray, DiagnosticStatus,
+    RosSessionType, default_output_topic,
+};
 use vs_service::service::{
     AddObjectToBeDetectedResult, BasicParamsInput, CreateEyeSessionResult,
     CreateObjectSessionResult, CreateOrdinarySessionResult, EyeParamsInput, GetRectanglesResult,
@@ -109,6 +112,8 @@ struct TempDirImage {
 }
 
 struct SessionTestCase {
+    node_name: String,
+    session_id: String,
     output_topic: String,
     config_path: PathBuf,
     _object_reference: Option<(TempDirImage, Rectangle)>,
@@ -162,6 +167,8 @@ async fn ros2_nodes_publish_expected_rectangles_for_all_session_types() {
             object_reference.as_ref(),
         );
         cases.push(SessionTestCase {
+            node_name: format!("/{node_name}"),
+            session_id: session_name,
             output_topic,
             config_path,
             _object_reference: object_reference,
@@ -192,6 +199,17 @@ async fn ros2_nodes_publish_expected_rectangles_for_all_session_types() {
         })
         .collect();
 
+    let diagnostics_topic = subscriber_node
+        .create_topic(
+            &Name::parse(DIAGNOSTICS_TOPIC).expect("diagnostics topic should parse"),
+            MessageTypeName::new("diagnostic_msgs", "DiagnosticArray"),
+            &DEFAULT_SUBSCRIPTION_QOS,
+        )
+        .expect("diagnostics topic should be created");
+    let diagnostics: Subscription<DiagnosticArray> = subscriber_node
+        .create_subscription(&diagnostics_topic, None)
+        .expect("diagnostics subscriber should be created");
+
     let subscriber_spinner = tokio::spawn(
         subscriber_node
             .spinner()
@@ -211,23 +229,53 @@ async fn ros2_nodes_publish_expected_rectangles_for_all_session_types() {
         })
         .collect();
 
-    timeout(Duration::from_secs(10), async {
+    let diagnostics_stream = diagnostics.async_stream();
+    pin_mut!(diagnostics_stream);
+    let mut online_nodes = std::collections::HashMap::<String, (i64, usize)>::new();
+    timeout(Duration::from_secs(15), async {
         loop {
             for node in &mut ros2_nodes {
                 ensure_background_process_running(node, "ROS2 node");
             }
-            if subscriber_node.subscription_count(&image_topic) >= cases.len()
+            if online_nodes.len() == cases.len()
+                && online_nodes.values().all(|(_, count)| *count >= 2)
+                && subscriber_node.subscription_count(&image_topic) >= cases.len()
                 && cases
                     .iter()
                     .all(|case| subscriber_node.publisher_count(&case.output_topic) > 0)
             {
                 break;
             }
-            tokio::time::sleep(Duration::from_millis(20)).await;
+            tokio::select! {
+                message = diagnostics_stream.next() => {
+                    let (message, _) = message
+                        .expect("diagnostics stream should remain open")
+                        .expect("diagnostics message should be readable");
+                    for status in message.status {
+                        if status.level == DiagnosticStatus::OK
+                            && cases.iter().any(|case| {
+                                case.node_name == status.name
+                                    && status.values.iter().any(|value| {
+                                        value.key == "session_id" && value.value == case.session_id
+                                    })
+                            })
+                        {
+                            let stamp = message.header.stamp.to_nanos();
+                            let entry = online_nodes.entry(status.name).or_insert((stamp, 0));
+                            if entry.1 == 0 || stamp > entry.0 {
+                                *entry = (stamp, entry.1 + 1);
+                            }
+                        }
+                    }
+                }
+                () = tokio::time::sleep(Duration::from_millis(20)) => {}
+            }
         }
     })
     .await
-    .expect("all ROS2 nodes should create their input subscriptions and output publishers");
+    .expect(
+        "all ROS2 nodes should publish recurring healthy diagnostics and discover their topics",
+    );
 
     let (message_sender, mut message_receiver) = mpsc::unbounded_channel();
     let receive_tasks: Vec<_> = subscriptions
