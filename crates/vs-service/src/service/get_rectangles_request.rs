@@ -54,11 +54,11 @@ impl SessionCalculation {
         tokio::spawn(run_worker(receiver, Arc::clone(&self.state)));
     }
 
-    pub(super) async fn submit<F>(
+    async fn start<F>(
         &self,
         mut session: Session,
         image_factory: F,
-    ) -> GetRectanglesResult
+    ) -> (watch::Receiver<Option<GetRectanglesResult>>, bool)
     where
         F: FnOnce() -> Result<WrappedRgbImage, String> + Send + 'static,
     {
@@ -80,6 +80,7 @@ impl SessionCalculation {
             }
         };
 
+        let started = calculation_id.is_some();
         if let Some((id, result_sender)) = calculation_id {
             refresh_cache_for_admission(&mut session);
             let sender = self.sender.clone();
@@ -99,7 +100,7 @@ impl SessionCalculation {
             drop(image_factory);
         }
 
-        wait_for_result(result_receiver).await
+        (result_receiver, started)
     }
 }
 
@@ -118,6 +119,16 @@ pub struct GetRectanglesRequest {
     session: Session,
 }
 
+pub struct GetRectanglesCalculation {
+    result: watch::Receiver<Option<GetRectanglesResult>>,
+}
+
+impl GetRectanglesCalculation {
+    pub async fn result(self) -> GetRectanglesResult {
+        wait_for_result(self.result).await
+    }
+}
+
 impl GetRectanglesRequest {
     pub(super) fn new(session: Session) -> Self {
         Self { session }
@@ -128,7 +139,21 @@ impl GetRectanglesRequest {
         F: FnOnce() -> Result<WrappedRgbImage, String> + Send + 'static,
     {
         let calculation = self.session.calculation().clone();
-        calculation.submit(self.session, image_factory).await
+        let (result, _) = calculation.start(self.session, image_factory).await;
+        wait_for_result(result).await
+    }
+
+    /// Starts a calculation only if the session is idle.
+    ///
+    /// When another calculation is active, the image factory is dropped without
+    /// being called and this returns `None`.
+    pub async fn try_start_with<F>(self, image_factory: F) -> Option<GetRectanglesCalculation>
+    where
+        F: FnOnce() -> Result<WrappedRgbImage, String> + Send + 'static,
+    {
+        let calculation = self.session.calculation().clone();
+        let (result, started) = calculation.start(self.session, image_factory).await;
+        started.then_some(GetRectanglesCalculation { result })
     }
 }
 

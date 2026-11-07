@@ -122,9 +122,9 @@ geometry and image statistics. Use `getOrdinarySession`, `getEyeSession`, or
 Calculations are serialized per session through a bounded image-job channel.
 Concurrent `getRectangles` calls join the calculation already in progress, and
 their uploaded JPEGs are discarded without decoding. The ROS 2 node keeps
-receiving images while calculations run; joined results are published with
-each input image's header. The video-file processor awaits each frame's result
-before advancing, so every frame is processed in order.
+receiving images while calculations run, discarding them without decoding or
+publishing detections for them. The video-file processor awaits each frame's
+result before advancing, so every frame is processed in order.
 
 ```graphql
 query {

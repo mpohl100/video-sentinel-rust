@@ -50,7 +50,7 @@ pub use eye_params_update_result::EyeParamsUpdateResult;
 pub use eye_session::EyeSession;
 use funcs::calculate_ordinary_mosaics;
 use funcs::{calculate_eye, calculate_object, calculate_ordinary, deduce_enriched_mosaic};
-pub use get_rectangles_request::GetRectanglesRequest;
+pub use get_rectangles_request::{GetRectanglesCalculation, GetRectanglesRequest};
 pub use get_rectangles_result::GetRectanglesResult;
 pub use object_detection_params_input::ObjectDetectionParamsInput;
 pub use object_detection_params_update_result::ObjectDetectionParamsUpdateResult;
