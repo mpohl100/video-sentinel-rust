@@ -181,8 +181,13 @@ pub(super) async fn calculate_eye(
         Vec3d::new(0.0, 0.0, 0.0),
         Vec3d::new(image_width, image_height, 0.0),
     );
-    let current_mosaics =
-        calculate_ordinary_mosaics(eye_session.basic_params, eye_session.results, &image);
+    let basic_params = eye_session.basic_params;
+    let results = eye_session.results;
+    let current_mosaics = tokio::task::spawn_blocking(move || {
+        calculate_ordinary_mosaics(basic_params, results, &image)
+    })
+    .await
+    .map_err(|error| format!("failed to calculate eye frame mosaics: {error}"))?;
     let current_bucketed_mosaics = deduce_bucketed_mosaics(
         current_mosaics.clone(),
         surrounding_rectangle,
@@ -232,8 +237,13 @@ pub(super) async fn calculate_object(
         Vec3d::new(0.0, 0.0, 0.0),
         Vec3d::new(image_width, image_height, 0.0),
     );
-    let current_mosaics =
-        calculate_ordinary_mosaics(object_session.basic_params, object_session.results, &image);
+    let basic_params = object_session.basic_params;
+    let results = object_session.results;
+    let current_mosaics = tokio::task::spawn_blocking(move || {
+        calculate_ordinary_mosaics(basic_params, results, &image)
+    })
+    .await
+    .map_err(|error| format!("failed to calculate object frame mosaics: {error}"))?;
     let bucketed_mosaics = Arc::new(
         deduce_bucketed_mosaics(
             current_mosaics.clone(),

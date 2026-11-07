@@ -23,11 +23,11 @@ use std::collections::BTreeMap;
 use super::{
     AddObjectToBeDetectedResult, BasicParamsInput, BucketDeltaUpdateResult, CreateEyeSessionResult,
     CreateObjectSessionResult, CreateOrdinarySessionResult, DeleteReferenceObjectResult,
-    DeleteSessionResult, EyeParamsInput, EyeParamsUpdateResult, EyeSession, GetRectanglesResult,
-    ObjectDetectionParamsInput, ObjectDetectionParamsUpdateResult, ObjectSession, OrdinarySession,
-    Session, TargetSimilarityUpdateResult, TileParamsInput, TileParamsUpdateResult,
-    TraceParamsInput, TraceParamsUpdateResult, UpdateBasicParamsResult, calculate_eye,
-    calculate_object, calculate_ordinary, calculate_ordinary_mosaics, deduce_enriched_mosaic,
+    DeleteSessionResult, EyeParamsInput, EyeParamsUpdateResult, EyeSession, GetRectanglesRequest,
+    GetRectanglesResult, ObjectDetectionParamsInput, ObjectDetectionParamsUpdateResult,
+    ObjectSession, OrdinarySession, Session, TargetSimilarityUpdateResult, TileParamsInput,
+    TileParamsUpdateResult, TraceParamsInput, TraceParamsUpdateResult, UpdateBasicParamsResult,
+    calculate_ordinary_mosaics,
 };
 
 pub struct Service {
@@ -68,6 +68,9 @@ impl Service {
             Session::Ordinary(OrdinarySession {
                 basic_params,
                 results,
+                calculation: std::sync::Arc::new(
+                    super::get_rectangles_request::SessionCalculation::new(),
+                ),
             }),
         );
         CreateOrdinarySessionResult::Success
@@ -105,6 +108,11 @@ impl Service {
                 eye_params,
                 cached_previous_mosaics: None,
                 results,
+                cache_state: std::sync::Arc::new(std::sync::Mutex::new((0, None))),
+                cache_generation: 0,
+                calculation: std::sync::Arc::new(
+                    super::get_rectangles_request::SessionCalculation::new(),
+                ),
             }),
         );
         CreateEyeSessionResult::Success
@@ -143,6 +151,9 @@ impl Service {
                 object_detection_params,
                 objects_to_be_detected: vec![],
                 results,
+                calculation: std::sync::Arc::new(
+                    super::get_rectangles_request::SessionCalculation::new(),
+                ),
             }),
         );
         CreateObjectSessionResult::Success
@@ -166,7 +177,7 @@ impl Service {
                         basic_params_input.do_grayscale,
                         basic_params_input.gradient_threshold,
                     );
-                    eye_session.cached_previous_mosaics = None;
+                    reset_eye_cache(eye_session);
                 }
                 Session::Object(object_session) => {
                     object_session.basic_params = BasicParams::new(
@@ -191,7 +202,7 @@ impl Service {
                 Session::Eye(eye_session) => {
                     eye_session.eye_params.tile_params =
                         TileParams::new(tile_params_input.tile_x, tile_params_input.tile_y);
-                    eye_session.cached_previous_mosaics = None;
+                    reset_eye_cache(eye_session);
                 }
                 Session::Object(object_session) => {
                     object_session.object_detection_params.tile_params =
@@ -217,7 +228,7 @@ impl Service {
                 Session::Eye(eye_session) => {
                     eye_session.eye_params.trace_params =
                         TraceParams::new(trace_params_input.num_skeleton);
-                    eye_session.cached_previous_mosaics = None;
+                    reset_eye_cache(eye_session);
                 }
                 Session::Object(object_session) => {
                     object_session.object_detection_params.trace_params =
@@ -242,7 +253,7 @@ impl Service {
             match session {
                 Session::Eye(eye_session) => {
                     eye_session.eye_params.bucket_delta = bucket_delta;
-                    eye_session.cached_previous_mosaics = None;
+                    reset_eye_cache(eye_session);
                 }
                 Session::Object(object_session) => {
                     object_session.object_detection_params.bucket_delta = bucket_delta;
@@ -266,7 +277,7 @@ impl Service {
             match session {
                 Session::Eye(eye_session) => {
                     eye_session.eye_params.target_similarity = target_similarity;
-                    eye_session.cached_previous_mosaics = None;
+                    reset_eye_cache(eye_session);
                 }
                 Session::Object(object_session) => {
                     object_session.object_detection_params.target_similarity = target_similarity;
@@ -300,7 +311,7 @@ impl Service {
                         trace_params,
                         eye_params_input.target_similarity,
                     );
-                    eye_session.cached_previous_mosaics = None;
+                    reset_eye_cache(eye_session);
                 }
                 _ => return EyeParamsUpdateResult::SessionTypeDoesNotSupportEyeParams,
             }
@@ -460,7 +471,9 @@ impl Service {
     #[must_use]
     pub fn get_eye_session(&self, session_id: &str) -> Option<EyeSession> {
         if let Some(Session::Eye(eye_session)) = self.sessions.get(session_id) {
-            Some(eye_session.clone())
+            let mut eye_session = eye_session.clone();
+            refresh_eye_cache(&mut eye_session);
+            Some(eye_session)
         } else {
             None
         }
@@ -531,74 +544,44 @@ impl Service {
 
     #[must_use]
     pub fn get_session(&self, session_id: &str) -> Option<Session> {
-        self.sessions.get(session_id).cloned()
+        let mut session = self.sessions.get(session_id)?.clone();
+        if let Session::Eye(eye_session) = &mut session {
+            refresh_eye_cache(eye_session);
+        }
+        Some(session)
+    }
+
+    #[must_use]
+    pub fn get_rectangles_request(&self, session_id: &str) -> Option<GetRectanglesRequest> {
+        let session = self.get_session(session_id)?;
+        Some(GetRectanglesRequest::new(session))
     }
 
     pub async fn get_rectangles(
-        &mut self,
+        &self,
         session_id: &str,
         image: WrappedRgbImage,
     ) -> GetRectanglesResult {
-        let Some(session) = self.get_session(session_id) else {
+        let Some(request) = self.get_rectangles_request(session_id) else {
             return GetRectanglesResult::SessionNotFound;
         };
-        match session {
-            Session::Eye(eye_session) => {
-                let results = eye_session.results;
-                let computation = calculate_eye(&eye_session, image).await;
-                match computation {
-                    Ok((mosaics, new_cache)) => {
-                        if let Some(Session::Eye(eye_session)) = self.sessions.get_mut(session_id) {
-                            eye_session.cached_previous_mosaics = Some(new_cache);
-                        }
-                        GetRectanglesResult::Success(
-                            mosaics
-                                .into_iter()
-                                .map(|colored_relative_mosaic| {
-                                    deduce_enriched_mosaic(
-                                        colored_relative_mosaic.mosaic(),
-                                        colored_relative_mosaic.color().clone(),
-                                        colored_relative_mosaic.label().cloned(),
-                                        results,
-                                    )
-                                })
-                                .collect(),
-                        )
-                    }
-                    Err(error) => GetRectanglesResult::ComputationFailed(error),
-                }
-            }
-            Session::Object(object_session) => {
-                match calculate_object(&object_session, image).await {
-                    Ok(mosaics) => GetRectanglesResult::Success(
-                        mosaics
-                            .into_iter()
-                            .map(|colored_relative_mosaic| {
-                                deduce_enriched_mosaic(
-                                    colored_relative_mosaic.mosaic(),
-                                    colored_relative_mosaic.color().clone(),
-                                    colored_relative_mosaic.label().cloned(),
-                                    object_session.results,
-                                )
-                            })
-                            .collect(),
-                    ),
-                    Err(error) => GetRectanglesResult::ComputationFailed(error),
-                }
-            }
-            Session::Ordinary(ordinary_session) => GetRectanglesResult::Success(
-                calculate_ordinary(&ordinary_session, &image)
-                    .into_iter()
-                    .map(|colored_relative_mosaic| {
-                        deduce_enriched_mosaic(
-                            colored_relative_mosaic.mosaic(),
-                            colored_relative_mosaic.color().clone(),
-                            colored_relative_mosaic.label().cloned(),
-                            ordinary_session.results,
-                        )
-                    })
-                    .collect(),
-            ),
-        }
+        request.get_rectangles_with(move || Ok(image)).await
     }
+}
+
+fn refresh_eye_cache(eye_session: &mut super::EyeSession) {
+    let cache = eye_session.cache_state.lock().unwrap();
+    if cache.0 == eye_session.cache_generation {
+        eye_session.cached_previous_mosaics = cache.1.clone();
+    } else {
+        eye_session.cached_previous_mosaics = None;
+    }
+}
+
+fn reset_eye_cache(eye_session: &mut super::EyeSession) {
+    let mut cache = eye_session.cache_state.lock().unwrap();
+    cache.0 = cache.0.wrapping_add(1);
+    cache.1 = None;
+    eye_session.cached_previous_mosaics = None;
+    eye_session.cache_generation = cache.0;
 }

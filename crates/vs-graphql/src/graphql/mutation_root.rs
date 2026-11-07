@@ -32,12 +32,18 @@ impl MutationRoot {
         image: Upload,
     ) -> Result<Vec<EnrichedMosaicGql>> {
         let image_bytes = read_upload_bytes(ctx, image)?;
-        let image = wrapped_rgb_image_from_jpeg(&image_bytes)?;
-
         let service = app_state(ctx)?.service;
-        let mut service = service.lock().await;
+        let request = service.lock().await.get_rectangles_request(&session_id);
+        let Some(request) = request else {
+            return Err(message_error("Session not found"));
+        };
 
-        match service.get_rectangles(&session_id, image).await {
+        match request
+            .get_rectangles_with(move || {
+                wrapped_rgb_image_from_jpeg(&image_bytes).map_err(|error| error.message)
+            })
+            .await
+        {
             GetRectanglesResult::Success(mosaics) => {
                 Ok(mosaics.into_iter().map(Into::into).collect())
             }

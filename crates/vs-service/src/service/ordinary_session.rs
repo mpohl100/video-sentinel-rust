@@ -6,11 +6,14 @@
     clippy::unused_async_trait_impl
 )]
 
+use super::get_rectangles_request::SessionCalculation;
 use crate::mosaics::Results;
 use crate::slices::BasicParams;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct OrdinarySession {
     pub basic_params: BasicParams,
     pub results: Results,
+    pub(super) calculation: Arc<SessionCalculation>,
 }

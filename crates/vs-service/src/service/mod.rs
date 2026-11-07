@@ -15,6 +15,7 @@ mod eye_params_input;
 mod eye_params_update_result;
 mod eye_session;
 mod funcs;
+mod get_rectangles_request;
 mod get_rectangles_result;
 mod object_detection_params_input;
 mod object_detection_params_update_result;
@@ -47,10 +48,9 @@ pub use enriched_mosaic::EnrichedMosaic;
 pub use eye_params_input::EyeParamsInput;
 pub use eye_params_update_result::EyeParamsUpdateResult;
 pub use eye_session::EyeSession;
-use funcs::{
-    calculate_eye, calculate_object, calculate_ordinary, calculate_ordinary_mosaics,
-    deduce_enriched_mosaic,
-};
+use funcs::calculate_ordinary_mosaics;
+use funcs::{calculate_eye, calculate_object, calculate_ordinary, deduce_enriched_mosaic};
+pub use get_rectangles_request::GetRectanglesRequest;
 pub use get_rectangles_result::GetRectanglesResult;
 pub use object_detection_params_input::ObjectDetectionParamsInput;
 pub use object_detection_params_update_result::ObjectDetectionParamsUpdateResult;
