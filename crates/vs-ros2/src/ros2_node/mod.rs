@@ -4,6 +4,7 @@ mod cli_args;
 mod compressed_sensor_image;
 mod detection2d;
 mod detection2d_array;
+mod diagnostic_array;
 mod eye_params_yaml;
 mod funcs;
 mod header;
@@ -34,13 +35,14 @@ pub use cli_args::CliArgs;
 pub use compressed_sensor_image::CompressedSensorImage;
 pub use detection2d::Detection2D;
 pub use detection2d_array::Detection2DArray;
+pub use diagnostic_array::{DiagnosticArray, DiagnosticKeyValue, DiagnosticStatus};
 use eye_params_yaml::EyeParamsYaml;
+pub use funcs::{DIAGNOSTICS_TOPIC, default_output_topic, run, run_from_cli, run_from_config_path};
 use funcs::{
     default_bucket_delta, default_do_grayscale, default_gradient_threshold,
     default_max_message_age_ms, default_node_name, default_node_namespace, default_num_skeleton,
     default_target_similarity, default_tile_fraction,
 };
-pub use funcs::{default_output_topic, run, run_from_cli, run_from_config_path};
 pub use header::Header;
 use node_config::NodeConfig;
 use object_detection_params_yaml::ObjectDetectionParamsYaml;

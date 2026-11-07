@@ -159,7 +159,7 @@ message types. Three working examples are included:
 Run a configuration from the workspace root:
 
 ```sh
-cargo run -p video-sentinel-ros2 --bin video-sentinel-ros2-node -- \
+cargo run -p video-sentinel-ros2 --bin video_sentinel_ros2_node -- \
   --config crates/vs-ros2/config/ros2-session.example.yaml
 ```
 
@@ -171,6 +171,13 @@ labelled rectangles to
 to override the output topic. The node publishes
 `vision_msgs/Detection2DArray`. ROS 2 output currently requires
 `results: absolute`.
+
+After initialization, each node publishes an `OK` status once per second to
+the standard `/diagnostics` topic (`diagnostic_msgs/DiagnosticArray`). The
+status name is the fully qualified node name and `session_id` is included in
+its values. A heartbeat indicates the node's receive loop is running, not that
+image processing or downstream subscribers are healthy; consumers should treat
+missing heartbeats as stale and also account for ROS 2 discovery.
 
 The YAML session shapes follow these examples:
 

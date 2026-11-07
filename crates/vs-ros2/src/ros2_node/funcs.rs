@@ -22,9 +22,10 @@ use std::error::Error;
 use std::path::Path;
 
 use super::{
-    BoundingBox2D, CliArgs, CompressedSensorImage, Detection2D, Detection2DArray, Header,
-    ObjectHypothesis, ObjectHypothesisWithPose, Point, Point2D, Pose, Pose2D, PoseWithCovariance,
-    Quaternion, ReferenceObjectYaml, Ros2NodeConfig, RosSessionType, SessionConfig,
+    BoundingBox2D, CliArgs, CompressedSensorImage, Detection2D, Detection2DArray, DiagnosticArray,
+    DiagnosticKeyValue, DiagnosticStatus, Header, ObjectHypothesis, ObjectHypothesisWithPose,
+    Point, Point2D, Pose, Pose2D, PoseWithCovariance, Quaternion, ReferenceObjectYaml,
+    Ros2NodeConfig, RosSessionType, SessionConfig,
 };
 
 pub(super) const IMAGE_TYPE_PACKAGE: &str = "sensor_msgs";
@@ -34,6 +35,8 @@ pub(super) const IMAGE_TYPE_NAME: &str = "CompressedImage";
 pub(super) const DETECTION_TYPE_PACKAGE: &str = "vision_msgs";
 
 pub(super) const DETECTION_TYPE_NAME: &str = "Detection2DArray";
+
+pub const DIAGNOSTICS_TOPIC: &str = "/diagnostics";
 
 #[must_use]
 pub fn default_output_topic(session_id: &str, session_type: RosSessionType) -> String {
@@ -86,6 +89,13 @@ pub async fn run(config: Ros2NodeConfig) -> Result<(), Box<dyn Error>> {
     let output_publisher = std::sync::Arc::new(tokio::sync::Mutex::new(
         node.create_publisher::<Detection2DArray>(&output_topic, None)?,
     ));
+    let diagnostics_topic = node.create_topic(
+        &Name::parse(DIAGNOSTICS_TOPIC)?,
+        MessageTypeName::new("diagnostic_msgs", "DiagnosticArray"),
+        &DEFAULT_PUBLISHER_QOS,
+    )?;
+    let diagnostics_publisher =
+        node.create_publisher::<DiagnosticArray>(&diagnostics_topic, None)?;
 
     println!(
         "video-sentinel ROS2 node listening on {} and publishing detections to {}",
@@ -100,11 +110,31 @@ pub async fn run(config: Ros2NodeConfig) -> Result<(), Box<dyn Error>> {
 
     let mut pending = FuturesUnordered::new();
     let mut stream_ended = false;
+    let mut heartbeat = tokio::time::interval(std::time::Duration::from_secs(1));
+    heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {
         if stream_ended && pending.is_empty() {
             break;
         }
         tokio::select! {
+            _ = heartbeat.tick(), if !stream_ended => {
+                let namespace = config.node().namespace().trim_end_matches('/');
+                let diagnostic = DiagnosticArray {
+                    header: Header { stamp: Time::now(), frame_id: String::new() },
+                    status: vec![DiagnosticStatus {
+                        level: DiagnosticStatus::OK,
+                        name: format!("{namespace}/{}", config.node().name()),
+                        message: "Ready".to_owned(),
+                        hardware_id: String::new(),
+                        values: vec![DiagnosticKeyValue {
+                            key: "session_id".to_owned(),
+                            value: config.session().id().to_owned(),
+                        }],
+                    }],
+                };
+                diagnostics_publisher.async_publish(diagnostic).await
+                    .map_err(|error| format!("failed to publish diagnostics: {error}"))?;
+            }
             message_result = stream.next(), if !stream_ended => {
                 let Some(message_result) = message_result else {
                     stream_ended = true;
