@@ -30,7 +30,7 @@ vs-graphql = { path = "crates/vs-graphql" }
 vs-ros2 = { path = "crates/vs-ros2" }
 
 rs-math3d = "0.9.24"
-opencv = { version = "0.101.0", default-features = false, features = ["clang-runtime", "imgcodecs", "imgproc"] }
+opencv = { version = "0.101.0", default-features = false, features = ["clang-runtime", "calib3d", "imgcodecs", "imgproc"] }
 video-rs = { version = "0.11", features = ["ndarray"] }
 clap = { version = "4.5", features = ["derive"] }
 async-graphql = "7"

@@ -14,4 +14,5 @@ pub enum RosSessionType {
     Ordinary,
     Eye,
     Object,
+    ThreeDTriangle,
 }

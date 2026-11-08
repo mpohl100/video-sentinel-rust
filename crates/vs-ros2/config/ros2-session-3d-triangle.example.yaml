@@ -1,0 +1,18 @@
+node:
+  name: video_sentinel_ros2
+  namespace: /
+
+topics:
+  image: /camera/color/image_raw
+  depth: /camera/depth/image_raw
+  rgb_camera_info: /camera/color/camera_info
+  depth_camera_info: /camera/depth/camera_info
+  tf: /tf
+  tf_static: /tf_static
+  output: /video_sentinel/sessions/triangles/triangles
+
+session:
+  type: three_d_triangle
+  id: triangles
+  frame_max_time_difference_ms: 30
+  max_pending_messages: 10

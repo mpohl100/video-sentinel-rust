@@ -3716,6 +3716,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "futures",
+ "num-traits",
  "opencv",
  "ros2-client",
  "rs-math3d",

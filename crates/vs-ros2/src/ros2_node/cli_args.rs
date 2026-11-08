@@ -45,6 +45,10 @@ mod tests {
             default_output_topic("object", RosSessionType::Object),
             "/video_sentinel/sessions/object/labelled_rectangles"
         );
+        assert_eq!(
+            default_output_topic("triangles", RosSessionType::ThreeDTriangle),
+            "/video_sentinel/sessions/triangles/triangles"
+        );
     }
 
     #[test]
@@ -192,6 +196,7 @@ session:
             "config/ros2-session.example.yaml",
             "config/ros2-session-eye.example.yaml",
             "config/ros2-session-object.example.yaml",
+            "config/ros2-session-3d-triangle.example.yaml",
         ] {
             let config_path = manifest_dir.join(config_name);
             Ros2NodeConfig::load(&config_path)

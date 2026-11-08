@@ -24,3 +24,13 @@ impl From<Vec3d> for Vec3Gql {
         }
     }
 }
+
+impl From<[f64; 3]> for Vec3Gql {
+    fn from(value: [f64; 3]) -> Self {
+        Self {
+            x: value[0],
+            y: value[1],
+            z: value[2],
+        }
+    }
+}

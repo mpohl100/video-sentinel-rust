@@ -1650,3 +1650,132 @@ async fn missing_session_graphql_operations_return_not_found_after_real_frame_pr
 
     server.shutdown().await;
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn three_d_triangle_session_accepts_rgb_and_depth_uploads() {
+    let server = TestServer::spawn().await;
+    let session_id = "triangles";
+    let created = server
+        .graphql_json(
+            r"
+            mutation Create(
+              $sessionId: String!
+              $depthCamera: CameraIntrinsicsInputGql!
+              $rgbCamera: CameraIntrinsicsInputGql!
+              $depthToRgb: RigidTransformInputGql!
+            ) {
+              createThreeDTriangleSession(
+                sessionId: $sessionId
+                depthCamera: $depthCamera
+                rgbCamera: $rgbCamera
+                depthToRgb: $depthToRgb
+              )
+            }
+            ",
+            "Create",
+            json!({
+                "sessionId": session_id,
+                "depthCamera": {
+                    "width": 1, "height": 1, "fx": 1.0, "fy": 1.0,
+                    "cx": 0.0, "cy": 0.0, "distortionModel": "none", "distortion": []
+                },
+                "rgbCamera": {
+                    "width": 1, "height": 1, "fx": 1.0, "fy": 1.0,
+                    "cx": 0.0, "cy": 0.0, "distortionModel": "none", "distortion": []
+                },
+                "depthToRgb": {
+                    "translationX": 0.0, "translationY": 0.0, "translationZ": 0.0,
+                    "rotationX": 0.0, "rotationY": 0.0, "rotationZ": 0.0, "rotationW": 1.0
+                }
+            }),
+        )
+        .await;
+    assert_bool_success(&created, "createThreeDTriangleSession");
+
+    let invalid_calibration = server
+        .graphql_json(
+            r#"
+            mutation CreateInvalidCalibration {
+              createThreeDTriangleSession(
+                sessionId: "invalid-triangles"
+                depthCamera: {
+                  width: 1, height: 1, fx: 0, fy: 1, cx: 0, cy: 0
+                  distortionModel: "none", distortion: []
+                }
+                rgbCamera: {
+                  width: 1, height: 1, fx: 1, fy: 1, cx: 0, cy: 0
+                  distortionModel: "none", distortion: []
+                }
+                depthToRgb: {
+                  translationX: 0, translationY: 0, translationZ: 0
+                  rotationX: 0, rotationY: 0, rotationZ: 0, rotationW: 1
+                }
+              )
+            }
+            "#,
+            "CreateInvalidCalibration",
+            json!({}),
+        )
+        .await;
+    assert_error_message(
+        &invalid_calibration,
+        "camera intrinsics and distortion must be finite with positive focal lengths",
+    );
+
+    let rgb_image = WrappedRgbImage::new_with_color(1, 1, [10, 20, 30]);
+    let rgb = jpeg_bytes_from_image(&rgb_image);
+    let depth = 1_000_u16.to_le_bytes();
+    let response = server
+        .graphql_upload(
+            r"
+            mutation GetTriangles(
+              $sessionId: String!
+              $rgb: Upload!
+              $depth: Upload!
+              $depthWidth: Int!
+              $depthHeight: Int!
+              $depthEncoding: DepthEncodingGql!
+            ) {
+              getThreeDTriangles(
+                sessionId: $sessionId
+                rgb: $rgb
+                depth: $depth
+                depthWidth: $depthWidth
+                depthHeight: $depthHeight
+                depthEncoding: $depthEncoding
+              ) { vertexA { x y z } vertexB { x y z } vertexC { x y z } }
+            }
+            ",
+            "GetTriangles",
+            json!({
+                "sessionId": session_id,
+                "rgb": Value::Null,
+                "depth": Value::Null,
+                "depthWidth": 1,
+                "depthHeight": 1,
+                "depthEncoding": "UINT16_MM",
+            }),
+            &[
+                UploadPart {
+                    variable_path: "variables.rgb",
+                    file_name: "rgb.jpg",
+                    bytes: &rgb,
+                    mime: "image/jpeg",
+                },
+                UploadPart {
+                    variable_path: "variables.depth",
+                    file_name: "depth.raw",
+                    bytes: &depth,
+                    mime: "application/octet-stream",
+                },
+            ],
+        )
+        .await;
+    assert_no_errors(&response);
+    assert_eq!(
+        data(&response, "getThreeDTriangles"),
+        &Value::Array(vec![]),
+        "triangle extraction is intentionally not implemented"
+    );
+    server.shutdown().await;
+}
