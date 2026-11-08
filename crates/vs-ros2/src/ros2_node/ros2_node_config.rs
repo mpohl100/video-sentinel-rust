@@ -104,6 +104,34 @@ impl Ros2NodeConfig {
                     }
                 }
             }
+            SessionConfig::ThreeDTriangle {
+                frame_max_time_difference_ms: _,
+                max_pending_messages,
+                ..
+            } => {
+                if *max_pending_messages == 0 {
+                    return Err("3D triangle max_pending_messages must be positive".into());
+                }
+                if *max_pending_messages > 1_000 {
+                    return Err("3D triangle max_pending_messages must not exceed 1000".into());
+                }
+                for (description, topic) in [
+                    ("depth", self.topics.depth()),
+                    ("rgb_camera_info", self.topics.rgb_camera_info()),
+                    ("depth_camera_info", self.topics.depth_camera_info()),
+                ] {
+                    let topic = topic.ok_or_else(|| {
+                        format!("3D triangle session requires topics.{description}")
+                    })?;
+                    Name::parse(topic).map_err(|error| {
+                        format!("invalid {description} topic `{topic}`: {error}")
+                    })?;
+                }
+                Name::parse(self.topics.tf())
+                    .map_err(|error| format!("invalid TF topic: {error}"))?;
+                Name::parse(self.topics.tf_static())
+                    .map_err(|error| format!("invalid static TF topic: {error}"))?;
+            }
             SessionConfig::Ordinary { .. } | SessionConfig::Eye { .. } => {}
         }
 

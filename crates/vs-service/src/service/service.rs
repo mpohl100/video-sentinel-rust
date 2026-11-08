@@ -22,16 +22,23 @@ use std::collections::BTreeMap;
 
 use super::{
     AddObjectToBeDetectedResult, BasicParamsInput, BucketDeltaUpdateResult, CreateEyeSessionResult,
-    CreateObjectSessionResult, CreateOrdinarySessionResult, DeleteReferenceObjectResult,
-    DeleteSessionResult, EyeParamsInput, EyeParamsUpdateResult, EyeSession, GetRectanglesRequest,
-    GetRectanglesResult, ObjectDetectionParamsInput, ObjectDetectionParamsUpdateResult,
-    ObjectSession, OrdinarySession, Session, TargetSimilarityUpdateResult, TileParamsInput,
+    CreateObjectSessionResult, CreateOrdinarySessionResult, CreateThreeDTriangleSessionResult,
+    DeleteReferenceObjectResult, DeleteSessionResult, EyeParamsInput, EyeParamsUpdateResult,
+    EyeSession, GetRectanglesRequest, GetRectanglesResult, GetTrianglesRequest,
+    ObjectDetectionParamsInput, ObjectDetectionParamsUpdateResult, ObjectSession, OrdinarySession,
+    Session, TargetSimilarityUpdateResult, ThreeDTriangleCalibration, TileParamsInput,
     TileParamsUpdateResult, TraceParamsInput, TraceParamsUpdateResult, UpdateBasicParamsResult,
     calculate_ordinary_mosaics,
 };
 
+struct ThreeDTriangleSession {
+    calibration: Option<ThreeDTriangleCalibration>,
+    calculation: std::sync::Arc<super::get_triangles_request::TriangleCalculation>,
+}
+
 pub struct Service {
     sessions: BTreeMap<String, Session>,
+    three_d_triangle_sessions: BTreeMap<String, ThreeDTriangleSession>,
 }
 
 impl Default for Service {
@@ -45,10 +52,52 @@ impl Service {
     pub fn new() -> Self {
         Service {
             sessions: BTreeMap::new(),
+            three_d_triangle_sessions: BTreeMap::new(),
         }
     }
 
     // mutations
+
+    pub fn create_three_d_triangle_session(
+        &mut self,
+        session_id: &str,
+        calibration: Option<ThreeDTriangleCalibration>,
+    ) -> CreateThreeDTriangleSessionResult {
+        if self.sessions.contains_key(session_id)
+            || self.three_d_triangle_sessions.contains_key(session_id)
+        {
+            return CreateThreeDTriangleSessionResult::SessionAlreadyExists;
+        }
+        if let Some(calibration) = &calibration
+            && let Err(error) = super::three_d_triangle::validate_calibration(calibration)
+        {
+            return CreateThreeDTriangleSessionResult::InvalidInput(error);
+        }
+        self.three_d_triangle_sessions.insert(
+            session_id.to_owned(),
+            ThreeDTriangleSession {
+                calibration,
+                calculation: std::sync::Arc::new(
+                    super::get_triangles_request::TriangleCalculation::new(),
+                ),
+            },
+        );
+        CreateThreeDTriangleSessionResult::Success
+    }
+
+    #[must_use]
+    pub fn get_triangles_request(
+        &self,
+        session_id: &str,
+        calibration_override: Option<ThreeDTriangleCalibration>,
+    ) -> Option<GetTrianglesRequest> {
+        let session = self.three_d_triangle_sessions.get(session_id)?;
+        let calibration = calibration_override.or_else(|| session.calibration.clone())?;
+        Some(GetTrianglesRequest::new(
+            std::sync::Arc::clone(&session.calculation),
+            calibration,
+        ))
+    }
 
     pub fn create_ordinary_session(
         &mut self,
@@ -60,7 +109,7 @@ impl Service {
             basic_params_input.do_grayscale,
             basic_params_input.gradient_threshold,
         );
-        if self.sessions.contains_key(session_id) {
+        if self.session_id_exists(session_id) {
             return CreateOrdinarySessionResult::SessionAlreadyExists;
         }
         self.sessions.insert(
@@ -98,7 +147,7 @@ impl Service {
             trace_params,
             eye_params_input.target_similarity,
         );
-        if self.sessions.contains_key(session_id) {
+        if self.session_id_exists(session_id) {
             return CreateEyeSessionResult::SessionAlreadyExists;
         }
         self.sessions.insert(
@@ -125,7 +174,7 @@ impl Service {
         object_detection_params_input: ObjectDetectionParamsInput,
         results: Results,
     ) -> CreateObjectSessionResult {
-        if self.sessions.contains_key(session_id) {
+        if self.session_id_exists(session_id) {
             return CreateObjectSessionResult::SessionAlreadyExists;
         }
         let basic_params = BasicParams::new(
@@ -427,7 +476,9 @@ impl Service {
     }
 
     pub fn delete_session(&mut self, session_id: &str) -> DeleteSessionResult {
-        if self.sessions.remove(session_id).is_some() {
+        let removed_regular = self.sessions.remove(session_id).is_some();
+        let removed_triangle = self.three_d_triangle_sessions.remove(session_id).is_some();
+        if removed_regular || removed_triangle {
             DeleteSessionResult::Success
         } else {
             DeleteSessionResult::SessionNotFound
@@ -549,6 +600,11 @@ impl Service {
             refresh_eye_cache(eye_session);
         }
         Some(session)
+    }
+
+    fn session_id_exists(&self, session_id: &str) -> bool {
+        self.sessions.contains_key(session_id)
+            || self.three_d_triangle_sessions.contains_key(session_id)
     }
 
     #[must_use]

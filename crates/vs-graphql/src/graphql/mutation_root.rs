@@ -8,16 +8,20 @@
 
 use crate::service::{
     AddObjectToBeDetectedResult, BucketDeltaUpdateResult, CreateEyeSessionResult,
-    CreateObjectSessionResult, CreateOrdinarySessionResult, DeleteReferenceObjectResult,
-    DeleteSessionResult, EyeParamsUpdateResult, GetRectanglesResult,
+    CreateObjectSessionResult, CreateOrdinarySessionResult, CreateThreeDTriangleSessionResult,
+    DeleteReferenceObjectResult, DeleteSessionResult, EyeParamsUpdateResult, GetRectanglesResult,
     ObjectDetectionParamsUpdateResult, TargetSimilarityUpdateResult, TileParamsUpdateResult,
     TraceParamsUpdateResult, UpdateBasicParamsResult,
+};
+use crate::service::{
+    ProcessThreeDTriangleFrameResult, ThreeDTriangleCalibration, ThreeDTriangleFrame,
 };
 use async_graphql::{Context, Object, Result, Upload};
 
 use super::{
-    BasicParamsInputGql, EnrichedMosaicGql, EyeParamsInputGql, ObjectDetectionParamsInputGql,
-    RectangleInputGql, ResultsGql, TileParamsInputGql, TraceParamsInputGql, app_state,
+    BasicParamsInputGql, CameraIntrinsicsInputGql, DepthEncodingGql, EnrichedMosaicGql,
+    EyeParamsInputGql, ObjectDetectionParamsInputGql, RectangleInputGql, ResultsGql,
+    RigidTransformInputGql, TileParamsInputGql, TraceParamsInputGql, TriangleGql, app_state,
     message_error, read_upload_bytes, wrapped_rgb_image_from_jpeg,
 };
 
@@ -25,6 +29,81 @@ pub struct MutationRoot;
 
 #[Object]
 impl MutationRoot {
+    async fn create_three_d_triangle_session(
+        &self,
+        ctx: &Context<'_>,
+        session_id: String,
+        depth_camera: CameraIntrinsicsInputGql,
+        rgb_camera: CameraIntrinsicsInputGql,
+        depth_to_rgb: RigidTransformInputGql,
+    ) -> Result<bool> {
+        let service = app_state(ctx)?.service;
+        let mut service = service.lock().await;
+        match service.create_three_d_triangle_session(
+            &session_id,
+            Some(ThreeDTriangleCalibration {
+                depth_camera: depth_camera.into(),
+                rgb_camera: rgb_camera.into(),
+                depth_to_rgb: depth_to_rgb.into(),
+            }),
+        ) {
+            CreateThreeDTriangleSessionResult::Success => Ok(true),
+            CreateThreeDTriangleSessionResult::SessionAlreadyExists => {
+                Err(message_error("Session already exists"))
+            }
+            CreateThreeDTriangleSessionResult::InvalidInput(error) => Err(message_error(&error)),
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn get_three_d_triangles(
+        &self,
+        ctx: &Context<'_>,
+        session_id: String,
+        rgb: Upload,
+        depth: Upload,
+        depth_width: u32,
+        depth_height: u32,
+        depth_encoding: DepthEncodingGql,
+        #[graphql(default = false)] depth_is_bigendian: bool,
+    ) -> Result<Vec<TriangleGql>> {
+        let rgb_bytes = read_upload_bytes(ctx, rgb)?;
+        let depth_bytes = read_upload_bytes(ctx, depth)?;
+        let service = app_state(ctx)?.service;
+        let request = service
+            .lock()
+            .await
+            .get_triangles_request(&session_id, None);
+        let Some(request) = request else {
+            return Err(message_error(
+                "Session not found or calibration unavailable",
+            ));
+        };
+        match request
+            .get_triangles_with(move || {
+                let rgb = wrapped_rgb_image_from_jpeg(&rgb_bytes).map_err(|error| error.message)?;
+                let depth = super::depth_upload::depth_frame_from_bytes(
+                    depth_width,
+                    depth_height,
+                    depth_encoding,
+                    depth_is_bigendian,
+                    &depth_bytes,
+                )
+                .map_err(|error| error.message)?;
+                Ok(ThreeDTriangleFrame { rgb, depth })
+            })
+            .await
+        {
+            ProcessThreeDTriangleFrameResult::Success(triangles) => {
+                Ok(triangles.into_iter().map(Into::into).collect())
+            }
+            ProcessThreeDTriangleFrameResult::SessionNotFound => {
+                Err(message_error("Session not found"))
+            }
+            ProcessThreeDTriangleFrameResult::InvalidInput(error) => Err(message_error(&error)),
+        }
+    }
+
     async fn get_rectangles(
         &self,
         ctx: &Context<'_>,
@@ -47,6 +126,7 @@ impl MutationRoot {
             GetRectanglesResult::Success(mosaics) => {
                 Ok(mosaics.into_iter().map(Into::into).collect())
             }
+
             GetRectanglesResult::SessionNotFound => Err(message_error("Session not found")),
             GetRectanglesResult::ComputationFailed(error) => Err(message_error(&error)),
         }

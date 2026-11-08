@@ -19,8 +19,10 @@ use opencv::imgcodecs;
 use opencv::imgproc;
 use opencv::prelude::*;
 use ros2_client::{
-    Context, DEFAULT_SUBSCRIPTION_QOS, MessageTypeName, Name, NodeName, NodeOptions, Subscription,
+    Context, DEFAULT_PUBLISHER_QOS, DEFAULT_SUBSCRIPTION_QOS, MessageTypeName, Name, NodeName,
+    NodeOptions, QosProfile, Subscription,
     builtin_interfaces::Time,
+    qos::{Durability, History},
 };
 use tempfile::TempDir;
 use tokio::sync::mpsc;
@@ -29,8 +31,9 @@ use video_rs::{Decoder, Frame};
 use vs_core::mosaics::Results;
 use vs_core::slices::{Rectangle, WrappedRgbImage};
 use vs_ros2::ros2_node::{
-    DIAGNOSTICS_TOPIC, Detection2D, Detection2DArray, DiagnosticArray, DiagnosticStatus,
-    RosSessionType, default_output_topic,
+    CameraInfo, DIAGNOSTICS_TOPIC, Detection2D, Detection2DArray, DiagnosticArray,
+    DiagnosticStatus, Header, Image, Marker, Quaternion, RegionOfInterest, RosSessionType,
+    TFMessage, Transform, TransformStamped, Vector3, default_output_topic,
 };
 use vs_service::service::{
     AddObjectToBeDetectedResult, BasicParamsInput, CreateEyeSessionResult,
@@ -139,6 +142,7 @@ async fn ros2_nodes_publish_expected_rectangles_for_all_session_types() {
             RosSessionType::Ordinary => "ordinary",
             RosSessionType::Eye => "eye",
             RosSessionType::Object => "object",
+            RosSessionType::ThreeDTriangle => unreachable!("not part of rectangle test cases"),
         };
         let session_name = format!("{session_id_prefix}-{unique}");
         let output_topic = default_output_topic(&session_name, session_type);
@@ -394,6 +398,311 @@ fn ensure_background_process_running(child: &mut ChildGuard, process_name: &str)
     }
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn ros2_three_d_triangle_pairs_images_and_uses_tf_at_frame_time() {
+    let unique = unique_suffix();
+    let session_id = format!("triangles-{unique}");
+    let node_name = format!("ros2_test_node_triangles_{unique}");
+    let rgb_topic = format!("/video_sentinel/test/{unique}/rgb");
+    let depth_topic = format!("/video_sentinel/test/{unique}/depth");
+    let rgb_info_topic = format!("/video_sentinel/test/{unique}/rgb_info");
+    let depth_info_topic = format!("/video_sentinel/test/{unique}/depth_info");
+    let tf_topic = format!("/video_sentinel/test/{unique}/tf");
+    let tf_static_topic = format!("/video_sentinel/test/{unique}/tf_static");
+    let output_topic = default_output_topic(&session_id, RosSessionType::ThreeDTriangle);
+    let config_path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(".ros2-triangle-{unique}.yaml"));
+    fs::write(
+        &config_path,
+        format!(
+            r"node:
+  name: {node_name}
+  namespace: /
+  max_message_age_ms: 120000
+topics:
+  image: {rgb_topic}
+  depth: {depth_topic}
+  rgb_camera_info: {rgb_info_topic}
+  depth_camera_info: {depth_info_topic}
+  tf: {tf_topic}
+  tf_static: {tf_static_topic}
+  output: {output_topic}
+session:
+  type: three_d_triangle
+  id: {session_id}
+  frame_max_time_difference_ms: 100
+  max_pending_messages: 4
+"
+        ),
+    )
+    .expect("3D triangle config should be written");
+
+    let context = Context::new().expect("ROS2 context should be created");
+    let mut io_node = context
+        .new_node(
+            NodeName::new("/", &format!("triangle_io_{unique}")).expect("node name"),
+            NodeOptions::new(),
+        )
+        .expect("ROS2 I/O node should be created");
+    let marker_topic = io_node
+        .create_topic(
+            &Name::parse(&output_topic).expect("marker topic should parse"),
+            MessageTypeName::new("visualization_msgs", "Marker"),
+            &DEFAULT_SUBSCRIPTION_QOS,
+        )
+        .expect("marker topic should be created");
+    let marker_subscription = io_node
+        .create_subscription::<Marker>(&marker_topic, None)
+        .expect("marker subscription should be created");
+
+    let make_publisher =
+        |node: &mut ros2_client::Node, topic: &str, package: &str, message: &str| {
+            node.create_topic(
+                &Name::parse(topic).expect("input topic should parse"),
+                MessageTypeName::new(package, message),
+                &DEFAULT_PUBLISHER_QOS,
+            )
+            .expect("input topic should be created")
+        };
+    let rgb_topic_handle = make_publisher(&mut io_node, &rgb_topic, "sensor_msgs", "Image");
+    let rgb_publisher = io_node
+        .create_publisher::<Image>(&rgb_topic_handle, None)
+        .expect("RGB publisher should be created");
+    let depth_topic_handle = make_publisher(&mut io_node, &depth_topic, "sensor_msgs", "Image");
+    let depth_publisher = io_node
+        .create_publisher::<Image>(&depth_topic_handle, None)
+        .expect("depth publisher should be created");
+    let rgb_info_topic_handle =
+        make_publisher(&mut io_node, &rgb_info_topic, "sensor_msgs", "CameraInfo");
+    let rgb_info_publisher = io_node
+        .create_publisher::<CameraInfo>(&rgb_info_topic_handle, None)
+        .expect("RGB CameraInfo publisher should be created");
+    let depth_info_topic_handle =
+        make_publisher(&mut io_node, &depth_info_topic, "sensor_msgs", "CameraInfo");
+    let depth_info_publisher = io_node
+        .create_publisher::<CameraInfo>(&depth_info_topic_handle, None)
+        .expect("depth CameraInfo publisher should be created");
+    let tf_topic_handle = make_publisher(&mut io_node, &tf_topic, "tf2_msgs", "TFMessage");
+    let tf_publisher = io_node
+        .create_publisher::<TFMessage>(&tf_topic_handle, None)
+        .expect("TF publisher should be created");
+    let static_qos = QosProfile::publisher_default()
+        .durability(Durability::TransientLocal)
+        .history(History::KeepLast { depth: 100 });
+    let static_topic = io_node
+        .create_topic(
+            &Name::parse(&tf_static_topic).expect("static TF topic should parse"),
+            MessageTypeName::new("tf2_msgs", "TFMessage"),
+            &static_qos,
+        )
+        .expect("static TF topic should be created");
+    let tf_static_publisher = io_node
+        .create_publisher::<TFMessage>(&static_topic, Some(static_qos))
+        .expect("static TF publisher should be created");
+
+    tokio::spawn(
+        io_node
+            .spinner()
+            .expect("I/O spinner should be created")
+            .spin(),
+    );
+    let mut node = ChildGuard::spawn(
+        Path::new(env!("CARGO_BIN_EXE_video_sentinel_ros2_node")),
+        &[
+            "--config".to_owned(),
+            config_path.to_string_lossy().into_owned(),
+        ],
+    );
+    tokio::time::sleep(Duration::from_secs(3)).await;
+
+    tf_static_publisher
+        .async_publish(TFMessage {
+            transforms: vec![TransformStamped {
+                header: Header {
+                    stamp: Time::from_nanos(0),
+                    frame_id: "rgb_optical".to_owned(),
+                },
+                child_frame_id: "depth_optical".to_owned(),
+                transform: Transform {
+                    translation: Vector3 {
+                        x: 0.05,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    rotation: Quaternion {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                        w: 1.0,
+                    },
+                },
+            }],
+        })
+        .await
+        .expect("transient-local static TF should publish");
+
+    let mut ros_cli_echo = ChildGuard::spawn(
+        Path::new("/usr/bin/env"),
+        &[
+            "ros2".to_owned(),
+            "topic".to_owned(),
+            "echo".to_owned(),
+            "--once".to_owned(),
+            "--no-daemon".to_owned(),
+            output_topic.clone(),
+            "visualization_msgs/msg/Marker".to_owned(),
+        ],
+    );
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    let stream = marker_subscription.async_stream();
+    pin_mut!(stream);
+    let mut published = false;
+    for _ in 0..10 {
+        let stamp = Time::now();
+        let header = |frame_id: &str| Header {
+            stamp,
+            frame_id: frame_id.to_owned(),
+        };
+        let camera_info = |frame_id: &str| CameraInfo {
+            header: header(frame_id),
+            height: 1,
+            width: 1,
+            distortion_model: "plumb_bob".to_owned(),
+            d: vec![0.0; 5],
+            k: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+            r: [0.0; 9],
+            p: [0.0; 12],
+            binning_x: 0,
+            binning_y: 0,
+            roi: RegionOfInterest {
+                x_offset: 0,
+                y_offset: 0,
+                height: 0,
+                width: 0,
+                do_rectify: false,
+            },
+        };
+        let transform = |transform_stamp| TransformStamped {
+            header: Header {
+                stamp: transform_stamp,
+                frame_id: "rgb_optical".to_owned(),
+            },
+            child_frame_id: "depth_optical".to_owned(),
+            transform: Transform {
+                translation: Vector3 {
+                    x: 0.05,
+                    y: 0.0,
+                    z: 0.0,
+                },
+                rotation: Quaternion {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                    w: 1.0,
+                },
+            },
+        };
+        tf_publisher
+            .async_publish(TFMessage {
+                transforms: vec![
+                    transform(Time::from_nanos(stamp.to_nanos() - 50_000_000)),
+                    transform(Time::from_nanos(stamp.to_nanos() + 50_000_000)),
+                ],
+            })
+            .await
+            .expect("dynamic TF should publish");
+        rgb_info_publisher
+            .async_publish(camera_info("rgb_optical"))
+            .await
+            .expect("RGB CameraInfo should publish");
+        depth_info_publisher
+            .async_publish(camera_info("depth_optical"))
+            .await
+            .expect("depth CameraInfo should publish");
+        rgb_publisher
+            .async_publish(Image {
+                header: header("rgb_optical"),
+                height: 1,
+                width: 1,
+                encoding: "rgb8".to_owned(),
+                is_bigendian: 0,
+                step: 3,
+                data: vec![10, 20, 30],
+            })
+            .await
+            .expect("RGB image should publish");
+        depth_publisher
+            .async_publish(Image {
+                header: header("depth_optical"),
+                height: 1,
+                width: 1,
+                encoding: "32FC1".to_owned(),
+                is_bigendian: 0,
+                step: 4,
+                data: 1.0_f32.to_le_bytes().to_vec(),
+            })
+            .await
+            .expect("depth image should publish");
+        if let Ok(Some(Ok((marker, _)))) =
+            tokio::time::timeout(Duration::from_secs(1), stream.next()).await
+        {
+            assert_eq!(marker.marker_type, Marker::TRIANGLE_LIST);
+            assert_eq!(marker.action, Marker::ADD);
+            assert_eq!(marker.points, Vec::default());
+            assert_eq!(marker.header.frame_id, "rgb_optical");
+            assert_eq!(marker.header.stamp.to_nanos(), stamp.to_nanos());
+            published = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+    if !published {
+        node.terminate();
+        panic!(
+            "ROS2 3D triangle node did not publish an empty TRIANGLE_LIST Marker:\n{}",
+            node.debug_output()
+        );
+    }
+    let Ok(cli_status) = tokio::time::timeout(Duration::from_secs(20), async {
+        loop {
+            if let Some(status) = ros_cli_echo.try_wait() {
+                break status;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    })
+    .await
+    else {
+        ros_cli_echo.terminate();
+        panic!(
+            "standard ros2 topic echo did not receive a Marker:\n{}",
+            ros_cli_echo.debug_output()
+        );
+    };
+    let cli_output = ros_cli_echo.debug_output();
+    assert!(
+        cli_status.success(),
+        "standard ros2 topic echo failed:\n{cli_output}"
+    );
+    for field in [
+        "texture_resource:",
+        "texture:",
+        "uv_coordinates:",
+        "text:",
+        "mesh_resource:",
+        "mesh_file:",
+        "mesh_use_embedded_materials:",
+    ] {
+        assert!(
+            cli_output.contains(field),
+            "standard Marker echo omitted {field:?}:\n{cli_output}"
+        );
+    }
+    node.terminate();
+    fs::remove_file(config_path).expect("temporary ROS2 config should be removed");
+}
+
 async fn expected_detection_signatures(
     session_type: RosSessionType,
     session_id: &str,
@@ -449,6 +758,9 @@ async fn expected_detection_signatures(
                 AddObjectToBeDetectedResult::Success
             ));
             service.get_rectangles(session_id, image).await
+        }
+        RosSessionType::ThreeDTriangle => {
+            unreachable!("not part of rectangle test cases")
         }
     };
 
@@ -584,6 +896,9 @@ fn write_config(
         ),
         (RosSessionType::Object, None) => {
             panic!("object session test case requires a reference image")
+        }
+        (RosSessionType::ThreeDTriangle, _) => {
+            panic!("3D triangle session is not part of the rectangle test cases")
         }
     };
 
