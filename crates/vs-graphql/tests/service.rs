@@ -586,15 +586,12 @@ fn data<'a>(response: &'a Value, field: &str) -> &'a Value {
 }
 
 fn error_messages(response: &Value) -> Vec<String> {
-    response["errors"]
-        .as_array()
-        .map(|errors| {
-            errors
-                .iter()
-                .filter_map(|error| error["message"].as_str().map(ToOwned::to_owned))
-                .collect()
-        })
-        .unwrap_or_default()
+    response["errors"].as_array().map_or_default(|errors| {
+        errors
+            .iter()
+            .filter_map(|error| error["message"].as_str().map(ToOwned::to_owned))
+            .collect()
+    })
 }
 
 fn assert_no_errors(response: &Value) {
