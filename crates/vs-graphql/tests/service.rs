@@ -177,6 +177,12 @@ mutation CreateOrdinarySession(
 }
 ";
 
+const ADD_COLOR_FILTER: &str = r"
+mutation AddColorFilter($sessionId: String!, $color: RgbColorInputGql!, $threshold: RgbColorInputGql!) {
+  addColorFilter(sessionId: $sessionId, color: $color, thresholdForColor: $threshold)
+}
+";
+
 const CREATE_EYE_SESSION: &str = r"
 mutation CreateEyeSession(
   $sessionId: String!
@@ -693,6 +699,134 @@ async fn add_object_as_image(
             }],
         )
         .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn ordinary_color_filters_select_colored_shapes() {
+    let server = TestServer::spawn().await;
+    let session_id = "color-shapes";
+    assert_bool_success(&server.graphql_json(
+        CREATE_ORDINARY_SESSION, "CreateOrdinarySession",
+        json!({"sessionId": session_id, "basicParams": basic_params_json(false, 15), "results": "ABSOLUTE"}),
+    ).await, "createOrdinarySession");
+
+    let image = WrappedRgbImage::new_with_color(140, 80, [0, 0, 0]);
+    image.fill_polygon(&[(10, 10), (40, 10), (40, 40), (10, 40)], [255, 0, 0]);
+    image.fill_circle((90, 35), 18, [0, 255, 0]);
+    let frame = ExampleFrame {
+        jpeg: jpeg_bytes_from_image(&image),
+        width: 140,
+        height: 80,
+    };
+    let before = get_rectangles(&server, session_id, &frame).await;
+    assert_no_errors(&before);
+    let baseline = data(&before, "getRectangles").as_array().unwrap();
+    let is_red = |mosaic: &&Value| {
+        let color = &mosaic["averageColor"];
+        color["red"].as_u64().unwrap() >= 200
+            && color["green"].as_u64().unwrap() <= 30
+            && color["blue"].as_u64().unwrap() <= 30
+    };
+    let is_green = |mosaic: &&Value| {
+        let color = &mosaic["averageColor"];
+        color["red"].as_u64().unwrap() <= 30
+            && color["green"].as_u64().unwrap() >= 200
+            && color["blue"].as_u64().unwrap() <= 30
+    };
+    assert!(
+        baseline.iter().any(|m| is_red(&m)),
+        "missing red shape: {baseline:?}"
+    );
+    assert!(
+        baseline.iter().any(|m| is_green(&m)),
+        "missing green shape: {baseline:?}"
+    );
+    let add_filter = |color: Value| {
+        json!({
+            "sessionId": session_id, "color": color,
+            "threshold": {"red": 30, "green": 55, "blue": 30}
+        })
+    };
+    assert_bool_success(
+        &server
+            .graphql_json(
+                ADD_COLOR_FILTER,
+                "AddColorFilter",
+                add_filter(json!({"red": 255, "green": 0, "blue": 0})),
+            )
+            .await,
+        "addColorFilter",
+    );
+    let red = get_rectangles(&server, session_id, &frame).await;
+    assert_no_errors(&red);
+    let red = data(&red, "getRectangles").as_array().unwrap();
+    let expected_red: Vec<_> = baseline
+        .iter()
+        .filter(|m| {
+            let c = &m["averageColor"];
+            c["red"].as_u64().unwrap() >= 225
+                && c["green"].as_u64().unwrap() <= 55
+                && c["blue"].as_u64().unwrap() <= 30
+        })
+        .collect();
+    assert!(!red.is_empty() && red.len() < baseline.len());
+    assert_eq!(red.iter().collect::<Vec<_>>(), expected_red);
+
+    assert_bool_success(&server.graphql_json(
+        ADD_COLOR_FILTER, "AddColorFilter",
+        json!({"sessionId": session_id, "color": {"red": 0, "green": 255, "blue": 0}, "threshold": {"red": 30, "green": 55, "blue": 30}}),
+    ).await, "addColorFilter");
+    let combined = get_rectangles(&server, session_id, &frame).await;
+    assert_no_errors(&combined);
+    let combined = data(&combined, "getRectangles").as_array().unwrap();
+    let expected: Vec<_> = baseline
+        .iter()
+        .filter(|m| {
+            let c = &m["averageColor"];
+            let r = c["red"].as_u64().unwrap();
+            let g = c["green"].as_u64().unwrap();
+            let b = c["blue"].as_u64().unwrap();
+            b <= 30 && ((r >= 225 && g <= 55) || (r <= 30 && g >= 200))
+        })
+        .collect();
+    assert!(combined.len() > red.len());
+    assert_eq!(combined.iter().collect::<Vec<_>>(), expected);
+    assert_error_message(&server.graphql_json(
+        ADD_COLOR_FILTER, "AddColorFilter",
+        json!({"sessionId": "missing", "color": {"red": 0, "green": 0, "blue": 0}, "threshold": {"red": 0, "green": 0, "blue": 0}}),
+    ).await, "Session not found");
+    assert_bool_success(
+        &server
+            .graphql_json(
+                CREATE_EYE_SESSION,
+                "CreateEyeSession",
+                json!({
+                    "sessionId": "eye-colors",
+                    "basicParams": basic_params_json(false, 15),
+                    "eyeParams": eye_params_json(0.1, 0.1, 0.05, 12, 0.7),
+                    "results": "ABSOLUTE"
+                }),
+            )
+            .await,
+        "createEyeSession",
+    );
+    assert_error_message(
+        &server.graphql_json(
+            ADD_COLOR_FILTER,
+            "AddColorFilter",
+            json!({"sessionId": "eye-colors", "color": {"red": 0, "green": 0, "blue": 0}, "threshold": {"red": 0, "green": 0, "blue": 0}}),
+        ).await,
+        "Session type does not support color filters",
+    );
+    let invalid = server.graphql_json(
+        ADD_COLOR_FILTER, "AddColorFilter",
+        json!({"sessionId": session_id, "color": {"red": 256, "green": 0, "blue": 0}, "threshold": {"red": 0, "green": 0, "blue": 0}}),
+    ).await;
+    assert!(
+        !error_messages(&invalid).is_empty(),
+        "invalid RGB input must fail: {invalid}"
+    );
+    server.shutdown().await;
 }
 
 #[tokio::test(flavor = "multi_thread")]

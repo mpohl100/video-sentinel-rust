@@ -21,14 +21,14 @@ use rs_math3d::Vec3d;
 use std::collections::BTreeMap;
 
 use super::{
-    AddObjectToBeDetectedResult, BasicParamsInput, BucketDeltaUpdateResult, CreateEyeSessionResult,
-    CreateObjectSessionResult, CreateOrdinarySessionResult, CreateThreeDTriangleSessionResult,
-    DeleteReferenceObjectResult, DeleteSessionResult, EyeParamsInput, EyeParamsUpdateResult,
-    EyeSession, GetRectanglesRequest, GetRectanglesResult, GetTrianglesRequest,
-    ObjectDetectionParamsInput, ObjectDetectionParamsUpdateResult, ObjectSession, OrdinarySession,
-    Session, TargetSimilarityUpdateResult, ThreeDTriangleCalibration, TileParamsInput,
-    TileParamsUpdateResult, TraceParamsInput, TraceParamsUpdateResult, UpdateBasicParamsResult,
-    calculate_ordinary_mosaics,
+    AddColorFilterResult, AddObjectToBeDetectedResult, BasicParamsInput, BucketDeltaUpdateResult,
+    ColorFilter, CreateEyeSessionResult, CreateObjectSessionResult, CreateOrdinarySessionResult,
+    CreateThreeDTriangleSessionResult, DeleteReferenceObjectResult, DeleteSessionResult,
+    EyeParamsInput, EyeParamsUpdateResult, EyeSession, GetRectanglesRequest, GetRectanglesResult,
+    GetTrianglesRequest, ObjectDetectionParamsInput, ObjectDetectionParamsUpdateResult,
+    ObjectSession, OrdinarySession, RgbColor, Session, TargetSimilarityUpdateResult,
+    ThreeDTriangleCalibration, TileParamsInput, TileParamsUpdateResult, TraceParamsInput,
+    TraceParamsUpdateResult, UpdateBasicParamsResult, calculate_ordinary_mosaics,
 };
 
 struct ThreeDTriangleSession {
@@ -117,12 +117,36 @@ impl Service {
             Session::Ordinary(OrdinarySession {
                 basic_params,
                 results,
+                color_filters: Vec::new(),
                 calculation: std::sync::Arc::new(
                     super::get_rectangles_request::SessionCalculation::new(),
                 ),
             }),
         );
         CreateOrdinarySessionResult::Success
+    }
+
+    /// Adds an inclusive per-channel RGB tolerance filter to an ordinary session.
+    pub fn add_color_filter(
+        &mut self,
+        session_id: &str,
+        color: RgbColor,
+        threshold_for_color: RgbColor,
+    ) -> AddColorFilterResult {
+        match self.sessions.get_mut(session_id) {
+            Some(Session::Ordinary(session)) => {
+                session.color_filters.push(ColorFilter {
+                    color,
+                    threshold_for_color,
+                });
+                AddColorFilterResult::Success
+            }
+            Some(_) => AddColorFilterResult::SessionTypeDoesNotSupportColorFilters,
+            None if self.three_d_triangle_sessions.contains_key(session_id) => {
+                AddColorFilterResult::SessionTypeDoesNotSupportColorFilters
+            }
+            None => AddColorFilterResult::SessionNotFound,
+        }
     }
 
     pub fn create_eye_session(

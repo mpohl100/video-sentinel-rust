@@ -58,7 +58,7 @@ pub use rectangle_gql::RectangleGql;
 pub use rectangle_input_gql::RectangleInputGql;
 pub use reference_object_gql::ReferenceObjectGql;
 pub use results_gql::ResultsGql;
-pub use rgb_color_gql::RgbColorGql;
+pub use rgb_color_gql::{RgbColorGql, RgbColorInputGql};
 pub use rigid_transform_input_gql::RigidTransformInputGql;
 pub use slice_gql::SliceGql;
 pub use slice_line_gql::SliceLineGql;

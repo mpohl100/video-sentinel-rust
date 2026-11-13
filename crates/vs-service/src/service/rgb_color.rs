@@ -6,7 +6,7 @@
     clippy::unused_async_trait_impl
 )]
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RgbColor {
     pub red: u8,
     pub green: u8,

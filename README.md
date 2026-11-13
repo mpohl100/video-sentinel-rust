@@ -51,6 +51,26 @@ mutation {
 }
 ```
 
+Optionally add RGB filters to an ordinary session:
+
+```graphql
+mutation {
+  addColorFilter(
+    sessionId: "ordinary-1"
+    color: { red: 255, green: 0, blue: 0 }
+    thresholdForColor: { red: 20, green: 10, blue: 10 }
+  )
+}
+```
+
+Each threshold is an inclusive absolute tolerance in the 0–255 channel range,
+compared against the mosaic's rounded average RGB color. A mosaic passes if all
+three channels match any one filter. Multiple calls add alternatives; without
+filters, all mosaics are returned. Each request captures the configuration when
+it is created; requests joining an active calculation share its configuration.
+ROS 2 ordinary sessions accept the equivalent `session.color_filters` list;
+see the commented example in the ordinary-session YAML.
+
 **Eye session** — tracks matching mosaics from frame to frame:
 
 ```graphql

@@ -11,3 +11,7 @@ session:
   basic_params:
     do_grayscale: true
     gradient_threshold: 15
+  # Optional: retain mosaics matching at least one filter (per-channel tolerance).
+  # color_filters:
+  #   - color: { red: 255, green: 0, blue: 0 }
+  #     threshold_for_color: { red: 20, green: 10, blue: 10 }

@@ -327,6 +327,7 @@ async fn calculate(session: Session, image: WrappedRgbImage) -> GetRectanglesRes
             Err(error) => GetRectanglesResult::ComputationFailed(error),
         },
         Session::Ordinary(ordinary_session) => {
+            let color_filters = ordinary_session.color_filters.clone();
             match tokio::task::spawn_blocking(move || {
                 calculate_ordinary(&ordinary_session, &image)
                     .into_iter()
@@ -342,13 +343,64 @@ async fn calculate(session: Session, image: WrappedRgbImage) -> GetRectanglesRes
             })
             .await
             {
-                Ok(mosaics) => GetRectanglesResult::Success(mosaics),
+                Ok(mosaics) if color_filters.is_empty() => GetRectanglesResult::Success(mosaics),
+                Ok(mosaics) if mosaics.is_empty() => GetRectanglesResult::Success(mosaics),
+                Ok(mosaics) => {
+                    let nb_threads = match std::thread::available_parallelism() {
+                        Ok(count) => count.get(),
+                        Err(error) => {
+                            return GetRectanglesResult::ComputationFailed(format!(
+                                "failed to determine color filtering parallelism: {error}"
+                            ));
+                        }
+                    };
+                    match filter_by_color(mosaics, color_filters, nb_threads).await {
+                        Ok(mosaics) => GetRectanglesResult::Success(mosaics),
+                        Err(error) => GetRectanglesResult::ComputationFailed(error),
+                    }
+                }
                 Err(error) => GetRectanglesResult::ComputationFailed(format!(
                     "ordinary calculation task failed: {error}"
                 )),
             }
         }
     }
+}
+
+async fn filter_by_color(
+    mosaics: Vec<super::EnrichedMosaic>,
+    filters: Vec<super::ColorFilter>,
+    nb_threads: usize,
+) -> Result<Vec<super::EnrichedMosaic>, String> {
+    let chunk_size = mosaics.len().div_ceil(nb_threads);
+    let filters = Arc::new(filters);
+    let mut mosaics = mosaics.into_iter();
+    let mut tasks = tokio::task::JoinSet::new();
+    for index in 0..nb_threads {
+        let chunk: Vec<_> = mosaics.by_ref().take(chunk_size).collect();
+        if chunk.is_empty() {
+            break;
+        }
+        let filters = Arc::clone(&filters);
+        tasks.spawn_blocking(move || {
+            let matching = chunk
+                .into_iter()
+                .filter(|mosaic| {
+                    filters
+                        .iter()
+                        .any(|filter| filter.matches(mosaic.average_color))
+                })
+                .collect::<Vec<_>>();
+            (index, matching)
+        });
+    }
+    let mut chunks = Vec::new();
+    while let Some(result) = tasks.join_next().await {
+        chunks
+            .push(result.map_err(|error| format!("failed to join color filtering task: {error}"))?);
+    }
+    chunks.sort_by_key(|(index, _)| *index);
+    Ok(chunks.into_iter().flat_map(|(_, chunk)| chunk).collect())
 }
 
 #[cfg(test)]
@@ -362,6 +414,85 @@ mod tests {
     use std::sync::{Arc, Condvar};
 
     struct DropSignal(Option<tokio::sync::oneshot::Sender<()>>);
+
+    #[tokio::test]
+    async fn color_filter_parallel_chunks_preserve_order_and_match_any_filter() {
+        let service = ordinary_service();
+        let image = WrappedRgbImage::new_with_color(90, 50, [0, 0, 0]);
+        image.fill_polygon(&[(5, 5), (25, 5), (25, 25), (5, 25)], [255, 0, 0]);
+        image.fill_circle((60, 25), 12, [0, 255, 0]);
+        let mosaics = success(service.get_rectangles("ordinary", image).await);
+        assert!(mosaics.len() >= 3);
+        let colors: Vec<_> = mosaics.iter().map(|mosaic| mosaic.average_color).collect();
+        let zero = super::super::RgbColor {
+            red: 0,
+            green: 0,
+            blue: 0,
+        };
+        let filters = vec![
+            super::super::ColorFilter {
+                color: colors[0],
+                threshold_for_color: zero,
+            },
+            super::super::ColorFilter {
+                color: colors[2],
+                threshold_for_color: zero,
+            },
+        ];
+        let expected: Vec<_> = mosaics
+            .iter()
+            .filter(|mosaic| {
+                filters
+                    .iter()
+                    .any(|filter| filter.matches(mosaic.average_color))
+            })
+            .map(mosaic_signature)
+            .collect();
+        let filtered = filter_by_color(mosaics, filters, 4).await.unwrap();
+        assert_eq!(
+            filtered.iter().map(mosaic_signature).collect::<Vec<_>>(),
+            expected
+        );
+    }
+
+    #[tokio::test]
+    async fn color_filter_uses_request_snapshot_and_can_reject_every_mosaic() {
+        use super::super::{AddColorFilterResult, RgbColor};
+
+        let mut service = ordinary_service();
+        let old_request = service.get_rectangles_request("ordinary").unwrap();
+        let black = RgbColor {
+            red: 0,
+            green: 0,
+            blue: 0,
+        };
+        assert_eq!(
+            service.add_color_filter("ordinary", black, black),
+            AddColorFilterResult::Success
+        );
+        assert_eq!(
+            service.add_color_filter("missing", black, black),
+            AddColorFilterResult::SessionNotFound
+        );
+        service.create_three_d_triangle_session("triangle", None);
+        assert_eq!(
+            service.add_color_filter("triangle", black, black),
+            AddColorFilterResult::SessionTypeDoesNotSupportColorFilters
+        );
+        let image = WrappedRgbImage::new_with_color(32, 32, [255, 255, 255]);
+        assert!(
+            !success(
+                old_request
+                    .get_rectangles_with({
+                        let image = image.clone();
+                        move || Ok(image)
+                    })
+                    .await
+            )
+            .is_empty()
+        );
+        assert!(success(service.get_rectangles("ordinary", image).await).is_empty());
+    }
 
     impl Drop for DropSignal {
         fn drop(&mut self) {
