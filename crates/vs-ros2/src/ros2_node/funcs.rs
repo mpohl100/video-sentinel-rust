@@ -1138,9 +1138,9 @@ pub(super) fn detection_from_enriched_mosaic(
         header: header.clone(),
         results: rectangle
             .label
-            .clone()
-            .map(|label| vec![object_hypothesis_with_pose(label, rectangle.center_of_mass)])
-            .unwrap_or_default(),
+            .iter()
+            .map(|label| object_hypothesis_with_pose(label.clone(), rectangle.center_of_mass))
+            .collect(),
         bbox: bounding_box_from_rectangle(&rectangle.bounding_box),
         id: format!("detection-{index}"),
     }
