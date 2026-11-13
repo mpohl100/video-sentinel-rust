@@ -28,8 +28,8 @@ use std::sync::Arc;
 use tokio::task::JoinSet;
 
 use super::{
-    Circle, ColoredAnonymizedMosaic, EnrichedMosaic, EyeSession, ObjectSession, OrdinarySession,
-    Point, RgbColor, Slice, SliceLine,
+    Circle, ColorFilter, ColoredAnonymizedMosaic, EnrichedMosaic, EyeSession, ObjectSession,
+    OrdinarySession, Point, RgbColor, Slice, SliceLine,
 };
 
 pub(super) fn usize_from_u32(value: u32) -> usize {
@@ -49,6 +49,25 @@ pub(super) fn u8_from_f64(value: f64) -> u8 {
         .round()
         .to_u8()
         .expect("average color channel should fit within u8")
+}
+
+fn rgb_from_average(average: Vec3d) -> RgbColor {
+    RgbColor {
+        red: u8_from_f64(average.x),
+        green: u8_from_f64(average.y),
+        blue: u8_from_f64(average.z),
+    }
+}
+
+pub(super) fn mosaic_matches_color_filters(
+    mosaic: &AnonymizedMosaic,
+    filters: &[ColorFilter],
+) -> bool {
+    if filters.is_empty() {
+        return true;
+    }
+    let average = rgb_from_average(mosaic.get_mosaic().get_average_color());
+    filters.iter().any(|filter| filter.matches(average))
 }
 
 pub(super) fn calculate_ordinary_mosaics(
@@ -147,11 +166,7 @@ pub(super) fn deduce_enriched_mosaic(
         area,
         center_of_mass: global_center_of_mass.get_local_point(),
         slice_matrix: slice_matrix_output,
-        average_color: RgbColor {
-            red: u8_from_f64(mosaic.get_average_color().x),
-            green: u8_from_f64(mosaic.get_average_color().y),
-            blue: u8_from_f64(mosaic.get_average_color().z),
-        },
+        average_color: rgb_from_average(mosaic.get_average_color()),
         results,
     }
 }
@@ -239,14 +254,19 @@ pub(super) async fn calculate_object(
     );
     let basic_params = object_session.basic_params;
     let results = object_session.results;
+    let color_filters = object_session.color_filters.clone();
     let current_mosaics = tokio::task::spawn_blocking(move || {
-        calculate_ordinary_mosaics(basic_params, results, &image)
+        let mut mosaics = calculate_ordinary_mosaics(basic_params, results, &image);
+        if !color_filters.is_empty() {
+            mosaics.retain(|mosaic| mosaic_matches_color_filters(mosaic, &color_filters));
+        }
+        mosaics
     })
     .await
     .map_err(|error| format!("failed to calculate object frame mosaics: {error}"))?;
     let bucketed_mosaics = Arc::new(
         deduce_bucketed_mosaics(
-            current_mosaics.clone(),
+            current_mosaics,
             surrounding_rectangle,
             object_session.object_detection_params.tile_params,
             object_session.object_detection_params.bucket_delta,

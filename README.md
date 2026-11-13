@@ -51,7 +51,7 @@ mutation {
 }
 ```
 
-Optionally add RGB filters to an ordinary session:
+Optionally add RGB filters to an ordinary or object session:
 
 ```graphql
 mutation {
@@ -68,8 +68,9 @@ compared against the mosaic's rounded average RGB color. A mosaic passes if all
 three channels match any one filter. Multiple calls add alternatives; without
 filters, all mosaics are returned. Each request captures the configuration when
 it is created; requests joining an active calculation share its configuration.
-ROS 2 ordinary sessions accept the equivalent `session.color_filters` list;
-see the commented example in the ordinary-session YAML.
+ROS 2 ordinary and object sessions accept the equivalent `session.color_filters`
+list; see the commented examples in their YAML files. Avoid adding too many
+filters: each additional filter can slow down the algorithm.
 
 **Eye session** — tracks matching mosaics from frame to frame:
 
@@ -90,7 +91,7 @@ mutation {
 ```
 
 **Object session** — finds configured reference objects. Create the session,
-then add one or more references using ASCII art:
+optionally add color filters with `addColorFilter`, then add references:
 
 ```graphql
 mutation {
@@ -107,6 +108,13 @@ mutation {
   )
 }
 ```
+
+For object sessions, filters select mosaics both when a reference is added and
+when frame candidates are matched. Add filters before adding references: later
+filters do not rebuild existing references. If no reference mosaics pass, adding
+the reference fails. ASCII-art references are black and white, so their filters
+must allow the relevant grayscale colors. With no filters, all mosaics remain
+eligible. ROS 2 loads object-session filters before its references.
 
 ```graphql
 mutation {

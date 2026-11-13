@@ -53,6 +53,7 @@ pub use eye_params_input::EyeParamsInput;
 pub use eye_params_update_result::EyeParamsUpdateResult;
 pub use eye_session::EyeSession;
 use funcs::calculate_ordinary_mosaics;
+use funcs::mosaic_matches_color_filters;
 use funcs::{calculate_eye, calculate_object, calculate_ordinary, deduce_enriched_mosaic};
 pub use get_rectangles_request::{GetRectanglesCalculation, GetRectanglesRequest};
 pub use get_rectangles_result::GetRectanglesResult;

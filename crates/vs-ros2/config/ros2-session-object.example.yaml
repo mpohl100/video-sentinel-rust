@@ -15,6 +15,11 @@ session:
     do_grayscale: true
     gradient_threshold: 15
   results: absolute
+  # Optional: retain matching reference and candidate mosaics.
+  # ASCII art is black and white, so use a compatible filter for ASCII references.
+  # color_filters:
+  #   - color: { red: 255, green: 255, blue: 255 }
+  #     threshold_for_color: { red: 20, green: 20, blue: 20 }
   object_detection_params:
     tile_params:
       tile_x: 0.1
