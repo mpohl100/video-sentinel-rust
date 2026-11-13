@@ -60,7 +60,7 @@ pub use get_triangles_request::{GetTrianglesCalculation, GetTrianglesRequest};
 pub use object_detection_params_input::ObjectDetectionParamsInput;
 pub use object_detection_params_update_result::ObjectDetectionParamsUpdateResult;
 pub use object_session::ObjectSession;
-pub use ordinary_session::OrdinarySession;
+pub use ordinary_session::{AddColorFilterResult, ColorFilter, OrdinarySession};
 pub use point::Point;
 pub use rgb_color::RgbColor;
 pub use service::Service;

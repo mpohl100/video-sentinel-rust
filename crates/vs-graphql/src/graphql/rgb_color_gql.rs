@@ -22,3 +22,20 @@ impl From<crate::service::RgbColor> for RgbColorGql {
         }
     }
 }
+
+#[derive(async_graphql::InputObject)]
+pub struct RgbColorInputGql {
+    red: u8,
+    green: u8,
+    blue: u8,
+}
+
+impl From<RgbColorInputGql> for crate::service::RgbColor {
+    fn from(value: RgbColorInputGql) -> Self {
+        Self {
+            red: value.red,
+            green: value.green,
+            blue: value.blue,
+        }
+    }
+}

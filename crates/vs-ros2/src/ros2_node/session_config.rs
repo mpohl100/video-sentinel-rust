@@ -6,6 +6,7 @@
     clippy::unused_async_trait_impl
 )]
 
+use crate::service::RgbColor;
 use serde::Deserialize;
 
 use super::{
@@ -22,6 +23,29 @@ fn default_max_pending_messages() -> usize {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub(super) struct ColorFilterYaml {
+    pub color: RgbColorYaml,
+    pub threshold_for_color: RgbColorYaml,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub(super) struct RgbColorYaml {
+    red: u8,
+    green: u8,
+    blue: u8,
+}
+
+impl From<RgbColorYaml> for RgbColor {
+    fn from(value: RgbColorYaml) -> Self {
+        Self {
+            red: value.red,
+            green: value.green,
+            blue: value.blue,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub(super) enum SessionConfig {
     Ordinary {
@@ -30,6 +54,8 @@ pub(super) enum SessionConfig {
         basic_params: BasicParamsYaml,
         #[serde(default)]
         results: ResultsModeYaml,
+        #[serde(default)]
+        color_filters: Vec<ColorFilterYaml>,
     },
     Eye {
         id: String,

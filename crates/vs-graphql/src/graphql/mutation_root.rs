@@ -7,11 +7,12 @@
 )]
 
 use crate::service::{
-    AddObjectToBeDetectedResult, BucketDeltaUpdateResult, CreateEyeSessionResult,
-    CreateObjectSessionResult, CreateOrdinarySessionResult, CreateThreeDTriangleSessionResult,
-    DeleteReferenceObjectResult, DeleteSessionResult, EyeParamsUpdateResult, GetRectanglesResult,
-    ObjectDetectionParamsUpdateResult, TargetSimilarityUpdateResult, TileParamsUpdateResult,
-    TraceParamsUpdateResult, UpdateBasicParamsResult,
+    AddColorFilterResult, AddObjectToBeDetectedResult, BucketDeltaUpdateResult,
+    CreateEyeSessionResult, CreateObjectSessionResult, CreateOrdinarySessionResult,
+    CreateThreeDTriangleSessionResult, DeleteReferenceObjectResult, DeleteSessionResult,
+    EyeParamsUpdateResult, GetRectanglesResult, ObjectDetectionParamsUpdateResult,
+    TargetSimilarityUpdateResult, TileParamsUpdateResult, TraceParamsUpdateResult,
+    UpdateBasicParamsResult,
 };
 use crate::service::{
     ProcessThreeDTriangleFrameResult, ThreeDTriangleCalibration, ThreeDTriangleFrame,
@@ -21,8 +22,8 @@ use async_graphql::{Context, Object, Result, Upload};
 use super::{
     BasicParamsInputGql, CameraIntrinsicsInputGql, DepthEncodingGql, EnrichedMosaicGql,
     EyeParamsInputGql, ObjectDetectionParamsInputGql, RectangleInputGql, ResultsGql,
-    RigidTransformInputGql, TileParamsInputGql, TraceParamsInputGql, TriangleGql, app_state,
-    message_error, read_upload_bytes, wrapped_rgb_image_from_jpeg,
+    RgbColorInputGql, RigidTransformInputGql, TileParamsInputGql, TraceParamsInputGql, TriangleGql,
+    app_state, message_error, read_upload_bytes, wrapped_rgb_image_from_jpeg,
 };
 
 pub struct MutationRoot;
@@ -168,6 +169,24 @@ impl MutationRoot {
             CreateEyeSessionResult::Success => Ok(true),
             CreateEyeSessionResult::SessionAlreadyExists => {
                 Err(message_error("Session already exists"))
+            }
+        }
+    }
+
+    async fn add_color_filter(
+        &self,
+        ctx: &Context<'_>,
+        session_id: String,
+        color: RgbColorInputGql,
+        threshold_for_color: RgbColorInputGql,
+    ) -> Result<bool> {
+        let service = app_state(ctx)?.service;
+        let mut service = service.lock().await;
+        match service.add_color_filter(&session_id, color.into(), threshold_for_color.into()) {
+            AddColorFilterResult::Success => Ok(true),
+            AddColorFilterResult::SessionNotFound => Err(message_error("Session not found")),
+            AddColorFilterResult::SessionTypeDoesNotSupportColorFilters => {
+                Err(message_error("Session type does not support color filters"))
             }
         }
     }

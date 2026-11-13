@@ -7,9 +7,10 @@
 )]
 
 use crate::service::{
-    CreateEyeSessionResult, CreateObjectSessionResult, CreateOrdinarySessionResult,
-    GetRectanglesCalculation, GetRectanglesRequest, GetRectanglesResult, GetTrianglesCalculation,
-    ProcessThreeDTriangleFrameResult, Service, ThreeDTriangleCalibration, ThreeDTriangleFrame,
+    AddColorFilterResult, CreateEyeSessionResult, CreateObjectSessionResult,
+    CreateOrdinarySessionResult, GetRectanglesCalculation, GetRectanglesRequest,
+    GetRectanglesResult, GetTrianglesCalculation, ProcessThreeDTriangleFrameResult, Service,
+    ThreeDTriangleCalibration, ThreeDTriangleFrame,
 };
 use crate::slices::{Rectangle, WrappedRgbImage};
 use clap::Parser;
@@ -275,16 +276,37 @@ pub(super) fn configure_service(
             id,
             basic_params,
             results,
-        } => match service.create_ordinary_session(
-            id,
-            basic_params.into_input(),
-            results.into_results(),
-        ) {
-            CreateOrdinarySessionResult::Success => Ok(()),
-            CreateOrdinarySessionResult::SessionAlreadyExists => {
-                Err(format!("session {id} already exists").into())
+            color_filters,
+        } => {
+            match service.create_ordinary_session(
+                id,
+                basic_params.into_input(),
+                results.into_results(),
+            ) {
+                CreateOrdinarySessionResult::Success => {}
+                CreateOrdinarySessionResult::SessionAlreadyExists => {
+                    return Err(format!("session {id} already exists").into());
+                }
             }
-        },
+            for filter in color_filters {
+                match service.add_color_filter(
+                    id,
+                    filter.color.into(),
+                    filter.threshold_for_color.into(),
+                ) {
+                    AddColorFilterResult::Success => {}
+                    AddColorFilterResult::SessionNotFound => {
+                        return Err(
+                            format!("session {id} not found while adding color filter").into()
+                        );
+                    }
+                    AddColorFilterResult::SessionTypeDoesNotSupportColorFilters => {
+                        return Err(format!("session {id} does not support color filters").into());
+                    }
+                }
+            }
+            Ok(())
+        }
         SessionConfig::Eye {
             id,
             basic_params,
@@ -1237,6 +1259,37 @@ mod tests {
             },
             vec![0],
         )
+    }
+
+    #[test]
+    fn ordinary_yaml_configures_color_filters_and_rejects_out_of_range_channels() {
+        let yaml = r"
+topics:
+  image: /camera/image
+session:
+  type: ordinary
+  id: colors
+  color_filters:
+    - color: { red: 255, green: 0, blue: 0 }
+      threshold_for_color: { red: 10, green: 20, blue: 30 }
+    - color: { red: 0, green: 255, blue: 0 }
+      threshold_for_color: { red: 1, green: 2, blue: 3 }
+";
+        let config: Ros2NodeConfig = serde_yaml::from_str(yaml).unwrap();
+        let mut service = Service::new();
+        configure_service(&mut service, &config).unwrap();
+        let filters = service
+            .get_ordinary_session("colors")
+            .unwrap()
+            .color_filters;
+        assert_eq!(filters.len(), 2);
+        assert_eq!(filters[0].color.red, 255);
+        assert_eq!(filters[0].threshold_for_color.green, 20);
+        assert_eq!(filters[1].color.green, 255);
+        assert_eq!(filters[1].threshold_for_color.blue, 3);
+        assert!(
+            serde_yaml::from_str::<Ros2NodeConfig>(&yaml.replace("red: 255", "red: 256")).is_err()
+        );
     }
 
     #[tokio::test]
