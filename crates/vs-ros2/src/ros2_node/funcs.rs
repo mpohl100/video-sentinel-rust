@@ -267,6 +267,31 @@ pub(super) fn output_header(input: &Header, output_frame_id: Option<&str>) -> He
     }
 }
 
+fn configure_color_filters(
+    service: &mut Service,
+    session_id: &str,
+    color_filters: &[super::session_config::ColorFilterYaml],
+) -> Result<(), Box<dyn Error>> {
+    for filter in color_filters {
+        match service.add_color_filter(
+            session_id,
+            filter.color.into(),
+            filter.threshold_for_color.into(),
+        ) {
+            AddColorFilterResult::Success => {}
+            AddColorFilterResult::SessionNotFound => {
+                return Err(
+                    format!("session {session_id} not found while adding color filter").into(),
+                );
+            }
+            AddColorFilterResult::SessionTypeDoesNotSupportColorFilters => {
+                return Err(format!("session {session_id} does not support color filters").into());
+            }
+        }
+    }
+    Ok(())
+}
+
 pub(super) fn configure_service(
     service: &mut Service,
     config: &Ros2NodeConfig,
@@ -288,24 +313,7 @@ pub(super) fn configure_service(
                     return Err(format!("session {id} already exists").into());
                 }
             }
-            for filter in color_filters {
-                match service.add_color_filter(
-                    id,
-                    filter.color.into(),
-                    filter.threshold_for_color.into(),
-                ) {
-                    AddColorFilterResult::Success => {}
-                    AddColorFilterResult::SessionNotFound => {
-                        return Err(
-                            format!("session {id} not found while adding color filter").into()
-                        );
-                    }
-                    AddColorFilterResult::SessionTypeDoesNotSupportColorFilters => {
-                        return Err(format!("session {id} does not support color filters").into());
-                    }
-                }
-            }
-            Ok(())
+            configure_color_filters(service, id, color_filters)
         }
         SessionConfig::Eye {
             id,
@@ -328,6 +336,7 @@ pub(super) fn configure_service(
             basic_params,
             results,
             object_detection_params,
+            color_filters,
             reference_objects,
         } => {
             match service.create_object_session(
@@ -342,6 +351,7 @@ pub(super) fn configure_service(
                 }
             }
 
+            configure_color_filters(service, id, color_filters)?;
             for reference_object in reference_objects {
                 match reference_object {
                     ReferenceObjectYaml::ImagePath {
@@ -377,7 +387,7 @@ pub(super) fn configure_service(
                             }
                             crate::service::AddObjectToBeDetectedResult::NoReferenceMosaicsDetected => {
                                 return Err(format!(
-                                    "reference image {} did not produce any reference mosaics inside the configured rectangle",
+                                    "reference image {} did not produce any reference mosaics matching the configured rectangle and color filters",
                                     image_path.display()
                                 )
                                 .into());
@@ -404,7 +414,7 @@ pub(super) fn configure_service(
                         }
                         crate::service::AddObjectToBeDetectedResult::NoReferenceMosaicsDetected => {
                             return Err(format!(
-                                "ASCII-art reference object `{object_id}` did not produce any reference mosaics"
+                                "ASCII-art reference object `{object_id}` did not produce any reference mosaics matching the configured color filters"
                             )
                             .into());
                         }
@@ -1290,6 +1300,50 @@ session:
         assert!(
             serde_yaml::from_str::<Ros2NodeConfig>(&yaml.replace("red: 255", "red: 256")).is_err()
         );
+    }
+
+    #[test]
+    fn object_yaml_applies_color_filters_before_loading_ascii_references() {
+        let yaml = r"
+topics:
+  image: /camera/image
+session:
+  type: object
+  id: colors
+  basic_params:
+    do_grayscale: false
+    gradient_threshold: 15
+  color_filters:
+    - color: { red: 255, green: 255, blue: 255 }
+      threshold_for_color: { red: 0, green: 0, blue: 0 }
+  reference_objects:
+    - source: ascii_art
+      object_id: square
+      ascii_art: |
+        #######
+        #######
+        #######
+        #######
+        #######
+        #######
+        #######
+";
+        let config: Ros2NodeConfig = serde_yaml::from_str(yaml).unwrap();
+        let mut service = Service::new();
+        configure_service(&mut service, &config).unwrap();
+        let object = service.get_object_session("colors").unwrap();
+        assert_eq!(object.color_filters.len(), 1);
+        let mosaics = object.objects_to_be_detected[0].get_mosaics(usize::MAX);
+        assert!(!mosaics.is_empty());
+        assert!(mosaics.iter().all(|m| {
+            let color = m.get_relative_mosaic().get_mosaic().get_average_color();
+            color.x >= 254.5 && color.y >= 254.5 && color.z >= 254.5
+        }));
+
+        let rejected = yaml.replace("green: 255, blue: 255", "green: 0, blue: 0");
+        let config: Ros2NodeConfig = serde_yaml::from_str(&rejected).unwrap();
+        let error = configure_service(&mut Service::new(), &config).unwrap_err();
+        assert!(error.to_string().contains("color filters"));
     }
 
     #[tokio::test]

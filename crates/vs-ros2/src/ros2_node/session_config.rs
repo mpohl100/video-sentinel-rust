@@ -73,6 +73,8 @@ pub(super) enum SessionConfig {
         #[serde(default)]
         results: ResultsModeYaml,
         #[serde(default)]
+        color_filters: Vec<ColorFilterYaml>,
+        #[serde(default)]
         object_detection_params: ObjectDetectionParamsYaml,
         #[serde(default)]
         reference_objects: Vec<ReferenceObjectYaml>,

@@ -830,6 +830,91 @@ async fn ordinary_color_filters_select_colored_shapes() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn object_color_filters_apply_to_reference_and_candidates_via_graphql() {
+    let server = TestServer::spawn().await;
+    let session_id = "object-colors";
+    assert_bool_success(
+        &server
+            .graphql_json(
+                CREATE_OBJECT_SESSION,
+                "CreateObjectSession",
+                json!({
+                    "sessionId": session_id,
+                    "basicParams": basic_params_json(false, 15),
+                    "objectDetectionParams": object_detection_params_json(0.2, 0.2, 0.5, 36, 0.8),
+                    "results": "ABSOLUTE"
+                }),
+            )
+            .await,
+        "createObjectSession",
+    );
+    let filter = |color: Value| {
+        json!({
+            "sessionId": session_id, "color": color,
+            "threshold": {"red": 30, "green": 30, "blue": 30}
+        })
+    };
+    assert_bool_success(
+        &server
+            .graphql_json(
+                ADD_COLOR_FILTER,
+                "AddColorFilter",
+                filter(json!({"red":255,"green":0,"blue":0})),
+            )
+            .await,
+        "addColorFilter",
+    );
+
+    let image = WrappedRgbImage::new_with_color(100, 50, [0, 0, 0]);
+    image.fill_polygon(&[(10, 10), (30, 10), (30, 30), (10, 30)], [255, 0, 0]);
+    image.fill_polygon(&[(60, 10), (80, 10), (80, 30), (60, 30)], [0, 255, 0]);
+    let frame = ExampleFrame {
+        jpeg: jpeg_bytes_from_image(&image),
+        width: 100,
+        height: 50,
+    };
+    assert_bool_success(
+        &add_object_as_image(
+            &server,
+            session_id,
+            "square",
+            &frame.jpeg,
+            full_frame_rectangle_json(&frame),
+        )
+        .await,
+        "addObjectToBeDetectedAsImage",
+    );
+    let red = get_rectangles(&server, session_id, &frame).await;
+    assert_no_errors(&red);
+    let red = data(&red, "getRectangles").as_array().unwrap();
+    assert!(!red.is_empty(), "expected a red object detection");
+    assert!(
+        red.iter()
+            .all(|m| m["averageColor"]["red"].as_u64().unwrap() >= 225)
+    );
+
+    assert_bool_success(
+        &server
+            .graphql_json(
+                ADD_COLOR_FILTER,
+                "AddColorFilter",
+                filter(json!({"red":0,"green":255,"blue":0})),
+            )
+            .await,
+        "addColorFilter",
+    );
+    let both = get_rectangles(&server, session_id, &frame).await;
+    assert_no_errors(&both);
+    let both = data(&both, "getRectangles").as_array().unwrap();
+    assert!(both.len() > red.len());
+    assert!(
+        both.iter()
+            .any(|m| m["averageColor"]["green"].as_u64().unwrap() >= 225)
+    );
+    server.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn ordinary_session_graphql_roundtrip_covers_success_and_unsupported_operations() {
     let frames = example_frames();
     let server = TestServer::spawn().await;

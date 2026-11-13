@@ -29,6 +29,7 @@ use super::{
     ObjectSession, OrdinarySession, RgbColor, Session, TargetSimilarityUpdateResult,
     ThreeDTriangleCalibration, TileParamsInput, TileParamsUpdateResult, TraceParamsInput,
     TraceParamsUpdateResult, UpdateBasicParamsResult, calculate_ordinary_mosaics,
+    mosaic_matches_color_filters,
 };
 
 struct ThreeDTriangleSession {
@@ -126,7 +127,7 @@ impl Service {
         CreateOrdinarySessionResult::Success
     }
 
-    /// Adds an inclusive per-channel RGB tolerance filter to an ordinary session.
+    /// Adds an inclusive per-channel RGB tolerance filter to an ordinary or object session.
     pub fn add_color_filter(
         &mut self,
         session_id: &str,
@@ -135,6 +136,13 @@ impl Service {
     ) -> AddColorFilterResult {
         match self.sessions.get_mut(session_id) {
             Some(Session::Ordinary(session)) => {
+                session.color_filters.push(ColorFilter {
+                    color,
+                    threshold_for_color,
+                });
+                AddColorFilterResult::Success
+            }
+            Some(Session::Object(session)) => {
                 session.color_filters.push(ColorFilter {
                     color,
                     threshold_for_color,
@@ -223,6 +231,7 @@ impl Service {
                 basic_params,
                 object_detection_params,
                 objects_to_be_detected: vec![],
+                color_filters: Vec::new(),
                 results,
                 calculation: std::sync::Arc::new(
                     super::get_rectangles_request::SessionCalculation::new(),
@@ -450,6 +459,7 @@ impl Service {
                             let bounding_box =
                                 Rectangle::new_from_math_rectangle(&global_bounding_box);
                             bounding_box.overlaps(&surrounding_rectangle)
+                                && mosaic_matches_color_filters(mosaic, &object_session.color_filters)
                         })
                         .map(|mosaic| TracedRelativeMosaic::new(
                             WrappedRelativeMosaic::new(mosaic.get_mosaic(), math_rectangle.clone()),
