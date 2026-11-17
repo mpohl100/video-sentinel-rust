@@ -215,7 +215,7 @@ mod tests {
     }
 
     #[test]
-    fn deduce_color_currently_returns_blue_for_both_overlap_cases() {
+    fn deduce_color_currently_returns_red_for_disjoint_and_blue_for_overlap_cases() {
         let overlapping = deduce_color(
             Rectangle::new(Vec3d::new(0.0, 0.0, 0.0), Vec3d::new(4.0, 4.0, 0.0)),
             Rectangle::new(Vec3d::new(2.0, 2.0, 0.0), Vec3d::new(6.0, 6.0, 0.0)),
@@ -226,7 +226,7 @@ mod tests {
         );
 
         assert!(overlapping == Color::Blue);
-        assert!(disjoint == Color::Blue);
+        assert!(disjoint == Color::Red);
     }
 
     #[test]
