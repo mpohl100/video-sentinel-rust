@@ -162,8 +162,11 @@ pub(super) fn deduce_color(
     previous_bounding_box: Rectangle,
     next_bounding_box: Rectangle,
 ) -> Color {
-    let _overlaps = previous_bounding_box.overlaps(&next_bounding_box);
-    Color::Blue
+    let overlaps = previous_bounding_box.overlaps(&next_bounding_box);
+    if overlaps {
+        return Color::Blue;
+    }
+    Color::Red
 }
 
 pub(super) fn are_mosaics_similar(
