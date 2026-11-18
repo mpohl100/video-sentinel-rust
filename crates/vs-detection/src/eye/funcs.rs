@@ -166,7 +166,7 @@ pub(super) fn deduce_color(
     if overlaps {
         return Color::Blue;
     }
-    Color::Red
+    Color::Green
 }
 
 pub(super) fn are_mosaics_similar(
