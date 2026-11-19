@@ -1,3 +1,4 @@
+use rs_math3d::FloatVector;
 use vs_math::math::AnonymizedCoordinateSystem;
 use vs_math::math::CoordinatedCircle;
 use vs_math::math::CoordinatedLine;
@@ -85,8 +86,46 @@ impl RingSector {
         let intersection_point_right = right_line.get_intersection_point(&x_axis_line);
 
         // two of the above calculations should contains some coordinate and return the coordinated line of those 
+        // concatenate all intersection points into a single vector
+        let mut all_intersection_points = Vec::new();
+        all_intersection_points.extend(intersection_points_top_partial_circle);
+        all_intersection_points.extend(intersection_points_bottom_partial_circle);
+        if let Some(point) = intersection_point_left {
+            all_intersection_points.push(point);
+        }
+        if let Some(point) = intersection_point_right {
+            all_intersection_points.push(point);
+        }
 
-        Some(CoordinatedLine::new(top_left, bottom_right))
+        if all_intersection_points.len() < 2 {
+            return None;
+        }
+        else if all_intersection_points.len() > 2 {
+            // if there are more than 2 intersection points, return the line connecting the first and last points
+            // calculate the magintude of the vectors between all intersection points and return the line connecting the two points with the largest distance
+            let mut max_distance = 0.0;
+            let mut line = None;
+            for i in 0..all_intersection_points.len() {
+                for j in i+1..all_intersection_points.len() {
+                    let distance = (all_intersection_points[i].get_local_point() - all_intersection_points[j].get_local_point()).length();
+                    if distance > max_distance {
+                        max_distance = distance;
+                        line = Some(CoordinatedLine::new(
+                            all_intersection_points[i].clone(),
+                            all_intersection_points[j].clone(),
+                        ));
+                    }
+                }
+            }
+            return line;
+        }
+        else if all_intersection_points.len() == 2 {
+            return Some(CoordinatedLine::new(
+                all_intersection_points[0].clone(),
+                all_intersection_points[1].clone(),
+            ));
+        }
+        None
     }
 
     fn get_top_left_cartesian(&self) -> CoordinatedPoint {
