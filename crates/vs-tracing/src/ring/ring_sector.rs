@@ -3,8 +3,10 @@ use vs_math::math::CoordinatedCircle;
 use vs_math::math::CoordinatedLine;
 use vs_math::math::CoordinatedPoint;
 use vs_math::math::CoordinatedRegionedAngle;
+use vs_math::math::CoordinatedPartialCircle;
 use vs_math::math::PolarCoordinates;
-use vs_math::math::Vec3d;
+
+use rs_math3d::Vec3d;
 
 #[derive(Clone)]
 pub struct RingSector {
@@ -51,7 +53,7 @@ impl RingSector {
         let bottom_left = self
             .get_bottom_left_cartesian()
             .convert_to(coordinate_system.duplicate());
-        let nb_points_with_positive_x = [top_left, bottom_right, top_right, bottom_left]
+        let nb_points_with_positive_x = [top_left.clone(), bottom_right.clone(), top_right.clone(), bottom_left.clone()]
             .iter()
             .filter(|p| p.get_x() > 0.0)
             .count();
@@ -59,23 +61,28 @@ impl RingSector {
         if nb_points_with_positive_x == 0 || nb_points_with_positive_x == 4 {
             return None;
         }
+
+        let coordinated_start_angle = self.top_left.get_angle();
+        let coordinated_end_angle = self.bottom_right.get_angle();
         // calculate the intersection of the top partial circle with the x-axis as an Option<f64>
         let top_circle = CoordinatedCircle::new(CoordinatedPoint::new(self.top_left.get_coordinate_system(), Vec3d::new(0.0, 0.0, 0.0)), self.top_left.get_radius());
         let x_axis_line = CoordinatedLine::new(
             CoordinatedPoint::new(coordinate_system.duplicate(), Vec3d::new(0.0, 0.0, 0.0)),
             CoordinatedPoint::new(coordinate_system.duplicate(), Vec3d::new(10000.0, 0.0, 0.0)),
         );
-        let intersection_line_top_circle = top_circle.get_intersection_line(&x_axis_line);
+        let top_partial_circle = CoordinatedPartialCircle::new(top_circle.clone(), coordinated_start_angle.clone(), coordinated_end_angle.clone());
+        let intersection_points_top_partial_circle = top_partial_circle.get_intersection_points(&x_axis_line);
         // calculate the intersection of the bottom partial circle with the x-axis as an Option<f64>
         let bottom_circle = CoordinatedCircle::new(CoordinatedPoint::new(self.bottom_right.get_coordinate_system(), Vec3d::new(0.0, 0.0, 0.0)), self.bottom_right.get_radius());
-        let intersection_line_bottom_circle = bottom_circle.get_intersection_line(&x_axis_line);
+        let bottom_partial_circle = CoordinatedPartialCircle::new(bottom_circle.clone(), coordinated_start_angle, coordinated_end_angle);
+        let intersection_points_bottom_partial_circle = bottom_partial_circle.get_intersection_points(&x_axis_line);
 
         // calculate the intersection of the left line of the ring sector with the x-axis as an Option<f64>
-        let left_line = CoordinatedLine::new(top_left, bottom_left);
-        let intersection_line_left = left_line.get_intersection_point(&x_axis_line);
+        let left_line = CoordinatedLine::new(top_left.clone(), bottom_left.clone());
+        let intersection_point_left = left_line.get_intersection_point(&x_axis_line);
         // calculate the intersection of the right line of the ring sector with the x-axis as an Option<f64>
-        let right_line = CoordinatedLine::new(top_right, bottom_right);
-        let intersection_line_right = right_line.get_intersection_point(&x_axis_line);
+        let right_line = CoordinatedLine::new(top_right.clone(), bottom_right.clone());
+        let intersection_point_right = right_line.get_intersection_point(&x_axis_line);
 
         // two of the above calculations should contains some coordinate and return the coordinated line of those 
 
