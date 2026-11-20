@@ -7,6 +7,7 @@ mod tagged_ratio;
 mod trace;
 mod trace_params;
 mod wrapped_trace;
+mod skeleton;
 
 pub use funcs::set_trace_debug;
 #[cfg(test)]
@@ -24,3 +25,4 @@ use tagged_ratio::TaggedRatio;
 pub use trace::Trace;
 pub use trace_params::TraceParams;
 pub use wrapped_trace::WrappedTrace;
+pub use skeleton::Skeleton;
