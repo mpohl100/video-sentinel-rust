@@ -38,9 +38,17 @@ impl RingSector {
         }
     }
 
+    pub fn get_area(&self) -> f64 {
+        let top_left_radius = self.top_left.get_radius();
+        let bottom_right_radius = self.bottom_right.get_radius();
+        let angle_diff = self.top_left.get_angle().get_angle_degrees() - self.bottom_right.get_angle().get_angle_degrees();
+        (top_left_radius.powi(2) - bottom_right_radius.powi(2)) * angle_diff.to_radians().abs() * 0.5
+    }
+
     pub fn get_intersection_with_x_axis(
         &self,
         coordinate_system: AnonymizedCoordinateSystem,
+        radius: f64,
     ) -> Option<CoordinatedLine> {
         let top_left = self
             .get_top_left_cartesian()
@@ -54,14 +62,6 @@ impl RingSector {
         let bottom_left = self
             .get_bottom_left_cartesian()
             .convert_to(coordinate_system.duplicate());
-        let nb_points_with_positive_x = [top_left.clone(), bottom_right.clone(), top_right.clone(), bottom_left.clone()]
-            .iter()
-            .filter(|p| p.get_x() > 0.0)
-            .count();
-
-        if nb_points_with_positive_x == 0 || nb_points_with_positive_x == 4 {
-            return None;
-        }
 
         let coordinated_start_angle = self.top_left.get_angle();
         let coordinated_end_angle = self.bottom_right.get_angle();
@@ -69,7 +69,7 @@ impl RingSector {
         let top_circle = CoordinatedCircle::new(CoordinatedPoint::new(self.top_left.get_coordinate_system(), Vec3d::new(0.0, 0.0, 0.0)), self.top_left.get_radius());
         let x_axis_line = CoordinatedLine::new(
             CoordinatedPoint::new(coordinate_system.duplicate(), Vec3d::new(0.0, 0.0, 0.0)),
-            CoordinatedPoint::new(coordinate_system.duplicate(), Vec3d::new(10000.0, 0.0, 0.0)),
+            CoordinatedPoint::new(coordinate_system.duplicate(), Vec3d::new(radius, 0.0, 0.0)),
         );
         let top_partial_circle = CoordinatedPartialCircle::new(top_circle.clone(), coordinated_start_angle.clone(), coordinated_end_angle.clone());
         let intersection_points_top_partial_circle = top_partial_circle.get_intersection_points(&x_axis_line);

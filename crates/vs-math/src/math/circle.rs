@@ -6,7 +6,6 @@
     clippy::unused_async_trait_impl
 )]
 
-use crate::math::Line;
 use crate::math::RegionedAngle;
 use crate::math::get_circle_line_intersection_points;
 use rs_math3d::{FloatVector, Vec3d};

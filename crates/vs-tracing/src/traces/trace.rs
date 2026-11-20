@@ -19,13 +19,14 @@ use std::fmt::Write as _;
 use super::{
     RatioLine, TraceParams, calculate_center_of_mass, calculate_total_mass,
     calculate_total_surrounding_circle_area, compare_with_rotation, deduce_longest_radius,
-    deduce_slices_from_mosaic, f64_from_usize, trace_debug_enabled,
+    deduce_slices_from_mosaic, f64_from_usize, trace_debug_enabled, deduce_slices_from_pizza,
 };
 
 #[derive(Clone)]
 enum TraceSource {
     Single(WrappedMosaic),
     Multiple(Vec<WrappedMosaic>),
+    Pizza,
 }
 
 #[derive(Clone)]
@@ -95,6 +96,19 @@ impl Trace {
         }
     }
 
+    pub fn new_from_pizza(skeleton: Skeleton, pizza: &Pizza) -> Self {
+        let ratio_lines = Self::ratio_lines_from_pizza(&skeleton, pizza);
+        Self {
+            source: Some(TraceSource::Pizza),
+            params: TraceParams::new(skeleton.num_skeleton()),
+            skeleton: skeleton.clone(),
+            ratio_lines,
+            ratio_lines_populated: true,
+            total_mass: pizza.get_area(),
+            total_surrounding_circle_area: skeleton.get_area(),
+        }
+    }
+
     #[cfg(test)]
     pub(super) fn ratio_lines_populated(&self) -> bool {
         self.ratio_lines_populated
@@ -110,11 +124,37 @@ impl Trace {
             Some(TraceSource::Multiple(mosaics)) => {
                 Self::ratio_lines_from_mosaics(mosaics, self.params)
             }
+            Some(TraceSource::Pizza) => {
+                let skeleton = self.skeleton.clone();
+                let ratio_lines = self.ratio_lines.clone();
+                (skeleton, ratio_lines)
+            }
             None => (Skeleton::default(), Vec::new()),
         };
         self.skeleton = skeleton;
         self.ratio_lines = ratio_lines;
         self.ratio_lines_populated = true;
+    }
+
+    fn ratio_lines_from_pizza(skeleton: &Skeleton, pizza: &Pizza) -> Vec<RatioLine> {
+        let base_coordinate_system = skeleton.get_coordinate_system();
+        (0..skeleton.num_skeleton())
+            .map(|i| {
+                let coordinated_regioned_angle = CoordinatedRegionedAngle::new(
+                    base_coordinate_system.duplicate(),
+                    RegionedAngle::new(
+                        f64_from_usize(i) * (360.0 / f64_from_usize(skeleton.num_skeleton())),
+                        0.0,
+                        360.0,
+                    ),
+                );
+                RatioLine::new(deduce_slices_from_pizza(
+                    pizza,
+                    &coordinated_regioned_angle,
+                    skeleton.get_radius(),
+                ))
+            })
+            .collect()
     }
 
     fn ratio_lines_from_mosaic(

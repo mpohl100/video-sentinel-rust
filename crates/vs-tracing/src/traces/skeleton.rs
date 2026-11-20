@@ -37,4 +37,20 @@ impl Skeleton {
             radius,
         }
     }
+
+    pub fn num_skeleton(&self) -> usize {
+        (360.0 / self.delta_angle) as usize
+    }
+
+    pub fn get_area(&self) -> f64 {
+        std::f64::consts::PI * self.radius.powi(2)
+    }
+
+    pub fn get_coordinate_system(&self) -> AnonymizedCoordinateSystem {
+        self.coordinate_system.duplicate()
+    }
+
+    pub fn get_radius(&self) -> f64 {
+        self.radius
+    }
 }
