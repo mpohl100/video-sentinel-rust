@@ -11,6 +11,7 @@ use crate::math::CoordinateSystem;
 use crate::math::CoordinatedRegionedAngle;
 use crate::math::RegionedAngle;
 use crate::mosaics::WrappedMosaic;
+use crate::ring::Pizza;
 use rs_math3d::Vec3d;
 use std::fmt::Write as _;
 
@@ -172,6 +173,25 @@ impl Trace {
                 ))
             })
             .collect()
+    }
+
+    pub fn to_pizza(&self) -> Pizza {
+        let mut pizza = Pizza::new(Vec::new());
+        let delta_angle_degrees = 360.0 / f64_from_usize(self.ratio_lines.len());
+        for ratio_line in &self.ratio_lines {
+            for slice in ratio_line.slices() {
+                let coordinated_regioned_delta_angle = CoordinatedRegionedAngle::new(
+                    slice
+                        .get_start()
+                        .get_angle()
+                        .get_coordinate_system()
+                        .duplicate(),
+                    RegionedAngle::new(delta_angle_degrees, -180.0, 180.0),
+                );
+                pizza.add_ring_sector(slice.get_ring_sector(coordinated_regioned_delta_angle).clone());
+            }
+        }
+        pizza
     }
 
     #[must_use]

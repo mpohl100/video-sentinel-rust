@@ -80,4 +80,9 @@ impl CoordinatedRegionedAngle {
     pub fn get_max_degrees(&self) -> f64 {
         self.regioned_angle.max_degrees
     }
+
+    pub fn add_angle(&self, angle: RegionedAngle) -> CoordinatedRegionedAngle {
+        let new_regioned_angle = self.regioned_angle.add_angle(angle);
+        CoordinatedRegionedAngle::new(self.coordinate_system.clone(), new_regioned_angle)
+    }
 }
