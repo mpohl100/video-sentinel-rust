@@ -8,6 +8,9 @@
 
 use rs_math3d::{FloatVector, Vec3d};
 
+use crate::math::CoordinatedRegionedAngle;
+use crate::math::circle::PartialCircle;
+
 use super::{
     AnonymizedCoordinateSystem, Circle, CoordinateSystem, CoordinatedLine, CoordinatedPoint,
     CoordinatedRectangle, get_circle_line_intersection_points,
@@ -117,5 +120,49 @@ impl CoordinatedCircle {
         } else {
             None
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct CoordinatedPartialCircle {
+    circle: CoordinatedCircle,
+    start_angle: CoordinatedRegionedAngle,
+    end_angle: CoordinatedRegionedAngle,
+}
+
+impl CoordinatedPartialCircle {
+    #[must_use]
+    pub fn new(
+        circle: CoordinatedCircle,
+        start_angle: CoordinatedRegionedAngle,
+        end_angle: CoordinatedRegionedAngle,
+    ) -> Self {
+        Self {
+            circle,
+            start_angle,
+            end_angle,
+        }
+    }
+
+    pub fn get_intersection_points(&self, line: &CoordinatedLine) -> Vec<CoordinatedPoint> {
+        let global_circle = self.circle.to_global_circle();
+        let global_line = line.to_global_line();
+        let global_coordinate_system =
+            AnonymizedCoordinateSystem::new_direct(CoordinateSystem::new(
+                Vec3d::new(0.0, 0.0, 0.0),
+                Vec3d::new(1.0, 0.0, 0.0),
+                Vec3d::new(0.0, 1.0, 0.0),
+            ));
+        let start_angle = self.start_angle.convert_to(global_coordinate_system.clone()).get_regioned_angle();
+        let end_angle = self.end_angle.convert_to(global_coordinate_system.clone()).get_regioned_angle();
+        let partial_circle = PartialCircle::new(global_circle, start_angle, end_angle);
+        let intersection_points_raw = partial_circle.get_intersection_points(&global_line);
+        intersection_points_raw
+            .iter()
+            .map(|p| {
+                let point = CoordinatedPoint::new(global_coordinate_system.clone(), *p);
+                point.convert_to(line.start().coordinate_system().clone())
+            })
+            .collect::<Vec<_>>()
     }
 }

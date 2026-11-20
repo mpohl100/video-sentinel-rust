@@ -16,8 +16,10 @@ mod wrapped_coordinate_system;
 
 pub use anonymized_coordinate_system::AnonymizedCoordinateSystem;
 pub use circle::Circle;
+pub use circle::PartialCircle;
 pub use coordinate_system::CoordinateSystem;
 pub use coordinated_circle::CoordinatedCircle;
+pub use coordinated_circle::CoordinatedPartialCircle;
 pub use coordinated_line::CoordinatedLine;
 pub use coordinated_point::CoordinatedPoint;
 pub use coordinated_rectangle::CoordinatedRectangle;

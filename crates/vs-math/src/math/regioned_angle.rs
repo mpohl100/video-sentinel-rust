@@ -62,6 +62,10 @@ impl RegionedAngle {
         self.angle_degrees.to_radians()
     }
 
+    pub fn get_angle(&self) -> f64 {
+        self.angle_degrees
+    }
+
     #[must_use]
     pub fn get_min_degrees(&self) -> f64 {
         self.min_degrees
