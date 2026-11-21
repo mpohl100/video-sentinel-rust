@@ -53,4 +53,8 @@ impl Skeleton {
     pub fn get_radius(&self) -> f64 {
         self.radius
     }
+
+    pub fn get_delta_angle_degrees(&self) -> f64 {
+        self.delta_angle
+    }
 }

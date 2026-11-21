@@ -12,14 +12,18 @@ use crate::math::CoordinatedRegionedAngle;
 use crate::math::RegionedAngle;
 use crate::mosaics::WrappedMosaic;
 use crate::ring::Pizza;
+use crate::traces::PolarSlice;
 use crate::traces::Skeleton;
+use crate::traces::Tag;
 use rs_math3d::Vec3d;
 use std::fmt::Write as _;
+use vs_math::math::PolarCoordinates;
 
 use super::{
     RatioLine, TraceParams, calculate_center_of_mass, calculate_total_mass,
     calculate_total_surrounding_circle_area, compare_with_rotation, deduce_longest_radius,
-    deduce_slices_from_mosaic, f64_from_usize, trace_debug_enabled, deduce_slices_from_pizza,
+    deduce_slices_from_mosaic, deduce_slices_from_pizza, f64_from_usize, get_overlaps,
+    trace_debug_enabled,
 };
 
 #[derive(Clone)]
@@ -27,6 +31,12 @@ enum TraceSource {
     Single(WrappedMosaic),
     Multiple(Vec<WrappedMosaic>),
     Pizza,
+}
+
+#[derive(Clone)]
+enum CombineType {
+    Add,
+    Subtract,
 }
 
 #[derive(Clone)]
@@ -109,9 +119,72 @@ impl Trace {
         }
     }
 
+    pub fn add_trace(&mut self, other_trace: Trace) {
+        // the caller needs to ensure that both skeletons match if they want that
+        self.ratio_lines = Self::combine_ratio_lines(&self.ratio_lines, &other_trace.ratio_lines, &self.skeleton, CombineType::Add);
+    }
+
+    pub fn subtract_trace(&mut self, other_trace: Trace) {
+        // the caller needs to ensure that both skeletons match if they want that
+        self.ratio_lines = Self::combine_ratio_lines(&self.ratio_lines, &other_trace.ratio_lines, &self.skeleton, CombineType::Subtract);
+    }
+
     #[cfg(test)]
     pub(super) fn ratio_lines_populated(&self) -> bool {
         self.ratio_lines_populated
+    }
+
+    fn combine_ratio_lines(this_ratio_lines: &[RatioLine], other_ratio_lines: &[RatioLine], skeleton: &Skeleton, combine_type: CombineType) -> Vec<RatioLine> {
+        let mut combined_ratio_lines = Vec::with_capacity(this_ratio_lines.len());
+        let coordinate_system = skeleton.get_coordinate_system();
+        for (i, (this_ratio_line, other_ratio_line)) in this_ratio_lines
+            .iter()
+            .zip(other_ratio_lines.iter())
+            .enumerate()
+        {
+            let angle_degrees = skeleton.get_delta_angle_degrees() * i as f64;
+            let regioned_angle = RegionedAngle::new(angle_degrees, 0.0, 360.0);
+            let coordinated_regioned_angle =
+                CoordinatedRegionedAngle::new(coordinate_system.clone(), regioned_angle);
+            combined_ratio_lines.push(Self::combine_ratio_line(
+                this_ratio_line,
+                other_ratio_line,
+                &coordinated_regioned_angle,
+                combine_type.clone(),
+            ));
+        }
+        combined_ratio_lines
+    }
+
+    fn combine_ratio_line(
+        ratio_line1: &RatioLine,
+        ratio_line2: &RatioLine,
+        coordinated_regioned_angle: &CoordinatedRegionedAngle,
+        combine_type: CombineType,
+    ) -> RatioLine {
+        let overlaps = get_overlaps(ratio_line1, ratio_line2);
+        let filled_overlaps = overlaps.iter().filter(|overlap| {
+            match combine_type {
+                CombineType::Add => {
+                    overlap.left_tag() == Tag::Filled || overlap.right_tag() == Tag::Filled
+                }
+                CombineType::Subtract => {
+                    overlap.left_tag() == Tag::Filled && overlap.right_tag() == Tag::Empty
+                }
+            }
+        });
+        let polar_slices: Vec<_> = filled_overlaps
+            .map(|overlap| {
+                let polar_coordinates_start = PolarCoordinates::new(
+                    overlap.ratio().from(),
+                    coordinated_regioned_angle.clone(),
+                );
+                let polar_coordinates_end =
+                    PolarCoordinates::new(overlap.ratio().to(), coordinated_regioned_angle.clone());
+                PolarSlice::new(polar_coordinates_start, polar_coordinates_end)
+            })
+            .collect();
+        RatioLine::new(polar_slices)
     }
 
     /// Computes and caches the ratio lines. Does nothing if already populated.
@@ -200,7 +273,10 @@ impl Trace {
         (skeleton, ratio_lines)
     }
 
-    fn ratio_lines_from_mosaics(mosaics: &[WrappedMosaic], params: TraceParams) -> (Skeleton, Vec<RatioLine>) {
+    fn ratio_lines_from_mosaics(
+        mosaics: &[WrappedMosaic],
+        params: TraceParams,
+    ) -> (Skeleton, Vec<RatioLine>) {
         let global_coordinate_system = AnonymizedCoordinateSystem::Direct(CoordinateSystem::new(
             Vec3d::new(0.0, 0.0, 0.0),
             Vec3d::new(1.0, 0.0, 0.0),
@@ -214,11 +290,8 @@ impl Trace {
             Vec3d::new(0.0, 1.0, 0.0),
         ));
         let longest_radius = deduce_longest_radius(mosaics, &center_of_mass);
-        let skeleton = Skeleton::new_from_trace_params(
-            coordinate_system.duplicate(),
-            params,
-            longest_radius,
-        );
+        let skeleton =
+            Skeleton::new_from_trace_params(coordinate_system.duplicate(), params, longest_radius);
         let ratio_lines = (0..params.num_skeleton())
             .map(|i| {
                 let coordinated_regioned_angle = CoordinatedRegionedAngle::new(
