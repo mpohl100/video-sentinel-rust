@@ -13,13 +13,13 @@ use crate::math::CoordinatedRegionedAngle;
 use crate::ring::RingSector;
 
 #[derive(Clone)]
-pub(super) struct PolarSlice {
+pub struct PolarSlice {
     start: PolarCoordinates,
     end: PolarCoordinates,
 }
 
 impl PolarSlice {
-    pub(super) fn new(start: PolarCoordinates, end: PolarCoordinates) -> Self {
+    pub fn new(start: PolarCoordinates, end: PolarCoordinates) -> Self {
         if start.get_radius() < end.get_radius() {
             PolarSlice { start, end }
         } else {
@@ -30,11 +30,11 @@ impl PolarSlice {
         }
     }
 
-    pub(super) fn get_start(&self) -> &PolarCoordinates {
+    pub fn get_start(&self) -> &PolarCoordinates {
         &self.start
     }
 
-    pub(super) fn get_end(&self) -> &PolarCoordinates {
+    pub fn get_end(&self) -> &PolarCoordinates {
         &self.end
     }
 

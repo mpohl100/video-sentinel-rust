@@ -9,16 +9,16 @@
 use super::PolarSlice;
 
 #[derive(Clone)]
-pub(super) struct RatioLine {
+pub struct RatioLine {
     slices: Vec<PolarSlice>,
 }
 
 impl RatioLine {
-    pub(super) fn new(slices: Vec<PolarSlice>) -> Self {
+    pub fn new(slices: Vec<PolarSlice>) -> Self {
         Self { slices }
     }
 
-    pub(super) fn slices(&self) -> &Vec<PolarSlice> {
+    pub fn slices(&self) -> &Vec<PolarSlice> {
         &self.slices
     }
 }
