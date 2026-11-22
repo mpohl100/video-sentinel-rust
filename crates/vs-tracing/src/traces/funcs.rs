@@ -14,6 +14,7 @@ use crate::math::CoordinatedRegionedAngle;
 use crate::math::PolarCoordinates;
 use crate::math::Rectangle;
 use crate::mosaics::WrappedMosaic;
+use crate::ring::Pizza;
 use num_traits::ToPrimitive;
 use rs_math3d::Vec3d;
 use smallvec::SmallVec;
@@ -283,6 +284,26 @@ pub(super) fn deduce_slices_from_mosaic(
         x += step;
     }
     combine_close_slices(&slices)
+}
+
+pub fn deduce_slices_from_pizza(
+    pizza: &Pizza,
+    coordinated_regioned_angle: &CoordinatedRegionedAngle,
+    radius: f64,
+) -> Vec<PolarSlice> {
+    let contained_lines = pizza.get_contained_lines(coordinated_regioned_angle, radius);
+    let mut polar_slices =contained_lines.iter().map(|line| {
+        let polar_start = PolarCoordinates::new(line.get_start().get_x(), coordinated_regioned_angle.clone());
+        let polar_end = PolarCoordinates::new(line.get_end().get_x(), coordinated_regioned_angle.clone());
+        PolarSlice::new(polar_start, polar_end)
+    }).map(Some).collect::<Vec<Option<PolarSlice>>>();
+    polar_slices.sort_by(|l, r| {
+        let l_start = l.as_ref().map(|s| s.get_start().get_radius()).unwrap_or(0.0);
+        let r_start = r.as_ref().map(|s| s.get_start().get_radius()).unwrap_or(0.0);
+        l_start.partial_cmp(&r_start).unwrap()
+    });
+
+    combine_close_slices(&polar_slices)
 }
 
 pub(super) fn combine_close_slices(slices: &[Option<PolarSlice>]) -> Vec<PolarSlice> {

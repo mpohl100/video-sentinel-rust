@@ -7,3 +7,4 @@ pub(crate) use vs_math::math;
 
 pub mod traced_mosaics;
 pub mod traces;
+pub mod ring;
