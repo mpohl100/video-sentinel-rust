@@ -24,6 +24,7 @@ use super::{
 enum CombineType {
     Add,
     Subtract,
+    Intersect,
 }
 
 #[derive(Clone)]
@@ -87,6 +88,11 @@ impl AbsoluteTrace {
         &self.ratio_lines
     }
 
+    pub fn intersect_trace(&mut self, other_trace: AbsoluteTrace) {
+        // the caller needs to ensure that both skeletons match if they want that
+        self.ratio_lines = Self::combine_ratio_lines(&self.ratio_lines, &other_trace.ratio_lines, &self.skeleton, CombineType::Intersect);
+    }
+
     pub fn add_trace(&mut self, other_trace: AbsoluteTrace) {
         // the caller needs to ensure that both skeletons match if they want that
         self.ratio_lines = Self::combine_ratio_lines(&self.ratio_lines, &other_trace.ratio_lines, &self.skeleton, CombineType::Add);
@@ -133,6 +139,9 @@ impl AbsoluteTrace {
                 }
                 CombineType::Subtract => {
                     overlap.left_tag() == Tag::Filled && overlap.right_tag() == Tag::Empty
+                }
+                CombineType::Intersect => {
+                    overlap.left_tag() == Tag::Filled && overlap.right_tag() == Tag::Filled
                 }
             }
         });
